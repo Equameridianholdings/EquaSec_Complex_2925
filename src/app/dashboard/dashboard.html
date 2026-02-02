@@ -1,0 +1,159 @@
+<div class="dashboard-container">
+  <div class="welcome-section">
+    <h1>Hello, Unit 402</h1>
+    <p class="status-badge" [class.active]="true">Account Active</p>
+  </div>
+
+  <div class="billing-card alert">
+    <div class="alert-icon">🛡️</div>
+    <div class="alert-text">
+      <strong>Keeping you safe:</strong> Always verify visitor details before sharing access codes.
+    </div>
+  </div>
+
+  <div class="action-card">
+    <button class="btn-main" type="button" (click)="openBookingModal()">
+      <span class="icon">➕</span> Book a Visitor
+    </button>
+  </div>
+
+  <div class="section-header">
+    <h3>Active Access Codes</h3>
+  </div>
+
+  <div class="code-card">
+    <div class="code-info">
+      <span class="code-number">882 190</span>
+      <span class="visitor-name">Thabo Moloi (Driving)</span>
+      <small>Expires in 14 hours</small>
+    </div>
+    <div class="code-actions">
+      <a
+        class="btn-share btn-share-small"
+        href="https://wa.me/?text=Dear%20Visitor%2C%20you%20have%20been%20invited%20to%20visit%20Complex%202925%20Fleurhof%20on%202026-01-16%20from%2015%3A00%20to%202026-01-16%20and%2023%3A59.%20Upon%20arrival%2C%20please%20proceed%20directly%20to%20the%20Gatehouse%20and%20present%20the%20following%20PIN%20to%20the%20Security%20Officer%20for%20access%3A%20131249.%20Thank%20you.%20Estate%20Management."
+        target="_blank"
+        rel="noopener"
+      >
+        Share with WhatsApp
+      </a>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <h3>Account Management</h3>
+  </div>
+
+  <div class="management-grid">
+    <div class="manage-item">
+      <span class="manage-icon">💳</span>
+      <p>Make Payment</p>
+    </div>
+    <div class="manage-item">
+      <span class="manage-icon">🏠</span>
+      <p>Move Out</p>
+    </div>
+    <div class="manage-item logout">
+      <span class="manage-icon">🚪</span>
+      <p>Logout</p>
+    </div>
+  </div>
+
+  <div class="moving-out-section">
+    <hr>
+    <p>© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</p>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="isBookingModalOpen" (click)="closeBookingModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="booking-title" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="booking-title">Book a Visitor</h2>
+      <button class="btn-icon" type="button" (click)="closeBookingModal()">✕</button>
+    </div>
+
+    <form class="modal-form" #bookingForm>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="visitorName">Name</label>
+          <input id="visitorName" name="visitorName" type="text" class="form-control" placeholder="Visitor name" required (input)="markTouched($event)" (blur)="markTouched($event)" #visitorName>
+          <small class="error" *ngIf="visitorName.classList.contains('touched') && !visitorName.validity.valid">Name is required.</small>
+        </div>
+        <div class="form-group">
+          <label for="visitorSurname">Surname</label>
+          <input id="visitorSurname" name="visitorSurname" type="text" class="form-control" placeholder="Visitor surname" required (input)="markTouched($event)" (blur)="markTouched($event)" #visitorSurname>
+          <small class="error" *ngIf="visitorSurname.classList.contains('touched') && !visitorSurname.validity.valid">Surname is required.</small>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="visitorCell">Cellphone</label>
+          <input id="visitorCell" name="visitorCell" type="tel" class="form-control" placeholder="e.g. 0821234567" inputmode="numeric" pattern="0[0-9]{9}" maxlength="10" required (input)="markTouched($event)" (blur)="markTouched($event)" #visitorCell>
+          <small class="error" *ngIf="visitorCell.classList.contains('touched') && visitorCell.validity.valueMissing">Cellphone is required.</small>
+          <small class="error" *ngIf="visitorCell.classList.contains('touched') && visitorCell.validity.patternMismatch">Must start with 0 and be 10 digits.</small>
+        </div>
+        <div class="form-group">
+          <label for="visitorDriving">Driving?</label>
+          <select id="visitorDriving" name="visitorDriving" class="form-control" [(ngModel)]="drivingMode" required (change)="markTouched($event)" (blur)="markTouched($event)" #visitorDriving>
+            <option value="" disabled selected>Select...</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+          <small class="error" *ngIf="visitorDriving.classList.contains('touched') && !visitorDriving.validity.valid">Please select an option.</small>
+        </div>
+      </div>
+
+      <div class="form-row" *ngIf="drivingMode === 'yes'">
+        <div class="form-group">
+          <label for="vehicleMakeModel">Make & Model</label>
+          <input id="vehicleMakeModel" name="vehicleMakeModel" type="text" class="form-control" placeholder="e.g. Toyota Corolla" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleMakeModel>
+          <small class="error" *ngIf="vehicleMakeModel.classList.contains('touched') && !vehicleMakeModel.validity.valid">Make and model are required.</small>
+        </div>
+        <div class="form-group">
+          <label for="vehicleReg">Registration Number</label>
+          <input id="vehicleReg" name="vehicleReg" type="text" class="form-control" placeholder="e.g. ABC 123 GP" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleReg>
+          <small class="error" *ngIf="vehicleReg.classList.contains('touched') && !vehicleReg.validity.valid">Registration number is required.</small>
+        </div>
+      </div>
+
+      <div class="form-row" *ngIf="drivingMode === 'yes'">
+        <div class="form-group">
+          <label for="vehicleColor">Vehicle Colour</label>
+          <input id="vehicleColor" name="vehicleColor" type="text" class="form-control" placeholder="e.g. Silver" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleColor>
+          <small class="error" *ngIf="vehicleColor.classList.contains('touched') && !vehicleColor.validity.valid">Vehicle colour is required.</small>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="closeBookingModal()">Cancel</button>
+        <button type="button" class="btn-main" [disabled]="!bookingForm.checkValidity()" (click)="openConfirmationModal()">Create Booking</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="isConfirmationModalOpen" (click)="closeConfirmationModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmation-title" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="confirmation-title">Booking Confirmed</h2>
+      <button class="btn-icon" type="button" (click)="closeConfirmationModal()">✕</button>
+    </div>
+
+    <div class="confirmation-body">
+      <p>Your visitor access code is ready. You can share it now.</p>
+      <div class="access-code">131249</div>
+      <a
+        class="btn-share btn-share-small"
+        href="https://wa.me/?text=Dear%20Visitor%2C%20you%20have%20been%20invited%20to%20visit%20Complex%202925%20Fleurhof%20on%202026-01-16%20from%2015%3A00%20to%202026-01-16%20and%2023%3A59.%20Upon%20arrival%2C%20please%20proceed%20directly%20to%20the%20Gatehouse%20and%20present%20the%20following%20PIN%20to%20the%20Security%20Officer%20for%20access%3A%20131249.%20Thank%20you.%20Estate%20Management."
+        target="_blank"
+        rel="noopener"
+      >
+        <span class="share-icon">📤</span> Share with WhatsApp
+      </a>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" (click)="closeConfirmationModal()">Close</button>
+    </div>
+  </div>
+</div>
