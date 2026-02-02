@@ -1,0 +1,110 @@
+<div class="guard-portal">
+  <header class="guard-header">
+    <div>
+      <h1>Guard Portal</h1>
+      <p>Complex 2925 Fleurhof</p>
+    </div>
+    <div class="status-pill">On Duty • Online</div>
+  </header>
+
+  <section class="stats-row">
+    <div class="stat-card">
+      <span>Active Codes</span>
+      <strong>{{ activeCodes.length }}</strong>
+    </div>
+    <div class="stat-card">
+      <span>Expiring Soon</span>
+      <strong>2</strong>
+    </div>
+  </section>
+
+  <section class="codes-section">
+    <div class="section-title">
+      <div>
+        <h2>Active Visitor Codes</h2>
+        <span class="helper">Verify visitor details before granting access.</span>
+      </div>
+      <div class="search-box">
+        <label>Search by 6-digit code</label>
+        <div class="search-inputs">
+          <input
+            id="searchCode"
+            type="text"
+            maxlength="6"
+            inputmode="numeric"
+            placeholder="000000"
+            [(ngModel)]="searchCode"
+            class="search-input"
+            
+          >
+        </div>
+      </div>
+    </div>
+    <div class="code-grid" *ngIf="filteredCodes.length > 0; else emptyState">
+      <article class="code-card" *ngFor="let code of filteredCodes">
+        <div class="code-header">
+          <div>
+            <span class="code-label">Access Code</span>
+            <h3>{{ code.code }}</h3>
+          </div>
+          <span class="badge" [class.driving]="code.isDriving" [class.walking]="!code.isDriving">
+            {{ code.isDriving ? 'Driving' : 'Walking' }}
+          </span>
+        </div>
+        <div class="code-body">
+          <div class="detail">
+            <span>Visitor</span>
+            <strong>{{ code.visitorName }}</strong>
+          </div>
+          <div class="detail">
+            <span>Tenant</span>
+            <strong>{{ code.tenantName }}</strong>
+          </div>
+          <div class="detail">
+            <span>Tenant Number</span>
+            <strong>{{ code.cellphone }}</strong>
+          </div>
+          <div class="detail">
+            <span>Unit</span>
+            <strong>{{ code.unit }}</strong>
+          </div>
+          <div class="detail">
+            <span>Expires</span>
+            <strong>{{ code.expires }}</strong>
+          </div>
+          <div class="vehicle-box" *ngIf="code.isDriving; else noVehicle">
+            <h4>Vehicle Details</h4>
+            <p>Make & Model: {{ code.vehicle?.makeModel }}</p>
+            <p>Registration: {{ code.vehicle?.registration }}</p>
+            <p>Colour: {{ code.vehicle?.color }}</p>
+          </div>
+          <ng-template #noVehicle>
+            <div class="vehicle-box muted">
+              <h4>No Vehicle</h4>
+              <p>Visitor is arriving on foot.</p>
+            </div>
+          </ng-template>
+        </div>
+        <div class="code-actions">
+          <button class="btn-deny" type="button">Deny Access</button>
+          <button class="btn-main" type="button" (click)="onGrantAccess()">Grant Access</button>
+        </div>
+      </article>
+    </div>
+    <ng-template #emptyState>
+      <div class="empty-state">
+        <h3>No codes found</h3>
+        <p>Try a different 6-digit code.</p>
+      </div>
+    </ng-template>
+  </section>
+
+  <footer class="guard-footer">
+    <span>© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</span>
+  </footer>
+</div>
+
+<div class="toast" *ngIf="toastVisible" role="status" aria-live="polite">
+  <span class="toast-icon">✅</span>
+  <span>{{ toastMessage }}</span>
+</div>

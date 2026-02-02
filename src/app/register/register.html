@@ -1,0 +1,108 @@
+<div class="register-container">
+  <div class="card">
+    <div class="header">
+      <img class="logo" src="/favicon.png.png" alt="EquaSec logo">
+      <div class="brand">
+        <h2>EquaSec</h2>
+        <p>Resident registration portal</p>
+      </div>
+    </div>
+
+    <form #registerForm>
+      <div class="form-group">
+        <label for="firstName">Name</label>
+        <input
+          type="text"
+          id="firstName"
+          name="firstName"
+          placeholder="Enter your name"
+          class="form-control"
+          (input)="markTouched($event)"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="lastName">Surname</label>
+        <input
+          type="text"
+          id="lastName"
+          name="lastName"
+          placeholder="Enter your surname"
+          class="form-control"
+          (input)="markTouched($event)"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="unit">Select Your Unit</label>
+        <select id="unit" name="unit" class="form-control" required (change)="markTouched($event)">
+          <option value="" disabled selected>Choose your unit...</option>
+          <option value="unit-a">Unit A</option>
+          <option value="unit-b">Unit B</option>
+          <option value="unit-c">Unit C</option>
+          <option value="unit-d">Unit D</option>
+        </select>
+        <small>Only available units will be shown.</small>
+      </div>
+
+      <div class="form-group">
+        <label for="cell">Cellphone Number</label>
+        <input 
+          type="tel" 
+          id="cell" 
+          name="cell"
+          placeholder="e.g. 0821234567" 
+          inputmode="numeric"
+          pattern="0[0-9]{9}"
+          maxlength="10"
+          class="form-control"
+          (input)="markTouched($event)"
+          required
+        >
+        <small>Must start with 0 and be 10 digits.</small>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email"
+          placeholder="tenant@example.com" 
+          class="form-control"
+          (input)="markTouched($event)"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="pin-1">6-Digit Access PIN</label>
+        <div class="pin-inputs" aria-label="6 digit PIN">
+          <input id="pin-1" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 1" required (input)="onPinInput($event, 0)" (keydown)="onPinKeydown($event)">
+          <input id="pin-2" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 2" required (input)="onPinInput($event, 1)" (keydown)="onPinKeydown($event)">
+          <input id="pin-3" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 3" required (input)="onPinInput($event, 2)" (keydown)="onPinKeydown($event)">
+          <input id="pin-4" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 4" required (input)="onPinInput($event, 3)" (keydown)="onPinKeydown($event)">
+          <input id="pin-5" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 5" required (input)="onPinInput($event, 4)" (keydown)="onPinKeydown($event)">
+          <input id="pin-6" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 6" required (input)="onPinInput($event, 5)" (keydown)="onPinKeydown($event)">
+        </div>
+        <small>You will use this to log in and book visitors.</small>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-primary" [disabled]="!registerForm.checkValidity()" (click)="goToGuardPortal()">
+          Register Account
+        </button>
+      </div>
+
+      <div class="footer-links">
+        <p>Already registered? <a routerLink="/login">Login here</a></p>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="page-footer">
+  <span>© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</span>
+</div>
