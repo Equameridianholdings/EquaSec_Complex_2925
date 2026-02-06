@@ -36,15 +36,65 @@
       </div>
 
       <div class="form-group">
+        <label for="complex">Select Your Complex</label>
+        <input
+          type="text"
+          id="complexSearch"
+          name="complexSearch"
+          placeholder="Search complex..."
+          class="form-control typeahead-input"
+          [disabled]="isComplexLocked"
+          (input)="updateComplexSearch($event); markTouched($event)"
+          (focus)="setComplexDropdown(true)"
+          (blur)="setComplexDropdown(false)"
+        >
+        <div class="typeahead-list" *ngIf="!isComplexLocked && showComplexOptions && complexSearch && filteredComplexes.length">
+          <button
+            type="button"
+            class="typeahead-item"
+            *ngFor="let complex of filteredComplexes"
+            (mousedown)="selectComplex(complex)"
+          >
+            {{ complex.name }}
+          </button>
+        </div>
+        <div class="typeahead-selected" *ngIf="isComplexLocked">
+          <span>Selected: {{ selectedComplexName }}</span>
+          <button type="button" class="typeahead-change" (click)="clearComplexSelection()">Change</button>
+        </div>
+        <small *ngIf="showComplexOptions && complexSearch && !filteredComplexes.length">No complexes found.</small>
+        <small *ngIf="!complexSearch">Please search and select your complex.</small>
+      </div>
+
+      <div class="form-group">
         <label for="unit">Select Your Unit</label>
-        <select id="unit" name="unit" class="form-control" required (change)="markTouched($event)">
-          <option value="" disabled selected>Choose your unit...</option>
-          <option value="unit-a">Unit A</option>
-          <option value="unit-b">Unit B</option>
-          <option value="unit-c">Unit C</option>
-          <option value="unit-d">Unit D</option>
-        </select>
-        <small>Only available units will be shown.</small>
+        <input
+          type="text"
+          id="unitSearch"
+          name="unitSearch"
+          placeholder="Search unit..."
+          class="form-control typeahead-input"
+          [disabled]="!selectedComplexId || isUnitLocked"
+          (input)="updateUnitSearch($event); markTouched($event)"
+          (focus)="setUnitDropdown(true)"
+          (blur)="setUnitDropdown(false)"
+        >
+        <div class="typeahead-list" *ngIf="selectedComplexId && !isUnitLocked && showUnitOptions && filteredUnitOptions.length">
+          <button
+            type="button"
+            class="typeahead-item"
+            *ngFor="let unit of filteredUnitOptions"
+            (mousedown)="selectUnit(unit)"
+          >
+            {{ unit.name }}
+          </button>
+        </div>
+        <div class="typeahead-selected" *ngIf="isUnitLocked">
+          <span>Selected: {{ selectedUnitName }}</span>
+          <button type="button" class="typeahead-change" (click)="clearUnitSelection()">Change</button>
+        </div>
+        <small *ngIf="!selectedComplexId">Select a complex first.</small>
+        <small *ngIf="selectedComplexId && showUnitOptions && unitSearch && !filteredUnitOptions.length">No units found.</small>
       </div>
 
       <div class="form-group">
@@ -65,6 +115,22 @@
       </div>
 
       <div class="form-group">
+        <label for="idNumber">South African ID Number</label>
+        <input
+          type="text"
+          id="idNumber"
+          name="idNumber"
+          placeholder="13-digit ID number"
+          inputmode="numeric"
+          maxlength="13"
+          class="form-control"
+          (input)="updateIdNumber($event); markTouched($event)"
+          required
+        >
+        <small>13 digits only. We use this to verify residency.</small>
+      </div>
+
+      <div class="form-group">
         <label for="email">Email Address</label>
         <input 
           type="email" 
@@ -75,6 +141,22 @@
           (input)="markTouched($event)"
           required
         >
+      </div>
+
+      <div class="form-group">
+        <label>Profile Photo (Camera)</label>
+        <div class="camera-card">
+          <video #cameraVideo class="camera-video" autoplay playsinline muted></video>
+          <canvas #cameraCanvas class="camera-canvas"></canvas>
+          <img *ngIf="photoDataUrl" [src]="photoDataUrl" alt="Profile preview" class="camera-preview">
+        </div>
+        <div class="camera-actions">
+          <button type="button" class="btn-secondary" (click)="startCamera()" [disabled]="hasCameraStream">Start Camera</button>
+          <button type="button" class="btn-secondary" (click)="capturePhoto()" [disabled]="!hasCameraStream">Capture</button>
+          <button type="button" class="btn-secondary" (click)="retakePhoto()" [disabled]="!photoDataUrl">Retake</button>
+        </div>
+        <small *ngIf="cameraError" class="error-text">{{ cameraError }}</small>
+        <small *ngIf="!cameraError">Use the camera to capture a clear face photo.</small>
       </div>
 
       <div class="form-group">
@@ -91,8 +173,8 @@
       </div>
 
       <div class="form-actions">
-        <button type="button" class="btn-primary" [disabled]="!registerForm.checkValidity()" (click)="goToGuardPortal()">
-          Register Account
+        <button type="button" class="btn-primary" [disabled]="!registerForm.checkValidity() || !selectedComplexId || !selectedUnitId" (click)="goToGuardPortal()">
+          <span class="btn-icon-inline">✅</span>Register Account
         </button>
       </div>
 
