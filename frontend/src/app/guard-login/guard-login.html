@@ -1,0 +1,115 @@
+<div class="login-container">
+  <div class="card">
+    <div class="header">
+      <img class="logo" src="/favicon.png.png" alt="EquaSec logo">
+      <div class="brand">
+        <h2>EquaSec</h2>
+        <p>Guard access portal</p>
+      </div>
+    </div>
+
+    <form #guardLoginForm>
+      <div class="form-group">
+        <label for="guardEmail">Email Address</label>
+        <input
+          type="email"
+          id="guardEmail"
+          name="guardEmail"
+          placeholder="guard@example.com"
+          class="form-control"
+          [(ngModel)]="email"
+          (input)="markTouched($event)"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label>6-Digit PIN</label>
+        <div class="pin-inputs">
+          <input
+            #digit0
+            type="password"
+            inputmode="numeric"
+            maxlength="1"
+            class="pin-input"
+            (input)="onDigitInput(0, $event, digit1); markTouched($event)"
+            (keydown)="onDigitKeydown($event)"
+            required
+          >
+          <input
+            #digit1
+            type="password"
+            inputmode="numeric"
+            maxlength="1"
+            class="pin-input"
+            (input)="onDigitInput(1, $event, digit2); markTouched($event)"
+            (keydown)="onDigitKeydown($event, digit0)"
+            required
+          >
+          <input
+            #digit2
+            type="password"
+            inputmode="numeric"
+            maxlength="1"
+            class="pin-input"
+            (input)="onDigitInput(2, $event, digit3); markTouched($event)"
+            (keydown)="onDigitKeydown($event, digit1)"
+            required
+          >
+          <input
+            #digit3
+            type="password"
+            inputmode="numeric"
+            maxlength="1"
+            class="pin-input"
+            (input)="onDigitInput(3, $event, digit4); markTouched($event)"
+            (keydown)="onDigitKeydown($event, digit2)"
+            required
+          >
+          <input
+            #digit4
+            type="password"
+            inputmode="numeric"
+            maxlength="1"
+            class="pin-input"
+            (input)="onDigitInput(4, $event, digit5); markTouched($event)"
+            (keydown)="onDigitKeydown($event, digit3)"
+            required
+          >
+          <input
+            #digit5
+            type="password"
+            inputmode="numeric"
+            maxlength="1"
+            class="pin-input"
+            (input)="onDigitInput(5, $event, null); markTouched($event)"
+            (keydown)="onDigitKeydown($event, digit4)"
+            required
+          >
+        </div>
+        <small class="note-text">Enter the 6-digit guard PIN.</small>
+      </div>
+
+      <small *ngIf="errorMessage" class="error-text">{{ errorMessage }}</small>
+
+      <div class="form-actions">
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="!guardLoginForm.checkValidity() || !isCodeComplete"
+          (click)="signIn()"
+        >
+          <span class="btn-icon-inline">🛡️</span>Guard Sign In
+        </button>
+      </div>
+
+      <div class="footer-links">
+        <p>Resident login? <a routerLink="/login">Go to resident portal</a></p>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="page-footer">
+  <span>© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</span>
+</div>

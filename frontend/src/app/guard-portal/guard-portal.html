@@ -1,43 +1,97 @@
 <div class="guard-portal">
   <header class="guard-header">
-    <div>
-      <h1>Guard Portal</h1>
-      <p>Complex 2925 Fleurhof</p>
+    <div class="header-main">
+      <div class="guard-avatar">
+        <img *ngIf="guardPhotoUrl" [src]="guardPhotoUrl" alt="{{ guardName }}" />
+        <span *ngIf="!guardPhotoUrl">{{ guardInitials }}</span>
+      </div>
+      <div>
+        <h1>Guard Portal</h1>
+        <p class="guard-name">{{ guardName }}</p>
+        <p class="complex-name">Complex 2925 Fleurhof</p>
+      </div>
     </div>
     <div class="status-pill">On Duty • Online</div>
   </header>
 
-  <section class="stats-row">
-    <div class="stat-card">
-      <span>Active Codes</span>
-      <strong>{{ activeCodes.length }}</strong>
+  <section class="search-panel">
+    <div class="section-title">
+      <div>
+        <h2>Quick Search</h2>
+        <span class="helper">Search by access code, unit, or registration number.</span>
+      </div>
     </div>
-    <div class="stat-card">
-      <span>Expiring Soon</span>
-      <strong>2</strong>
+    <div class="search-grid">
+      <div class="search-field">
+        <label for="searchCode">Access Code</label>
+        <input
+          id="searchCode"
+          type="text"
+          maxlength="6"
+          inputmode="numeric"
+          placeholder="000000"
+          [(ngModel)]="searchCode"
+          class="search-input"
+          (focus)="clearOtherSearches('code')"
+        >
+      </div>
+      <div class="search-field">
+        <label for="searchUnit">Unit</label>
+        <input
+          id="searchUnit"
+          type="text"
+          placeholder="e.g. 402"
+          [(ngModel)]="searchUnit"
+          class="search-input"
+          (input)="updateUnitSearch($event)"
+           (focus)="clearOtherSearches('unit'); setUnitDropdown(true)"
+          (blur)="setUnitDropdown(false)"
+        >
+        <div class="typeahead-list" *ngIf="showUnitOptions && filteredUnitOptions.length">
+          <button
+            type="button"
+            class="typeahead-item"
+            *ngFor="let unit of filteredUnitOptions"
+            (mousedown)="selectUnit(unit)"
+          >
+            {{ unit }}
+          </button>
+        </div>
+      </div>
+      <div class="search-field">
+        <label for="searchReg">Registration</label>
+        <input
+          id="searchReg"
+          type="text"
+          placeholder="e.g. GP 123 456"
+          [(ngModel)]="searchReg"
+          class="search-input"
+          (input)="updateRegSearch($event)"
+           (focus)="clearOtherSearches('reg'); setRegDropdown(true)"
+          (blur)="setRegDropdown(false)"
+        >
+        <div class="typeahead-list" *ngIf="showRegOptions && filteredRegOptions.length">
+          <button
+            type="button"
+            class="typeahead-item"
+            *ngFor="let reg of filteredRegOptions"
+            (mousedown)="selectReg(reg)"
+          >
+            {{ reg }}
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 
-  <section class="codes-section">
+  <section class="codes-section" *ngIf="showCodes">
     <div class="section-title">
       <div>
         <h2>Active Visitor Codes</h2>
         <span class="helper">Verify visitor details before granting access.</span>
       </div>
-      <div class="search-box">
-        <label>Search by 6-digit code</label>
-        <div class="search-inputs">
-          <input
-            id="searchCode"
-            type="text"
-            maxlength="6"
-            inputmode="numeric"
-            placeholder="000000"
-            [(ngModel)]="searchCode"
-            class="search-input"
-            
-          >
-        </div>
+      <div class="search-helper">
+        <span class="helper">Filtered by the search above.</span>
       </div>
     </div>
     <div class="code-grid" *ngIf="filteredCodes.length > 0; else emptyState">
@@ -99,9 +153,92 @@
     </ng-template>
   </section>
 
+  <section class="info-section" *ngIf="showResidents">
+    <div class="section-title">
+      <div>
+        <h2>Residents</h2>
+        <span class="helper">All registered residents for this complex.</span>
+      </div>
+    </div>
+    <div class="info-grid" *ngIf="showResidents && filteredResidents.length > 0; else noResidents">
+      <article class="info-card resident-card" *ngFor="let resident of filteredResidents">
+        <div class="resident-main">
+          <div class="resident-avatar">
+            <img *ngIf="resident.photoDataUrl" [src]="resident.photoDataUrl" alt="{{ resident.name }}" />
+            <span *ngIf="!resident.photoDataUrl">{{ getResidentInitials(resident.name) }}</span>
+          </div>
+          <div class="resident-info">
+            <div class="info-header">
+              <h3>{{ resident.name }}</h3>
+              <span class="pill">Unit {{ resident.unit }}</span>
+            </div>
+            <p><strong>Cell:</strong> {{ resident.cellphone }}</p>
+            <p><strong>Email:</strong> {{ resident.email }}</p>
+          </div>
+        </div>
+      </article>
+    </div>
+    <ng-template #noResidents>
+      <div class="empty-state">
+        <h3>No residents found</h3>
+        <p>Resident records will appear here.</p>
+      </div>
+    </ng-template>
+  </section>
+
+  <section class="info-section" *ngIf="showVehicles">
+    <div class="section-title">
+      <div>
+        <h2>Registered Vehicles</h2>
+        <span class="helper">Vehicles registered in this complex.</span>
+      </div>
+    </div>
+    <div class="info-grid" *ngIf="showVehicles && filteredVehicles.length > 0; else noVehicles">
+      <article class="info-card" *ngFor="let vehicle of filteredVehicles">
+        <div class="info-header">
+          <h3>{{ vehicle.make }} {{ vehicle.model }}</h3>
+          <span class="pill">Unit {{ vehicle.unit }}</span>
+        </div>
+        <p><strong>Owner:</strong> {{ vehicle.owner }}</p>
+        <p><strong>Registration:</strong> {{ vehicle.regNumber }}</p>
+        <p><strong>Colour:</strong> {{ vehicle.color }}</p>
+      </article>
+    </div>
+    <ng-template #noVehicles>
+      <div class="empty-state">
+        <h3>No vehicles found</h3>
+        <p>Vehicle records will appear here.</p>
+      </div>
+    </ng-template>
+  </section>
+
   <footer class="guard-footer">
     <span>© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</span>
   </footer>
+</div>
+
+<button
+  type="button"
+  class="sos-fab"
+  [class.holding]="isHoldingSos"
+  (mousedown)="startSosHold($event)"
+  (touchstart)="startSosHold($event)"
+  (mouseup)="endSosHold()"
+  (mouseleave)="endSosHold()"
+  (touchend)="endSosHold()"
+  (touchcancel)="endSosHold()"
+  aria-label="Emergency SOS"
+>
+  <span class="sos-text">SOS</span>
+  <span class="sos-sub">Hold 5s</span>
+</button>
+
+<div class="sos-modal" *ngIf="showSosSuccess">
+  <div class="sos-modal-card" role="alert" aria-live="assertive">
+    <div class="sos-icon">✅</div>
+    <h3>Alert Sent</h3>
+    <p>Emergency signal received. Help is on the way.</p>
+  </div>
 </div>
 
 <div class="toast" *ngIf="toastVisible" role="status" aria-live="polite">

@@ -10,14 +10,64 @@
 
     <form #loginForm>
       <div class="form-group">
+        <label for="complex">Complex Number</label>
+        <input
+          type="text"
+          id="complexSearch"
+          name="complexSearch"
+          placeholder="Search complex..."
+          class="form-control typeahead-input"
+          [disabled]="isComplexLocked"
+          (input)="updateComplexSearch($event); markTouched($event)"
+          (focus)="setComplexDropdown(true)"
+          (blur)="setComplexDropdown(false)"
+        >
+        <div class="typeahead-list" *ngIf="!isComplexLocked && showComplexOptions && complexSearch && filteredComplexes.length">
+          <button
+            type="button"
+            class="typeahead-item"
+            *ngFor="let complex of filteredComplexes"
+            (mousedown)="selectComplex(complex)"
+          >
+            {{ complex.name }}
+          </button>
+        </div>
+        <div class="typeahead-selected" *ngIf="isComplexLocked">
+          <span>Selected: {{ selectedComplexName }}</span>
+          <button type="button" class="typeahead-change" (click)="clearComplexSelection()">Change</button>
+        </div>
+        <small *ngIf="showComplexOptions && complexSearch && !filteredComplexes.length">No complexes found.</small>
+      </div>
+
+      <div class="form-group">
         <label for="unit">Unit Number</label>
-        <select id="unit" name="unit" class="form-control" required (change)="markTouched($event)">
-          <option value="" disabled selected>Select your unit...</option>
-          <option value="unit-a">Unit A</option>
-          <option value="unit-b">Unit B</option>
-          <option value="unit-c">Unit C</option>
-          <option value="unit-d">Unit D</option>
-        </select>
+        <input
+          type="text"
+          id="unitSearch"
+          name="unitSearch"
+          placeholder="Search unit..."
+          class="form-control typeahead-input"
+          [disabled]="!selectedComplexId || isUnitLocked"
+          (input)="updateUnitSearch($event); markTouched($event)"
+          (focus)="setUnitDropdown(true)"
+          (blur)="setUnitDropdown(false)"
+        >
+        <div class="typeahead-list" *ngIf="selectedComplexId && !isUnitLocked && showUnitOptions && filteredUnitOptions.length">
+          <button
+            type="button"
+            class="typeahead-item"
+            *ngFor="let unit of filteredUnitOptions"
+            (mousedown)="selectUnit(unit)"
+          >
+            {{ unit.name }}
+          </button>
+        </div>
+        <div class="typeahead-selected" *ngIf="isUnitLocked">
+          <span>Selected: {{ selectedUnitName }}</span>
+          <button type="button" class="typeahead-change" (click)="clearUnitSelection()">Change</button>
+        </div>
+        <small *ngIf="!selectedComplexId">Select a complex first.</small>
+        <small *ngIf="selectedComplexId && showUnitOptions && unitSearch && !filteredUnitOptions.length">No units found.</small>
       </div>
 
       <div class="form-group">
@@ -33,13 +83,14 @@
       </div>
 
       <div class="form-actions">
-        <button type="button" class="btn-primary" [disabled]="!loginForm.checkValidity()" (click)="goToDashboard()">
+        <button type="button" class="btn-primary" [disabled]="!loginForm.checkValidity() || !selectedComplexId || !selectedUnitId" (click)="goToDashboard()">
           Sign in
         </button>
       </div>
 
       <div class="footer-links">
         <p><a href="#">Forgot PIN?</a></p>
+        <p>Guard on duty? <a routerLink="/guard-login">Sign in here</a></p>
         <p>New resident? <a routerLink="/register">Register here</a></p>
       </div>
     </form>
