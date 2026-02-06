@@ -150,7 +150,7 @@ export class GuardPortal implements OnDestroy {
       this.searchCode = '';
       this.searchUnit = '';
       this.showUnitOptions = false;
-      this.showCodes = false;
+      this.showCodes = true;
       this.showResidents = false;
       this.showVehicles = true;
     } else if (activeField === 'code') {
@@ -188,7 +188,20 @@ export class GuardPortal implements OnDestroy {
   }
 
   protected get filteredRegOptions(): string[] {
-    const list = this.vehicles.map((vehicle) => vehicle.regNumber).sort();
+    const allVehicles = [
+      ...this.vehicles,
+      ...this.activeCodes
+        .filter((code) => code.isDriving && code.vehicle)
+        .map((code) => ({
+          regNumber: code.vehicle?.registration ?? '',
+          make: code.vehicle?.makeModel?.split(' ')[0] ?? '',
+          model: code.vehicle?.makeModel?.split(' ')[1] ?? '',
+          color: code.vehicle?.color ?? '',
+          unit: code.unit,
+          owner: code.visitorName,
+        })),
+    ];
+    const list = allVehicles.map((vehicle) => vehicle.regNumber).sort();
     const query = this.searchReg.trim().toLowerCase();
     if (!query) {
       return list;
@@ -205,16 +218,26 @@ export class GuardPortal implements OnDestroy {
   }
 
   protected get filteredVehicles() {
-    const unitQuery = this.searchUnit.trim().toLowerCase();
     const regQuery = this.searchReg.trim().toLowerCase();
-    if (!unitQuery && !regQuery) {
-      return this.vehicles;
+    const allVehicles = [
+      ...this.vehicles,
+      ...this.activeCodes
+        .filter((code) => code.isDriving && code.vehicle)
+        .map((code) => ({
+          regNumber: code.vehicle?.registration ?? '',
+          make: code.vehicle?.makeModel?.split(' ')[0] ?? '',
+          model: code.vehicle?.makeModel?.split(' ')[1] ?? '',
+          color: code.vehicle?.color ?? '',
+          unit: code.unit,
+          owner: code.visitorName,
+        })),
+    ];
+    if (!regQuery) {
+      return allVehicles;
     }
-    return this.vehicles.filter((vehicle) => {
-      const matchesUnit = !unitQuery || vehicle.unit.toLowerCase().includes(unitQuery);
-      const matchesReg = !regQuery || vehicle.regNumber.toLowerCase().includes(regQuery);
-      return matchesUnit && matchesReg;
-    });
+    return allVehicles.filter((vehicle) =>
+      vehicle.regNumber.toLowerCase().includes(regQuery)
+    );
   }
 
   protected getResidentInitials(name: string): string {
