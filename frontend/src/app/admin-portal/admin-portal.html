@@ -1,0 +1,740 @@
+<div class="admin-portal">
+  <header class="portal-header">
+    <div>
+      <p class="eyebrow">Admin Console</p>
+      <h1>EquaSec Admin Portal</h1>
+      <p class="subtext">Signed in as {{ adminEmail }}</p>
+    </div>
+    <div class="status-card">
+      <span class="status-label">System Status</span>
+      <strong class="status-value">All systems operational</strong>
+      <span class="status-meta">Last updated: 10:30</span>
+    </div>
+  </header>
+
+  <!-- Summary Stats Section -->
+  <section class="summary-section">
+    <div class="stat-box">
+      <div class="stat-number">{{ onboardedComplexes.length }}</div>
+      <div class="stat-label">Active Complexes</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">{{ registeredSecurityCompanies.length }}</div>
+      <div class="stat-label">Security Companies</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">{{ activeContractsCount }}</div>
+      <div class="stat-label">Active Contracts</div>
+    </div>
+    <div class="stat-box">
+      <button class="btn-primary" (click)="openOnboardingModal()">➕ Add Complex</button>
+    </div>
+  </section>
+
+  <!-- Main Content Grid -->
+  <section class="main-grid">
+    <!-- Complexes Management Section -->
+    <div class="grid-column">
+      <article class="panel full-width">
+        <div class="panel-header">
+          <h2>Complex Management</h2>
+          <span class="panel-sub">Manage your residential complexes</span>
+        </div>
+        <div class="panel-body">
+          <div *ngIf="onboardedComplexes.length === 0" class="empty-state">
+            <p>No complexes onboarded yet. Create one to get started.</p>
+          </div>
+          <div class="complexes-list" *ngIf="onboardedComplexes.length > 0">
+            <div class="complex-card" *ngFor="let complex of onboardedComplexes">
+              <div class="complex-header">
+                <div class="complex-info">
+                  <h3 class="complex-name">{{ complex.complexName }}</h3>
+                  <div class="complex-details">
+                    <div class="detail-item">
+                      <span class="detail-label">Units:</span>
+                      <span class="detail-value">{{ complex.unitStart }} - {{ complex.unitEnd }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Parking:</span>
+                      <span class="detail-value">{{ complex.parkingMode === 'fixed' ? 'Fixed (' + complex.fixedParkingCount + ')' : 'Per-Unit' }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="complex-actions" *ngIf="!isComplexAssigned(complex.complexName)">
+                  <button class="btn-secondary" type="button" (click)="openSecurityModal(complex.complexName)">🛡️ Register Security</button>
+                  <button class="btn-secondary" type="button">✏️ Update</button>
+                </div>
+                <div class="complex-status-wrapper" *ngIf="isComplexAssigned(complex.complexName)">
+                  <div class="security-assigned">
+                    <span class="checkmark">✓</span>
+                    <span class="status-text">Security Assigned</span>
+                  </div>
+                  <button class="btn-secondary btn-full" type="button">✏️ Update</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <!-- Security Companies Section -->
+    <div class="grid-column">
+      <article class="panel full-width">
+        <div class="panel-header">
+          <h2>Security Partners</h2>
+          <span class="panel-sub">Registered security companies</span>
+        </div>
+        <div class="panel-body">
+          <div *ngIf="registeredSecurityCompanies.length === 0" class="empty-state">
+            <p>No security companies in the system. Register companies from complexes.</p>
+          </div>
+          <div class="companies-list" *ngIf="registeredSecurityCompanies.length > 0">
+            <div class="company-card" *ngFor="let company of registeredSecurityCompanies">
+              <div class="company-header">
+                <div class="company-info">
+                  <div class="company-title-row">
+                    <h3 class="company-name">{{ company.companyName }}</h3>
+                    <span class="status-badge" [class.assigned]="company.assignments && company.assignments.length > 0" [class.unassigned]="!company.assignments || company.assignments.length === 0">
+                      {{ company.assignments && company.assignments.length > 0 ? 'Assigned (' + company.assignments.length + ')' : 'Unassigned' }}
+                    </span>
+                  </div>
+                  <div class="company-details">
+                    <div class="detail-item" *ngIf="company.assignments && company.assignments.length > 0">
+                      <span class="detail-label">Assigned Complexes:</span>
+                      <div class="detail-value">
+                        <div class="assignment-item" *ngFor="let assignment of company.assignments">
+                          <div class="assignment-info">
+                            <strong>{{ assignment.complexName }}</strong>
+                            <span class="contract-dates"> (Contract: {{ assignment.contractStart }} to {{ assignment.contractEnd }})</span>
+                          </div>
+                          <button class="btn-sm btn-danger" type="button" (click)="unassignCompanyFromComplex(company, assignment)">🔓 Unassign</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Email:</span>
+                      <span class="detail-value">{{ company.companyEmail }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Contact:</span>
+                      <span class="detail-value">{{ company.companyTel }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">PSIRA Registration:</span>
+                      <span class="detail-value">{{ company.psiraNumber }}</span>
+                    </div>
+                  </div>
+                  <div class="company-actions">
+                    <button class="btn-primary" type="button" (click)="openAssignModal(company)">🔗 {{ company.assignments && company.assignments.length > 0 ? 'Assign to Another Complex' : 'Assign to Complex' }}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- Visitor History Section -->
+  <section class="visitor-history-section">
+    <div class="section-header">
+      <h2>📋 Visitor History</h2>
+      <p>Track all visitor entries and exits across all complexes</p>
+    </div>
+
+    <!-- Search and Filter Controls -->
+    <div class="visitor-controls">
+      <div class="search-box">
+        <input type="text" class="form-control" placeholder="🔍 Search by visitor, tenant, phones, unit..." [(ngModel)]="visitorSearchTerm" (input)="filterVisitors()">
+      </div>
+      <div class="filter-controls">
+        <select class="form-control" [(ngModel)]="timeframeFilter" (change)="applyTimeframeFilter()">
+          <option value="today">Today</option>
+          <option value="last7">Last 7 Days</option>
+          <option value="last30">Last 30 Days</option>
+          <option value="thisMonth">This Month</option>
+          <option value="lastMonth">Last Month</option>
+        </select>
+        <select class="form-control" [(ngModel)]="selectedComplexFilter" (change)="filterVisitors()">
+          <option value="">All Complexes</option>
+          <option *ngFor="let complex of onboardedComplexes" [value]="complex.complexName">{{ complex.complexName }}</option>
+        </select>
+        <input type="date" class="form-control" [(ngModel)]="filterStartDate" (change)="onCustomDateChange()" title="Start Date">
+        <input type="date" class="form-control" [(ngModel)]="filterEndDate" (change)="onCustomDateChange()" title="End Date">
+        <input type="time" class="form-control" [(ngModel)]="filterStartTime" (change)="filterVisitors()" (focus)="openTimePicker($event)" (click)="openTimePicker($event)" title="Start Time">
+        <input type="time" class="form-control" [(ngModel)]="filterEndTime" (change)="filterVisitors()" (focus)="openTimePicker($event)" (click)="openTimePicker($event)" title="End Time">
+        <button class="btn-secondary" (click)="clearFilters()">Clear Filters</button>
+      </div>
+    </div>
+
+    <div class="visitor-table-container">
+      <table class="visitor-table">
+        <thead>
+          <tr>
+            <th (click)="sortVisitors('entryTime')" class="sortable">
+              Date
+              <span class="sort-icon">{{ getSortIcon('entryTime') }}</span>
+            </th>
+            <th (click)="sortVisitors('visitorName')" class="sortable">
+              Visitor Name
+              <span class="sort-icon">{{ getSortIcon('visitorName') }}</span>
+            </th>
+            <th (click)="sortVisitors('visitorPhone')" class="sortable">
+              Contact
+              <span class="sort-icon">{{ getSortIcon('visitorPhone') }}</span>
+            </th>
+            <th (click)="sortVisitors('complexName')" class="sortable">
+              Complex
+              <span class="sort-icon">{{ getSortIcon('complexName') }}</span>
+            </th>
+            <th (click)="sortVisitors('unitVisited')" class="sortable">
+              Unit Number
+              <span class="sort-icon">{{ getSortIcon('unitVisited') }}</span>
+            </th>
+            <th (click)="sortVisitors('tenantName')" class="sortable">
+              Tenant Name
+              <span class="sort-icon">{{ getSortIcon('tenantName') }}</span>
+            </th>
+            <th (click)="sortVisitors('tenantSurname')" class="sortable">
+              Tenant Surname
+              <span class="sort-icon">{{ getSortIcon('tenantSurname') }}</span>
+            </th>
+            <th (click)="sortVisitors('tenantPhone')" class="sortable">
+              Tenant Contact
+              <span class="sort-icon">{{ getSortIcon('tenantPhone') }}</span>
+            </th>
+            <th (click)="sortVisitors('securityGuard')" class="sortable">
+              Security Guard
+              <span class="sort-icon">{{ getSortIcon('securityGuard') }}</span>
+            </th>
+            <th (click)="sortVisitors('entryTime')" class="sortable">
+              Entry Time
+              <span class="sort-icon">{{ getSortIcon('entryTime') }}</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let visit of filteredVisitorHistory">
+            <td class="date-cell">{{ visit.entryTime | date:'dd MMM yyyy' }}</td>
+            <td class="visitor-name">{{ visit.visitorName }}</td>
+            <td>{{ visit.visitorPhone }}</td>
+            <td class="complex-name">{{ visit.complexName }}</td>
+            <td class="unit-cell">{{ visit.unitVisited }}</td>
+            <td class="tenant-name">{{ visit.tenantName }}</td>
+            <td class="tenant-surname">{{ visit.tenantSurname }}</td>
+            <td class="tenant-contact">{{ visit.tenantPhone }}</td>
+            <td class="guard-name">{{ visit.securityGuard }}</td>
+            <td class="time-cell">{{ visit.entryTime | date:'HH:mm' }}</td>
+          </tr>
+          <tr *ngIf="filteredVisitorHistory.length === 0">
+            <td colspan="10" class="empty-state-row">
+              <p>No visitor records found matching your filters.</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Contract History Section -->
+  <section class="contract-history-section">
+    <div class="section-header">
+      <h2>📊 Contract History</h2>
+      <p>View expired security company contracts and their assigned complexes</p>
+    </div>
+
+    <!-- Search and Filter Controls -->
+    <div class="contract-controls">
+      <div class="search-box">
+        <input type="text" class="form-control" placeholder="🔍 Search by company, complex, email, phone, PSIRA..." [(ngModel)]="contractSearchTerm" (input)="filterContracts()">
+      </div>
+      <div class="filter-controls">
+        <select class="form-control" [(ngModel)]="contractCompanyFilter" (change)="filterContracts()">
+          <option value="">All Companies</option>
+          <option *ngFor="let company of uniqueContractCompanies" [value]="company">{{ company }}</option>
+        </select>
+        <select class="form-control" [(ngModel)]="contractComplexFilter" (change)="filterContracts()">
+          <option value="">All Complexes</option>
+          <option *ngFor="let complex of uniqueContractComplexes" [value]="complex">{{ complex }}</option>
+        </select>
+        <input type="date" class="form-control" [(ngModel)]="contractStartDateFilter" (change)="filterContracts()" title="Contract Start Date">
+        <input type="date" class="form-control" [(ngModel)]="contractEndDateFilter" (change)="filterContracts()" title="Contract End Date">
+        <button class="btn-secondary" (click)="clearContractFilters()">Clear Filters</button>
+      </div>
+    </div>
+
+    <div class="history-table-container">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th (click)="sortContracts('companyName')" class="sortable">
+              Company Name {{ getContractSortIcon('companyName') }}
+            </th>
+            <th (click)="sortContracts('companyEmail')" class="sortable">
+              Email {{ getContractSortIcon('companyEmail') }}
+            </th>
+            <th (click)="sortContracts('companyTel')" class="sortable">
+              Telephone {{ getContractSortIcon('companyTel') }}
+            </th>
+            <th (click)="sortContracts('psiraNumber')" class="sortable">
+              PSIRA Number {{ getContractSortIcon('psiraNumber') }}
+            </th>
+            <th (click)="sortContracts('complexName')" class="sortable">
+              Complex Assigned {{ getContractSortIcon('complexName') }}
+            </th>
+            <th (click)="sortContracts('contractStartDate')" class="sortable">
+              Contract Start {{ getContractSortIcon('contractStartDate') }}
+            </th>
+            <th (click)="sortContracts('contractEndDate')" class="sortable">
+              Contract End {{ getContractSortIcon('contractEndDate') }}
+            </th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let contract of filteredContractHistory">
+            <td class="company-name">{{ contract.companyName }}</td>
+            <td class="email-cell">{{ contract.companyEmail }}</td>
+            <td class="phone-cell">{{ contract.companyTel }}</td>
+            <td class="psira-cell">{{ contract.psiraNumber }}</td>
+            <td class="complex-name">{{ contract.complexName }}</td>
+            <td class="start-date">{{ contract.contractStartDate | date:'dd MMM yyyy' }}</td>
+            <td class="end-date">{{ contract.contractEndDate | date:'dd MMM yyyy' }}</td>
+            <td class="status-cell">
+              <span class="status-badge" [class.ended]="contract.status === 'Ended'">
+                {{ contract.status }}
+              </span>
+            </td>
+          </tr>
+          <tr *ngIf="filteredContractHistory.length === 0">
+            <td colspan="8" class="empty-state-row">
+              <p>No contract history matches your search.</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<!-- Onboarding Modal -->
+<div class="modal-overlay" *ngIf="showOnboardingModal" (click)="closeOnboardingModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <!-- Step 1: Basic Configuration -->
+    <div *ngIf="!showUnitConfigStep">
+      <div class="modal-header">
+        <h2>Onboard New Complex</h2>
+        <button class="close-btn" (click)="closeOnboardingModal()">✕</button>
+      </div>
+
+      <form class="modal-form">
+        <div class="form-group">
+          <label for="complexName">Complex Name</label>
+          <input
+            type="text"
+            id="complexName"
+            name="complexName"
+            placeholder="e.g., Complex 2925 Fleurhof"
+            class="form-control"
+            [ngModel]="complexName"
+            (ngModelChange)="complexName = $event"
+            (input)="markTouched($event)"
+            required
+          >
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="unitStart">Unit Range - Start</label>
+            <input
+              type="number"
+              id="unitStart"
+              name="unitStart"
+              placeholder="e.g., 101"
+              class="form-control"
+              [ngModel]="unitStart"
+              (ngModelChange)="unitStart = $event"
+              (input)="markTouched($event)"
+              required
+            >
+          </div>
+          <div class="form-group">
+            <label for="unitEnd">Unit Range - End</label>
+            <input
+              type="number"
+              id="unitEnd"
+              name="unitEnd"
+              placeholder="e.g., 502"
+              class="form-control"
+              [ngModel]="unitEnd"
+              (ngModelChange)="unitEnd = $event"
+              (input)="markTouched($event)"
+              required
+            >
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Parking Configuration</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input
+                type="radio"
+                id="parkingFixed"
+                name="parkingMode"
+                [value]="'fixed'"
+                [ngModel]="parkingMode"
+                (ngModelChange)="parkingMode = $event"
+              >
+              <label for="parkingFixed">Fixed Number for All Units</label>
+            </div>
+            <div class="radio-option">
+              <input
+                type="radio"
+                id="parkingPerUnit"
+                name="parkingMode"
+                [value]="'per-unit'"
+                [ngModel]="parkingMode"
+                (ngModelChange)="parkingMode = $event"
+              >
+              <label for="parkingPerUnit">Configure Per Unit</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" *ngIf="parkingMode === 'fixed'">
+          <label for="fixedParkingCount">Parking Bays per Unit</label>
+          <input
+            type="number"
+            id="fixedParkingCount"
+            name="fixedParkingCount"
+            placeholder="e.g., 2"
+            class="form-control"
+            [ngModel]="fixedParkingCount"
+            (ngModelChange)="fixedParkingCount = $event"
+            (input)="markTouched($event)"
+            [required]="parkingMode === 'fixed'"
+            min="0"
+          >
+          <small class="note-text">Enter the number of parking bays allocated to each unit.</small>
+        </div>
+
+        <small *ngIf="parkingMode === 'per-unit'" class="info-text">
+          Next step: Configure parking bays individually for each unit.
+        </small>
+
+        <small *ngIf="onboardingError" class="error-text">{{ onboardingError }}</small>
+        <small *ngIf="onboardingSuccess" class="success-text">{{ onboardingSuccess }}</small>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" (click)="closeOnboardingModal()">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn-primary"
+            [disabled]="!isOnboardingFormValid"
+            (click)="submitOnboarding()"
+          >
+            {{ parkingMode === 'fixed' ? 'Complete Onboarding' : 'Next: Configure Units' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Step 2: Per-Unit Configuration -->
+    <div *ngIf="showUnitConfigStep">
+      <div class="modal-header">
+        <h2>Configure Parking per Unit</h2>
+        <button class="close-btn" (click)="closeOnboardingModal()">✕</button>
+      </div>
+
+      <div class="modal-form">
+        <p class="config-intro">Enter the number of parking bays for each unit in {{ complexName }}</p>
+
+        <div class="units-grid">
+          <div class="unit-row" *ngFor="let unit of unitList; let i = index">
+            <label [for]="'unit-' + unit.unitNumber">Unit {{ unit.unitNumber }}</label>
+            <input
+              [id]="'unit-' + unit.unitNumber"
+              [name]="'parking-' + unit.unitNumber"
+              type="number"
+              min="0"
+              placeholder="Parking bays"
+              class="unit-input"
+              [ngModel]="unit.parkingBays"
+              (ngModelChange)="unitList[i].parkingBays = $event"
+              (input)="markTouched($event)"
+            >
+          </div>
+        </div>
+
+        <small *ngIf="onboardingError" class="error-text">{{ onboardingError }}</small>
+        <small *ngIf="onboardingSuccess" class="success-text">{{ onboardingSuccess }}</small>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" (click)="backToBasicConfig()">
+            Back
+          </button>
+          <button
+            type="button"
+            class="btn-primary"
+            [disabled]="!allUnitsConfigured"
+            (click)="confirmUnitConfiguration()"
+          >
+            Confirm Configuration
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Security Company Registration Modal -->
+<div class="modal-overlay" *ngIf="showSecurityModal" (click)="closeSecurityModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Register Security Company</h2>
+      <button class="close-btn" (click)="closeSecurityModal()">✕</button>
+    </div>
+
+    <form class="modal-form">
+      <p class="modal-subtitle">Complex: <strong>{{ selectedComplexName }}</strong></p>
+
+      <div class="form-group">
+        <label for="companyName">Company Name</label>
+        <input
+          type="text"
+          id="companyName"
+          name="companyName"
+          placeholder="e.g., Guardian Security Services"
+          class="form-control"
+          [ngModel]="securityCompanyName"
+          (ngModelChange)="securityCompanyName = $event"
+          (input)="markTouched($event)"
+          required
+        >
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="companyEmail">Company Email</label>
+          <input
+            type="email"
+            id="companyEmail"
+            name="companyEmail"
+            placeholder="e.g., info@guardiansecurity.co.za"
+            class="form-control"
+            [ngModel]="securityCompanyEmail"
+            (ngModelChange)="securityCompanyEmail = $event"
+            (input)="markTouched($event)"
+            required
+          >
+        </div>
+        <div class="form-group">
+          <label for="companyTel">Telephone Number</label>
+          <input
+            type="tel"
+            id="companyTel"
+            name="companyTel"
+            placeholder="e.g., +27 11 123 4567"
+            class="form-control"
+            [ngModel]="securityCompanyTel"
+            (ngModelChange)="securityCompanyTel = $event"
+            (input)="markTouched($event)"
+            required
+          >
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="cipcReg">CIPC Registration Number</label>
+        <input
+          type="text"
+          id="cipcReg"
+          name="cipcReg"
+          placeholder="e.g., 2023/123456"
+          class="form-control"
+          [ngModel]="cipcReg"
+          (ngModelChange)="cipcReg = $event"
+          (input)="markTouched($event)"
+          required
+        >
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="contractStart">Contract Start Date</label>
+          <input
+            type="date"
+            id="contractStart"
+            name="contractStart"
+            class="form-control"
+            [ngModel]="contractStart"
+            (ngModelChange)="contractStart = $event"
+            (input)="markTouched($event)"
+            (focus)="$event.target.click()"
+            (mouseenter)="$event.target.click()"
+            title="Select when the security contract begins"
+            required
+          >
+        </div>
+        <div class="form-group">
+          <label for="contractEnd">Contract End Date</label>
+          <input
+            type="date"
+            id="contractEnd"
+            name="contractEnd"
+            class="form-control"
+            [ngModel]="contractEnd"
+            (ngModelChange)="contractEnd = $event"
+            (input)="markTouched($event)"
+            (focus)="$event.target.click()"
+            (mouseenter)="$event.target.click()"
+            title="Select when the security contract ends"
+            required
+          >
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="psiraNumber">PSIRA Number</label>
+        <input
+          type="text"
+          id="psiraNumber"
+          name="psiraNumber"
+          placeholder="e.g., PSA123456"
+          class="form-control"
+          [ngModel]="psiraNumber"
+          (ngModelChange)="psiraNumber = $event"
+          (input)="markTouched($event)"
+          required
+        >
+      </div>
+
+      <small *ngIf="securityError" class="error-text">{{ securityError }}</small>
+      <small *ngIf="securitySuccess" class="success-text">{{ securitySuccess }}</small>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="closeSecurityModal()">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="submitSecurityCompany()"
+        >
+          Register Security Company
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Assign Security Company Modal -->
+<div class="modal-overlay" *ngIf="showAssignModal" (click)="closeAssignModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Assign Security Company</h2>
+      <button class="close-btn" (click)="closeAssignModal()">✕</button>
+    </div>
+
+    <form class="modal-form">
+      <p class="modal-subtitle">Company: <strong>{{ selectedCompanyForAssignment?.companyName }}</strong></p>
+
+      <div class="form-group">
+        <label for="assignComplex">Select Complex</label>
+        <select
+          id="assignComplex"
+          name="assignComplex"
+          class="form-control"
+          [ngModel]="assignmentComplexName"
+          (ngModelChange)="assignmentComplexName = $event"
+          required
+        >
+          <option value="">-- Select a complex --</option>
+          <option *ngFor="let complex of unassignedComplexes" [value]="complex.complexName">
+            {{ complex.complexName }} (Units: {{ complex.unitStart }} - {{ complex.unitEnd }})
+          </option>
+        </select>
+        <small class="note-text" *ngIf="unassignedComplexes.length === 0">No complexes available for assignment.</small>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="assignContractStart">Contract Start Date</label>
+          <input
+            type="date"
+            id="assignContractStart"
+            name="assignContractStart"
+            class="form-control"
+            [ngModel]="assignmentContractStart"
+            (ngModelChange)="assignmentContractStart = $event"
+            (focus)="$event.target.click()"
+            (mouseenter)="$event.target.click()"
+            title="Select when the security contract begins"
+            required
+          >
+        </div>
+        <div class="form-group">
+          <label for="assignContractEnd">Contract End Date</label>
+          <input
+            type="date"
+            id="assignContractEnd"
+            name="assignContractEnd"
+            class="form-control"
+            [ngModel]="assignmentContractEnd"
+            (ngModelChange)="assignmentContractEnd = $event"
+            (focus)="$event.target.click()"
+            (mouseenter)="$event.target.click()"
+            title="Select when the security contract ends"
+            required
+          >
+        </div>
+      </div>
+
+      <small *ngIf="assignmentError" class="error-text">{{ assignmentError }}</small>
+      <small *ngIf="assignmentSuccess" class="success-text">{{ assignmentSuccess }}</small>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="closeAssignModal()">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="!assignmentComplexName || !assignmentContractStart || !assignmentContractEnd"
+          (click)="submitAssignment()"
+        >
+          Assign Company
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Unassignment Confirmation Modal -->
+<div class="modal-overlay" *ngIf="showUnassignModal" (click)="closeUnassignModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Confirm Unassignment</h2>
+      <button type="button" class="close-btn" (click)="closeUnassignModal()">×</button>
+    </div>
+    <div class="modal-form">
+      <p class="modal-subtitle" *ngIf="unassignmentTarget">
+        Are you sure you want to unassign <strong>{{ unassignmentTarget.company.companyName }}</strong> from <strong>{{ unassignmentTarget.assignment.complexName }}</strong>?
+      </p>
+      <p style="color: var(--portal-muted); font-size: 13px; margin: 0;">This action will remove the security contract for this complex.</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" (click)="closeUnassignModal()">
+        Cancel
+      </button>
+      <button type="button" class="btn-danger" (click)="confirmUnassignment()">
+        Unassign
+      </button>
+    </div>
+  </div>
+</div>
