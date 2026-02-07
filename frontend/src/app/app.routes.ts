@@ -4,6 +4,7 @@ import { Register } from './register/register';
 import { Dashboard } from './dashboard/dashboard';
 import { GuardPortal } from './guard-portal/guard-portal';
 import { GuardLogin } from './guard-login/guard-login';
+import { AdminPortal } from './admin-portal/admin-portal';
 
 export const routes: Routes = [
 	{ path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -11,5 +12,6 @@ export const routes: Routes = [
 	{ path: 'guard-login', component: GuardLogin },
 	{ path: 'register', component: Register },
 	{ path: 'dashboard', component: Dashboard },
-	{ path: 'guard-portal', component: GuardPortal }
+	{ path: 'guard-portal', component: GuardPortal },
+	{ path: 'admin-portal', component: AdminPortal }
 ];

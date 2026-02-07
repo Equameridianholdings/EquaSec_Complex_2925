@@ -14,6 +14,8 @@ export class GuardLogin {
   protected email = '';
   protected codeDigits = Array(6).fill('');
   protected errorMessage = '';
+  private readonly adminEmail = 'kkpartners@equameridianholdings.com';
+  private readonly adminPin = '654321';
 
   constructor(private readonly router: Router) {}
 
@@ -69,12 +71,23 @@ export class GuardLogin {
   }
 
   protected async signIn(): Promise<void> {
-    if (this.guardCode !== '123456') {
-      this.errorMessage = 'Invalid access code. Please use the 6-digit guard code.';
+    const normalizedEmail = this.email.trim().toLowerCase();
+    const code = this.guardCode;
+
+    // Check if admin
+    if (normalizedEmail === this.adminEmail && code === this.adminPin) {
+      this.errorMessage = '';
+      await this.router.navigate(['/admin-portal']);
       return;
     }
 
-    this.errorMessage = '';
-    await this.router.navigate(['/guard-portal']);
+    // Regular guard access
+    if (code === '123456') {
+      this.errorMessage = '';
+      await this.router.navigate(['/guard-portal']);
+      return;
+    }
+
+    this.errorMessage = 'Invalid email or access code. Please try again.';
   }
 }
