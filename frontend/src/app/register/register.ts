@@ -13,17 +13,61 @@ export class Register implements OnDestroy {
   @ViewChild('cameraVideo') private readonly cameraVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('cameraCanvas') private readonly cameraCanvas?: ElementRef<HTMLCanvasElement>;
 
-  protected readonly complexes = [
+  protected readonly gatedCommunities = [
     {
-      id: 'complex-skyline',
-      name: 'Skyline Residences',
-      units: [
-        { id: 'skyline-101', name: 'Unit 101' },
-        { id: 'skyline-102', name: 'Unit 102' },
-        { id: 'skyline-203', name: 'Unit 203' },
-        { id: 'skyline-305', name: 'Unit 305' },
+      id: 'gated-paradise',
+      name: 'Paradise Estate',
+      houses: [
+        { id: 'paradise-h1', name: 'House 1' },
+        { id: 'paradise-h2', name: 'House 2' },
+        { id: 'paradise-h5', name: 'House 5' },
+        { id: 'paradise-h12', name: 'House 12' },
+      ],
+      complexes: [
+        {
+          id: 'complex-skyline',
+          name: 'Skyline Residences',
+          units: [
+            { id: 'skyline-101', name: 'Unit 101' },
+            { id: 'skyline-102', name: 'Unit 102' },
+            { id: 'skyline-203', name: 'Unit 203' },
+            { id: 'skyline-305', name: 'Unit 305' },
+          ],
+        },
+        {
+          id: 'complex-harbor',
+          name: 'Harbor Heights',
+          units: [
+            { id: 'harbor-11', name: 'Unit 11' },
+            { id: 'harbor-12', name: 'Unit 12' },
+            { id: 'harbor-21', name: 'Unit 21' },
+            { id: 'harbor-22', name: 'Unit 22' },
+          ],
+        },
       ],
     },
+    {
+      id: 'gated-greenvalley',
+      name: 'Green Valley Security Estate',
+      houses: [
+        { id: 'greenvalley-h3', name: 'House 3' },
+        { id: 'greenvalley-h7', name: 'House 7' },
+      ],
+      complexes: [
+        {
+          id: 'complex-oakwood',
+          name: 'Oakwood Manor',
+          units: [
+            { id: 'oakwood-1a', name: 'Unit 1A' },
+            { id: 'oakwood-1b', name: 'Unit 1B' },
+            { id: 'oakwood-2a', name: 'Unit 2A' },
+          ],
+        },
+      ],
+    },
+  ];
+
+  protected readonly standaloneComplexes = [
     {
       id: 'complex-riverview',
       name: 'Riverview Villas',
@@ -35,26 +79,31 @@ export class Register implements OnDestroy {
       ],
     },
     {
-      id: 'complex-harbor',
-      name: 'Harbor Heights',
+      id: 'complex-sunset',
+      name: 'Sunset Towers',
       units: [
-        { id: 'harbor-11', name: 'Unit 11' },
-        { id: 'harbor-12', name: 'Unit 12' },
-        { id: 'harbor-21', name: 'Unit 21' },
-        { id: 'harbor-22', name: 'Unit 22' },
+        { id: 'sunset-301', name: 'Unit 301' },
+        { id: 'sunset-302', name: 'Unit 302' },
+        { id: 'sunset-401', name: 'Unit 401' },
       ],
     },
   ];
 
   protected filteredUnits: Array<{ id: string; name: string }> = [];
+  protected selectedGatedCommunityId = '';
+  protected selectedGatedCommunityName = '';
   protected selectedComplexId = '';
   protected selectedUnitId = '';
+  protected gatedCommunitySearch = '';
   protected complexSearch = '';
   protected unitSearch = '';
   protected selectedComplexName = '';
   protected selectedUnitName = '';
+  protected isGatedCommunity = false;
+  protected isGatedCommunityLocked = false;
   protected isComplexLocked = false;
   protected isUnitLocked = false;
+  protected showGatedCommunityOptions = false;
   protected showComplexOptions = false;
   protected showUnitOptions = false;
   protected idNumber = '';
@@ -101,6 +150,18 @@ export class Register implements OnDestroy {
     input.classList.add('touched');
   }
 
+  protected updateGatedCommunitySearch(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+    this.gatedCommunitySearch = input.value;
+    this.showGatedCommunityOptions = true;
+    if (this.isGatedCommunityLocked) {
+      this.clearGatedCommunitySelection();
+    }
+  }
+
   protected updateComplexSearch(event: Event): void {
     const input = event.target as HTMLInputElement | null;
     if (!input) {
@@ -129,8 +190,38 @@ export class Register implements OnDestroy {
     this.showComplexOptions = visible;
   }
 
+  protected setGatedCommunityDropdown(visible: boolean): void {
+    this.showGatedCommunityOptions = visible;
+  }
+
   protected setUnitDropdown(visible: boolean): void {
     this.showUnitOptions = visible;
+  }
+
+  protected selectGatedCommunityOption(gatedCommunity: { id: string; name: string }): void {
+    this.selectedGatedCommunityId = gatedCommunity.id;
+    this.selectedGatedCommunityName = gatedCommunity.name;
+    this.gatedCommunitySearch = gatedCommunity.name;
+    this.isGatedCommunity = true;
+    this.isGatedCommunityLocked = true;
+    this.showGatedCommunityOptions = false;
+    
+    // Load houses from gated community as available units
+    const selectedGC = this.gatedCommunities.find(gc => gc.id === gatedCommunity.id);
+    this.filteredUnits = selectedGC?.houses || [];
+    
+    this.clearComplexSelection();
+  }
+
+  protected clearGatedCommunitySelection(): void {
+    this.selectedGatedCommunityId = '';
+    this.selectedGatedCommunityName = '';
+    this.gatedCommunitySearch = '';
+    this.isGatedCommunity = false;
+    this.isGatedCommunityLocked = false;
+    this.showGatedCommunityOptions = false;
+    this.filteredUnits = [];
+    this.clearComplexSelection();
   }
 
   protected selectComplex(complex: { id: string; name: string; units: Array<{ id: string; name: string }> }): void {
@@ -150,7 +241,14 @@ export class Register implements OnDestroy {
     this.selectedComplexId = '';
     this.selectedComplexName = '';
     this.complexSearch = '';
-    this.filteredUnits = [];
+    // Don't clear filteredUnits if we're in a gated community (houses should remain)
+    if (!this.isGatedCommunity || !this.selectedGatedCommunityId) {
+      this.filteredUnits = [];
+    } else {
+      // Restore houses from gated community
+      const selectedGC = this.gatedCommunities.find(gc => gc.id === this.selectedGatedCommunityId);
+      this.filteredUnits = selectedGC?.houses || [];
+    }
     this.selectedUnitId = '';
     this.selectedUnitName = '';
     this.unitSearch = '';
@@ -176,12 +274,37 @@ export class Register implements OnDestroy {
     this.showUnitOptions = false;
   }
 
+  protected get filteredGatedCommunities(): Array<{ id: string; name: string }> {
+    const query = this.gatedCommunitySearch.trim().toLowerCase();
+    const communities = this.gatedCommunities.map(gc => ({ id: gc.id, name: gc.name }));
+    
+    if (!query) {
+      return communities;
+    }
+    
+    return communities.filter((community) => community.name.toLowerCase().includes(query));
+  }
+
   protected get filteredComplexes(): Array<{ id: string; name: string; units: Array<{ id: string; name: string }> }> {
     const query = this.complexSearch.trim().toLowerCase();
-    if (!query) {
-      return this.complexes;
+    let complexes: Array<{ id: string; name: string; units: Array<{ id: string; name: string }> }> = [];
+    
+    // Get complexes based on gated community selection
+    if (this.isGatedCommunity && this.selectedGatedCommunityId) {
+      // Find the selected gated community and get its complexes
+      const selectedGC = this.gatedCommunities.find(gc => gc.id === this.selectedGatedCommunityId);
+      complexes = selectedGC?.complexes || [];
+    } else {
+      // Show standalone complexes
+      complexes = this.standaloneComplexes;
     }
-    return this.complexes.filter((complex) => complex.name.toLowerCase().includes(query));
+    
+    // Filter by search query
+    if (query) {
+      complexes = complexes.filter((complex) => complex.name.toLowerCase().includes(query));
+    }
+    
+    return complexes;
   }
 
   protected get filteredUnitOptions(): Array<{ id: string; name: string }> {

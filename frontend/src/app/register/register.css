@@ -1,8 +1,8 @@
 :host {
 	display: block;
 	min-height: 100vh;
-	background: radial-gradient(1200px 600px at 10% 10%, #1d3557 0%, #0b1320 45%, #070b12 100%);
-	color: #e5eaf3;
+	background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+	color: #1e293b;
 	font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
@@ -17,12 +17,12 @@
 .card {
 	width: 100%;
 	max-width: 460px;
-	background: rgba(10, 16, 27, 0.85);
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	border-radius: 16px;
+	background: #ffffff;
+	border: 2px solid #1e3a5f;
+	border-radius: 12px;
 	padding: 28px 28px 24px;
-	box-shadow: 0 25px 60px rgba(3, 7, 18, 0.55);
-	backdrop-filter: blur(10px);
+	box-shadow: 0 20px 60px rgba(30, 58, 95, 0.15);
+	backdrop-filter: none;
 }
 
 .header {
@@ -37,9 +37,9 @@
 	height: 52px;
 	object-fit: contain;
 	border-radius: 12px;
-	background: #0f172a;
+	background: #e8f0f8;
 	padding: 8px;
-	border: 1px solid rgba(255, 255, 255, 0.08);
+	border: 2px solid #1e3a5f;
 }
 
 .brand h2 {
@@ -47,12 +47,12 @@
 	font-size: 24px;
 	font-weight: 700;
 	letter-spacing: 0.2px;
-	color: #f5f7fb;
+	color: #1e3a5f;
 }
 
 .brand p {
 	margin: 6px 0 0;
-	color: #b6c2d9;
+	color: #6b7693;
 	font-size: 14px;
 }
 
@@ -70,22 +70,22 @@ form {
 
 label {
 	font-size: 13px;
-	color: #c8d3e8;
+	color: #1e3a5f;
 	font-weight: 600;
 }
 
 small {
-	color: #93a4c1;
+	color: #6b7693;
 	font-size: 12px;
 }
 
 .form-control {
 	width: 100%;
 	padding: 12px 14px;
-	border-radius: 10px;
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	background: rgba(7, 11, 18, 0.85);
-	color: #f4f6fb;
+	border-radius: 8px;
+	border: 1px solid #d0d8e0;
+	background: #ffffff;
+	color: #1e3a5f;
 	font-size: 14px;
 	outline: none;
 	transition: border 0.2s ease, box-shadow 0.2s ease;
@@ -94,8 +94,8 @@ small {
 
 select.form-control {
 	background-image:
-		linear-gradient(45deg, transparent 50%, #9fb3d9 50%),
-		linear-gradient(135deg, #9fb3d9 50%, transparent 50%);
+		linear-gradient(45deg, transparent 50%, #1e3a5f 50%),
+		linear-gradient(135deg, #1e3a5f 50%, transparent 50%);
 	background-position:
 		calc(100% - 18px) 50%,
 		calc(100% - 12px) 50%;
@@ -106,8 +106,8 @@ select.form-control {
 
 .typeahead-input {
 	background-image:
-		linear-gradient(45deg, transparent 50%, #9fb3d9 50%),
-		linear-gradient(135deg, #9fb3d9 50%, transparent 50%);
+		linear-gradient(45deg, transparent 50%, #1e3a5f 50%),
+		linear-gradient(135deg, #1e3a5f 50%, transparent 50%);
 	background-position:
 		calc(100% - 18px) 50%,
 		calc(100% - 12px) 50%;
@@ -117,13 +117,13 @@ select.form-control {
 }
 
 select.form-control option {
-	background-color: #0b1320;
-	color: #e5eaf3;
+	background-color: #ffffff;
+	color: #1e3a5f;
 }
 
 .form-control:focus {
-	border-color: rgba(96, 165, 250, 0.9);
-	box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+	border-color: #1e3a5f;
+	box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
 }
 
 .form-control.touched:invalid,
@@ -144,10 +144,10 @@ select.form-control option {
 	width: 100%;
 	padding: 12px 0;
 	text-align: center;
-	border-radius: 10px;
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	background: rgba(7, 11, 18, 0.85);
-	color: #f4f6fb;
+	border-radius: 8px;
+	border: 1px solid #d0d8e0;
+	background: #ffffff;
+	color: #1e3a5f;
 	font-size: 16px;
 	letter-spacing: 1px;
 	outline: none;
@@ -155,8 +155,8 @@ select.form-control option {
 }
 
 .pin-box:focus {
-	border-color: rgba(96, 165, 250, 0.9);
-	box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+	border-color: #1e3a5f;
+	box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
 }
 
 .form-actions {
@@ -168,8 +168,8 @@ select.form-control option {
 	width: 100%;
 	border-radius: 12px;
 	overflow: hidden;
-	border: 1px dashed rgba(148, 163, 184, 0.4);
-	background: rgba(7, 11, 18, 0.6);
+	border: 1px dashed #d0d8e0;
+	background: #f9fafb;
 	min-height: 180px;
 	display: grid;
 	place-items: center;
@@ -198,9 +198,9 @@ select.form-control option {
 	flex-direction: column;
 	gap: 6px;
 	padding: 8px;
-	border-radius: 10px;
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	background: rgba(7, 11, 18, 0.85);
+	border-radius: 8px;
+	border: 1px solid #d0d8e0;
+	background: #ffffff;
 	max-height: 180px;
 	overflow-y: auto;
 }
@@ -208,17 +208,17 @@ select.form-control option {
 .typeahead-item {
 	text-align: left;
 	border: 1px solid transparent;
-	border-radius: 8px;
-	background: rgba(15, 23, 42, 0.7);
-	color: #e5eaf3;
+	border-radius: 6px;
+	background: #f9fafb;
+	color: #1e3a5f;
 	padding: 10px 12px;
 	cursor: pointer;
-	transition: border 0.2s ease, background 0.2s ease;
+	transition: all 0.2s ease;
 }
 
 .typeahead-item:hover {
-	border-color: rgba(96, 165, 250, 0.8);
-	background: rgba(30, 41, 59, 0.9);
+	border-color: #1e3a5f;
+	background: #e8f0f8;
 }
 
 .typeahead-selected {
@@ -227,40 +227,41 @@ select.form-control option {
 	justify-content: space-between;
 	gap: 8px;
 	padding: 10px 12px;
-	border-radius: 10px;
-	border: 1px solid rgba(96, 165, 250, 0.4);
-	background: rgba(15, 23, 42, 0.55);
-	color: #cbd5f5;
+	border-radius: 8px;
+	border: 1px solid #1e3a5f;
+	background: #e8f0f8;
+	color: #1e3a5f;
 }
 
 .typeahead-change {
 	border: none;
 	background: transparent;
-	color: #7dd3fc;
+	color: #1e3a5f;
 	font-weight: 600;
 	cursor: pointer;
 }
 
 .btn-secondary {
-	border: 1px solid rgba(148, 163, 184, 0.4);
-	border-radius: 10px;
+	border: 1px solid #d0d8e0;
+	border-radius: 8px;
 	padding: 10px 12px;
-	background: rgba(15, 23, 42, 0.75);
-	color: #e2e8f0;
+	background: #ffffff;
+	color: #1e3a5f;
 	font-weight: 600;
 	font-size: 13px;
 	cursor: pointer;
-	transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+	transition: all 0.2s ease;
 }
 
 .btn-secondary:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25);
+	box-shadow: 0 4px 12px rgba(30, 58, 95, 0.1);
+	background: #f9fafb;
 }
 
 .btn-secondary:not(:disabled) {
-	border-color: rgba(96, 165, 250, 0.55);
-	box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.3);
+	border-color: #1e3a5f;
+	box-shadow: 0 0 0 1px rgba(30, 58, 95, 0.1);
 }
 
 .btn-secondary:disabled {
@@ -271,20 +272,20 @@ select.form-control option {
 }
 
 .error-text {
-	color: #fca5a5;
+	color: #dc2626;
 }
 
 .btn-primary {
 	width: 100%;
 	border: none;
-	border-radius: 10px;
+	border-radius: 8px;
 	padding: 12px 16px;
 	font-size: 15px;
 	font-weight: 600;
-	color: #0b1320;
-	background: linear-gradient(135deg, #5eead4 0%, #60a5fa 55%, #818cf8 100%);
+	color: #ffffff;
+	background: #1e3a5f;
 	cursor: pointer;
-	transition: transform 0.2s ease, box-shadow 0.2s ease;
+	transition: all 0.2s ease;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -300,13 +301,12 @@ select.form-control option {
 
 .btn-primary:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 10px 24px rgba(96, 165, 250, 0.3);
+	box-shadow: 0 4px 12px rgba(30, 58, 95, 0.2);
+	background: #152a47;
 }
 
 .btn-primary:not(:disabled) {
-	box-shadow:
-		0 0 0 1px rgba(94, 234, 212, 0.55),
-		0 10px 24px rgba(96, 165, 250, 0.25);
+	box-shadow: 0 4px 12px rgba(30, 58, 95, 0.2);
 }
 
 .btn-primary:disabled {
@@ -322,12 +322,13 @@ select.form-control option {
 	gap: 6px;
 	text-align: center;
 	font-size: 13px;
-	color: #93a4c1;
+	color: #6b7693;
 }
 
 .footer-links a {
-	color: #7dd3fc;
+	color: #1e3a5f;
 	text-decoration: none;
+	font-weight: 600;
 }
 
 .footer-links a:hover {

@@ -36,12 +36,44 @@
       </div>
 
       <div class="form-group">
-        <label for="complex">Select Your Complex</label>
+        <label for="gatedCommunity">Gated Community (Optional)</label>
+        <input
+          type="text"
+          id="gatedCommunitySearch"
+          name="gatedCommunitySearch"
+          placeholder="Type to search gated communities or leave blank for none"
+          class="form-control typeahead-input"
+          [disabled]="isGatedCommunityLocked"
+          (input)="updateGatedCommunitySearch($event); markTouched($event)"
+          (focus)="setGatedCommunityDropdown(true)"
+          (blur)="setGatedCommunityDropdown(false)"
+        >
+        <div class="typeahead-list" *ngIf="!isGatedCommunityLocked && showGatedCommunityOptions && gatedCommunitySearch && filteredGatedCommunities.length">
+          <button
+            type="button"
+            class="typeahead-item"
+            *ngFor="let gatedCommunity of filteredGatedCommunities"
+            (mousedown)="selectGatedCommunityOption(gatedCommunity)"
+          >
+            {{ gatedCommunity.name }}
+          </button>
+        </div>
+        <div class="typeahead-selected" *ngIf="isGatedCommunityLocked">
+          <span>Selected: {{ selectedGatedCommunityName }}</span>
+          <button type="button" class="typeahead-change" (click)="clearGatedCommunitySelection()">Change</button>
+        </div>
+        <small *ngIf="!isGatedCommunity">Showing complexes outside gated communities.</small>
+        <small *ngIf="isGatedCommunity && selectedGatedCommunityId">Showing complexes in {{ selectedGatedCommunityName }}.</small>
+        <small *ngIf="showGatedCommunityOptions && gatedCommunitySearch && !filteredGatedCommunities.length">No gated communities found.</small>
+      </div>
+
+      <div class="form-group">
+        <label for="complex">Select Your Complex (Optional for Gated Communities)</label>
         <input
           type="text"
           id="complexSearch"
           name="complexSearch"
-          placeholder="Search complex..."
+          placeholder="Search complex or skip if you live in a house..."
           class="form-control typeahead-input"
           [disabled]="isComplexLocked"
           (input)="updateComplexSearch($event); markTouched($event)"
@@ -62,24 +94,26 @@
           <span>Selected: {{ selectedComplexName }}</span>
           <button type="button" class="typeahead-change" (click)="clearComplexSelection()">Change</button>
         </div>
-        <small *ngIf="showComplexOptions && complexSearch && !filteredComplexes.length">No complexes found.</small>
-        <small *ngIf="!complexSearch">Please search and select your complex.</small>
+        <small *ngIf="isGatedCommunity && !selectedComplexId">Optional: Skip this if you live in a house within the gated community.</small>
+        <small *ngIf="!isGatedCommunity && showComplexOptions && complexSearch && !filteredComplexes.length">No complexes found.</small>
+        <small *ngIf="!isGatedCommunity && !complexSearch">Please search and select your complex.</small>
+        <small *ngIf="isGatedCommunity && showComplexOptions && complexSearch && !filteredComplexes.length">No complexes found.</small>
       </div>
 
       <div class="form-group">
-        <label for="unit">Select Your Unit</label>
+        <label for="unit">Select Your Unit/House</label>
         <input
           type="text"
           id="unitSearch"
           name="unitSearch"
-          placeholder="Search unit..."
+          placeholder="Search unit or house number..."
           class="form-control typeahead-input"
-          [disabled]="!selectedComplexId || isUnitLocked"
+          [disabled]="(!selectedComplexId && !selectedGatedCommunityId) || isUnitLocked"
           (input)="updateUnitSearch($event); markTouched($event)"
           (focus)="setUnitDropdown(true)"
           (blur)="setUnitDropdown(false)"
         >
-        <div class="typeahead-list" *ngIf="selectedComplexId && !isUnitLocked && showUnitOptions && filteredUnitOptions.length">
+        <div class="typeahead-list" *ngIf="(selectedComplexId || selectedGatedCommunityId) && !isUnitLocked && showUnitOptions && filteredUnitOptions.length">
           <button
             type="button"
             class="typeahead-item"
@@ -93,8 +127,23 @@
           <span>Selected: {{ selectedUnitName }}</span>
           <button type="button" class="typeahead-change" (click)="clearUnitSelection()">Change</button>
         </div>
-        <small *ngIf="!selectedComplexId">Select a complex first.</small>
-        <small *ngIf="selectedComplexId && showUnitOptions && unitSearch && !filteredUnitOptions.length">No units found.</small>
+        <small *ngIf="!selectedComplexId && !selectedGatedCommunityId">Select a complex or gated community first.</small>
+        <small *ngIf="(selectedComplexId || selectedGatedCommunityId) && showUnitOptions && unitSearch && !filteredUnitOptions.length">No units found.</small>
+      </div>
+
+      <div class="form-group" *ngIf="selectedComplexId">
+        <label>
+          <input 
+            type="checkbox" 
+            name="gatedCommunity"
+            [checked]="isGatedCommunity"
+            disabled
+            class="checkbox-input"
+          >
+          <span class="checkbox-label">Gated Community</span>
+        </label>
+        <small *ngIf="isGatedCommunity">This complex is in a gated community.</small>
+        <small *ngIf="!isGatedCommunity">This complex is not in a gated community.</small>
       </div>
 
       <div class="form-group">
@@ -173,7 +222,7 @@
       </div>
 
       <div class="form-actions">
-        <button type="button" class="btn-primary" [disabled]="!registerForm.checkValidity() || !selectedComplexId || !selectedUnitId" (click)="goToGuardPortal()">
+        <button type="button" class="btn-primary" [disabled]="!registerForm.checkValidity() || (isGatedCommunity && !selectedGatedCommunityId) || (!isGatedCommunity && !selectedComplexId) || !selectedUnitId" (click)="goToGuardPortal()">
           <span class="btn-icon-inline">✅</span>Register Account
         </button>
       </div>

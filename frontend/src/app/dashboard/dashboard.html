@@ -1,9 +1,19 @@
 <div class="dashboard-container">
   <div class="welcome-section">
     <div class="welcome-main">
-      <div class="profile-avatar">
-        <img *ngIf="profilePhotoUrl" [src]="profilePhotoUrl" alt="{{ profileName }}" />
-        <span *ngIf="!profilePhotoUrl">{{ profileInitials }}</span>
+      <div class="profile-avatar-container">
+        <div class="profile-avatar">
+          <img *ngIf="profilePhotoData" [src]="profilePhotoData" alt="{{ profileName }}" />
+          <span *ngIf="!profilePhotoData">{{ profileInitials }}</span>
+        </div>
+        <button 
+          type="button" 
+          class="camera-button" 
+          (click)="triggerCameraInput()"
+          title="Take or upload profile photo"
+        >
+          📷
+        </button>
       </div>
       <div class="welcome-text">
         <p class="greeting">{{ greetingLabel }}, {{ profileName }}</p>
@@ -14,16 +24,72 @@
   </div>
 
   <div class="billing-card alert">
-    <div class="alert-icon">🛡️</div>
+    <div class="alert-icon">�</div>
     <div class="alert-text">
-      <strong>Keeping you safe:</strong> Always verify visitor details before sharing access codes.
+      Always verify visitor details before sharing access codes.
     </div>
   </div>
 
-  <div class="action-card">
-    <button class="btn-main" type="button" (click)="openBookingModal()">
-      <span class="icon">➕</span> Book a Visitor
+  <div class="action-tiles">
+    <button 
+      type="button" 
+      class="tile-card panic-button"
+      (mousedown)="startSosHold($event)"
+      (touchstart)="startSosHold($event)"
+      (mouseup)="endSosHold()"
+      (mouseleave)="endSosHold()"
+      (touchend)="endSosHold()"
+    >
+      <span class="tile-icon">⚠</span>
+      <span class="tile-label" *ngIf="!isHoldingSos">Panic Button</span>
+      <span class="tile-label" *ngIf="isHoldingSos">Holding...</span>
     </button>
+    <button type="button" class="tile-card primary" (click)="openBookingModal()">
+      <span class="tile-icon">+</span>
+      <span class="tile-label">Book Visitor</span>
+    </button>
+    <button type="button" class="tile-card secondary" (click)="openSubtenantModal()">
+      <span class="tile-icon">👤</span>
+      <span class="tile-label">Add Subtenant</span>
+    </button>
+    <button type="button" class="tile-card secondary" (click)="openUpdateDetailsModal()">
+      <span class="tile-icon">✏️</span>
+      <span class="tile-label">Update Details</span>
+    </button>
+    <button type="button" class="tile-card secondary" (click)="openVehicleModal()">
+      <span class="tile-icon">🚗</span>
+      <span class="tile-label">Register Vehicle</span>
+    </button>
+    <button type="button" class="tile-card secondary">
+      <span class="tile-icon">💳</span>
+      <span class="tile-label">Make Payment</span>
+    </button>
+    <button type="button" class="tile-card secondary">
+      <span class="tile-icon">→</span>
+      <span class="tile-label">Move Out</span>
+    </button>
+    <button type="button" class="tile-card logout" (click)="goToGuardLogin()">
+      <span class="tile-icon">🚪</span>
+      <span class="tile-label">Logout</span>
+    </button>
+  </div>
+
+  <div class="panic-alert" *ngIf="isPanicConfirmationOpen">
+    <div class="panic-alert-content">
+      <span class="panic-alert-icon">⚠️</span>
+      <h3>Emergency Alert Sent</h3>
+      <p>Your emergency alert has been sent to the security team. Help is on the way.</p>
+      <button type="button" class="btn-close" (click)="closePanicConfirmation()">Confirm</button>
+    </div>
+  </div>
+
+  <div class="sos-success-overlay" *ngIf="showSosSuccess">
+    <div class="sos-success-content">
+      <div class="sos-success-icon">✓</div>
+      <h2>Emergency SOS Activated</h2>
+      <p>Your emergency signal has been sent to security. Help is on the way.</p>
+      <p class="sos-timer">Reloading...</p>
+    </div>
   </div>
 
   <div class="section-header">
@@ -44,14 +110,14 @@
         target="_blank"
         rel="noopener"
       >
+        <img src="/ShareIcon.png" alt="Share" class="share-icon-img" />
         Share with WhatsApp
       </a>
     </div>
   </div>
 
-  <div class="section-header stretch">
+  <div class="section-header">
     <h3>Subtenant Management</h3>
-    <button type="button" class="btn-main" (click)="openSubtenantModal()"><span class="btn-icon-inline">➕</span>Add Subtenant</button>
   </div>
 
   <div class="subtenant-card">
@@ -70,8 +136,8 @@
           </div>
         </div>
         <div class="subtenant-controls">
-          <button type="button" class="btn-share" (click)="editSubtenant(subtenant.id)"><span class="btn-icon-inline">✏️</span>Edit</button>
-          <button type="button" class="btn-cancel" (click)="deleteSubtenant(subtenant.id)"><span class="btn-icon-inline">🗑️</span>Delete</button>
+          <button type="button" class="btn-share btn-icon-only" (click)="editSubtenant(subtenant.id)" title="Edit"><span class="btn-icon-inline">✏️</span></button>
+          <button type="button" class="btn-share btn-icon-only" (click)="deleteSubtenant(subtenant.id)" title="Delete"><span class="btn-icon-inline">🗑️</span></button>
         </div>
       </div>
     </div>
@@ -80,9 +146,8 @@
     </ng-template>
   </div>
 
-  <div class="section-header stretch">
+  <div class="section-header">
     <h3>Register Vehicle</h3>
-    <button type="button" class="btn-main" (click)="openVehicleModal()"><span class="btn-icon-inline">➕</span>Add Vehicle</button>
   </div>
 
   <div class="subtenant-card">
@@ -99,33 +164,14 @@
           </div>
         </div>
         <div class="subtenant-controls">
-          <button type="button" class="btn-share" (click)="editVehicle(vehicle.id)"><span class="btn-icon-inline">✏️</span>Edit</button>
-          <button type="button" class="btn-cancel" (click)="deleteVehicle(vehicle.id)"><span class="btn-icon-inline">🗑️</span>Remove</button>
+          <button type="button" class="btn-share btn-icon-only" (click)="editVehicle(vehicle.id)" title="Edit"><span class="btn-icon-inline">✏️</span></button>
+          <button type="button" class="btn-share btn-icon-only" (click)="deleteVehicle(vehicle.id)" title="Remove"><span class="btn-icon-inline">🗑️</span></button>
         </div>
       </div>
     </div>
     <ng-template #emptyVehicles>
       <p class="empty-state">No vehicles registered yet.</p>
     </ng-template>
-  </div>
-
-  <div class="section-header">
-    <h3>Account Management</h3>
-  </div>
-
-  <div class="management-grid">
-    <div class="manage-item">
-      <span class="manage-icon">💳</span>
-      <p>Make Payment</p>
-    </div>
-    <div class="manage-item">
-      <span class="manage-icon">🏠</span>
-      <p>Move Out</p>
-    </div>
-    <button type="button" class="manage-item logout" (click)="goToGuardLogin()">
-      <span class="manage-icon">🚪</span>
-      <p>Logout</p>
-    </button>
   </div>
 
   <div class="moving-out-section">
@@ -245,7 +291,8 @@
         target="_blank"
         rel="noopener"
       >
-        <span class="share-icon">📤</span> Share with WhatsApp
+        <img src="/ShareIcon.png" alt="Share" class="share-icon-img" />
+        Share with WhatsApp
       </a>
     </div>
 
@@ -307,14 +354,15 @@
           >
         </div>
         <div class="form-group">
-          <label for="subtenantEmail">Email (Optional)</label>
+          <label for="subtenantEmail">Email</label>
           <input
             id="subtenantEmail"
             name="subtenantEmail"
-            type="email"
+            type="text"
             class="form-control"
             placeholder="tenant@example.com"
             [(ngModel)]="subtenantForm.email"
+            required
           >
         </div>
       </div>
@@ -335,30 +383,14 @@
         </div>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Profile Photo (Camera)</label>
-          <div class="camera-card">
-            <video #subtenantCameraVideo class="camera-video" autoplay playsinline muted></video>
-            <canvas #subtenantCameraCanvas class="camera-canvas"></canvas>
-            <img *ngIf="subtenantForm.photoDataUrl" [src]="subtenantForm.photoDataUrl" alt="Subtenant preview" class="camera-preview">
-          </div>
-          <div class="camera-actions">
-            <button type="button" class="btn-secondary" (click)="startSubtenantCamera()" [disabled]="hasSubtenantCameraStream || subtenantForm.photoDataUrl">Start Camera</button>
-            <button type="button" class="btn-secondary" (click)="captureSubtenantPhoto()" [disabled]="!hasSubtenantCameraStream">Capture</button>
-            <button type="button" class="btn-secondary" (click)="retakeSubtenantPhoto()" [disabled]="!subtenantForm.photoDataUrl">Retake</button>
-          </div>
-          <small *ngIf="subtenantCameraError" class="error">{{ subtenantCameraError }}</small>
-          <small *ngIf="!subtenantCameraError && !subtenantForm.photoDataUrl">Capture a profile photo to continue.</small>
-        </div>
-      </div>
+
 
       <div class="modal-actions">
         <button type="button" class="btn-secondary" (click)="cancelSubtenantEdit()"><span class="btn-icon-inline">✕</span>Cancel</button>
         <button
           type="button"
           class="btn-main"
-          [disabled]="!subtenantFormRef.valid || !subtenantForm.photoDataUrl"
+          [disabled]="!subtenantFormRef.valid"
           (click)="addOrUpdateSubtenant()"
         >
           <span class="btn-icon-inline">{{ editingSubtenantId ? '🔄' : '➕' }}</span>{{ editingSubtenantId ? 'Update Subtenant' : 'Add Subtenant' }}
@@ -436,5 +468,76 @@
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Update Details Modal -->
+<div class="modal-backdrop" *ngIf="isUpdateDetailsModalOpen" (click)="closeUpdateDetailsModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="update-details-title" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="update-details-title">Update My Details</h2>
+      <button class="btn-icon" type="button" (click)="closeUpdateDetailsModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="detail-section">
+        <h3>Personal Information</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" class="form-control" placeholder="Enter your name" />
+          </div>
+          <div class="form-group">
+            <label>Surname</label>
+            <input type="text" class="form-control" placeholder="Enter your surname" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" class="form-control" placeholder="Enter your email" />
+          </div>
+          <div class="form-group">
+            <label>Phone Number</label>
+            <input type="tel" class="form-control" placeholder="Enter your phone number" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" (click)="closeUpdateDetailsModal()"><span class="btn-icon-inline">✕</span>Cancel</button>
+      <button type="button" class="btn-main"><span class="btn-icon-inline">✓</span>Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Profile Photo Camera Modal -->
+<div class="modal-backdrop" *ngIf="isPhotoCameraModalOpen" (click)="closeProfilePhotoModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="camera-title" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="camera-title">Capture Profile Photo</h2>
+      <button class="btn-icon" type="button" (click)="closeProfilePhotoModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="camera-card">
+        <video #profileCameraVideo class="camera-video" autoplay playsinline muted></video>
+        <canvas #profileCameraCanvas class="camera-canvas"></canvas>
+        <img *ngIf="profilePhotoData" [src]="profilePhotoData" alt="Profile preview" class="camera-preview">
+      </div>
+      <div class="camera-actions">
+        <button type="button" class="btn-secondary" (click)="startProfileCamera()" [disabled]="hasCameraStream">Start Camera</button>
+        <button type="button" class="btn-secondary" (click)="captureProfilePhoto()" [disabled]="!hasCameraStream">Capture</button>
+        <button type="button" class="btn-secondary" (click)="retakeProfilePhoto()" [disabled]="!profilePhotoData">Retake</button>
+      </div>
+      <small *ngIf="cameraError" class="error-text">{{ cameraError }}</small>
+      <small *ngIf="!cameraError && !profilePhotoData">Position your face in the center and tap Capture.</small>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" (click)="closeProfilePhotoModal()"><span class="btn-icon-inline">✕</span>Cancel</button>
+      <button type="button" class="btn-main" [disabled]="!profilePhotoData" (click)="closeProfilePhotoModal()"><span class="btn-icon-inline">✓</span>Use Photo</button>
+    </div>
   </div>
 </div>
