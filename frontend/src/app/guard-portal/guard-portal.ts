@@ -13,8 +13,14 @@ export class GuardPortal implements OnDestroy {
   protected searchCode = '';
   protected searchUnit = '';
   protected searchReg = '';
+  protected searchComplex = '';
+  protected searchGatedCommunity = '';
+  protected selectedComplex = '';
+  protected selectedGatedCommunity = '';
   protected showUnitOptions = false;
   protected showRegOptions = false;
+  protected showComplexOptions = false;
+  protected showGatedCommunityOptions = false;
   protected showCodes = true;
   protected showResidents = true;
   protected showVehicles = true;
@@ -36,6 +42,57 @@ export class GuardPortal implements OnDestroy {
   protected get guardInitials(): string {
     return (this.guardName || 'Guard').trim().slice(0, 2).toUpperCase();
   }
+
+  protected get selectedComplexName(): string {
+    const complex = this.complexes.find((c) => c.id === this.selectedComplex);
+    return complex?.name || 'Select a complex';
+  }
+
+  protected get selectedGatedCommunityName(): string {
+    const gc = this.gatedCommunities.find((g) => g.id === this.selectedGatedCommunity);
+    return gc?.name || 'Select a gated community';
+  }
+
+  protected readonly gatedCommunities = [
+    {
+      id: 'gated-paradise',
+      name: 'Paradise Estate',
+      complexes: [
+        { id: 'complex-skyline', name: 'Skyline Residences' },
+        { id: 'complex-harbor', name: 'Harbor Heights' },
+      ],
+    },
+    {
+      id: 'gated-greenvalley',
+      name: 'Green Valley Security Estate',
+      complexes: [
+        { id: 'complex-oakwood', name: 'Oakwood Manor' },
+      ],
+    },
+    {
+      id: 'gated-central',
+      name: 'Central Park Security Estate',
+      complexes: [
+        { id: 'complex-central-residences', name: 'Central Residences' },
+        { id: 'complex-central-heights', name: 'Central Heights' },
+      ],
+    },
+  ];
+
+  protected readonly standaloneComplexes = [
+    { id: 'complex-1', name: 'Complex 2925 Fleurhof' },
+    { id: 'complex-2', name: 'Sunset View Estate' },
+    { id: 'complex-3', name: 'Green Park Apartments' },
+  ];
+
+  protected get complexes(): Array<{ id: string; name: string }> {
+    if (this.selectedGatedCommunity) {
+      const gc = this.gatedCommunities.find((g) => g.id === this.selectedGatedCommunity);
+      return gc?.complexes ?? [];
+    }
+    return this.standaloneComplexes;
+  }
+
   protected readonly residents = [
     {
       name: 'Lerato Nkosi',
@@ -43,6 +100,8 @@ export class GuardPortal implements OnDestroy {
       cellphone: '082 123 4567',
       email: 'lerato@example.com',
       photoDataUrl: '',
+      complexId: 'complex-1',
+      gatedCommunityId: '',
     },
     {
       name: 'Sipho Dlamini',
@@ -50,6 +109,26 @@ export class GuardPortal implements OnDestroy {
       cellphone: '071 445 2211',
       email: 'sipho@example.com',
       photoDataUrl: '',
+      complexId: 'complex-1',
+      gatedCommunityId: '',
+    },
+    {
+      name: 'James Williams',
+      unit: '201',
+      cellphone: '083 555 8899',
+      email: 'james@example.com',
+      photoDataUrl: '',
+      complexId: 'complex-skyline',
+      gatedCommunityId: 'gated-paradise',
+    },
+    {
+      name: 'Maya Singh',
+      unit: 'House 3',
+      cellphone: '084 777 3344',
+      email: 'maya@example.com',
+      photoDataUrl: '',
+      complexId: '',
+      gatedCommunityId: 'gated-greenvalley',
     },
   ];
   protected readonly vehicles = [
@@ -60,6 +139,8 @@ export class GuardPortal implements OnDestroy {
       color: 'Silver',
       unit: '402',
       owner: 'Lerato Nkosi',
+      complexId: 'complex-1',
+      gatedCommunityId: '',
     },
     {
       make: 'VW',
@@ -68,6 +149,28 @@ export class GuardPortal implements OnDestroy {
       color: 'Blue',
       unit: '118',
       owner: 'Sipho Dlamini',
+      complexId: 'complex-1',
+      gatedCommunityId: '',
+    },
+    {
+      make: 'BMW',
+      model: 'X5',
+      regNumber: 'NW 789 012',
+      color: 'Black',
+      unit: '201',
+      owner: 'James Williams',
+      complexId: 'complex-skyline',
+      gatedCommunityId: 'gated-paradise',
+    },
+    {
+      make: 'Mercedes',
+      model: 'C-Class',
+      regNumber: 'FS 111 222',
+      color: 'White',
+      unit: 'House 3',
+      owner: 'Maya Singh',
+      complexId: '',
+      gatedCommunityId: 'gated-greenvalley',
     },
   ];
   protected readonly activeCodes = [
@@ -79,6 +182,8 @@ export class GuardPortal implements OnDestroy {
       unit: '402',
       expires: 'In 8 hours',
       isDriving: true,
+      complexId: 'complex-1',
+      gatedCommunityId: '',
       vehicle: {
         makeModel: 'Toyota Hilux',
         registration: 'GP 123 456',
@@ -92,7 +197,41 @@ export class GuardPortal implements OnDestroy {
       cellphone: '071 445 2211',
       unit: '118',
       expires: 'In 5 hours',
-      isDriving: false
+      isDriving: false,
+      complexId: 'complex-1',
+      gatedCommunityId: '',
+    },
+    {
+      code: '445321',
+      visitorName: 'Rebecca Johnson',
+      tenantName: 'James Williams',
+      cellphone: '083 555 8899',
+      unit: '201',
+      expires: 'In 3 hours',
+      isDriving: true,
+      complexId: 'complex-skyline',
+      gatedCommunityId: 'gated-paradise',
+      vehicle: {
+        makeModel: 'BMW X5',
+        registration: 'NW 789 012',
+        color: 'Black'
+      }
+    },
+    {
+      code: '556789',
+      visitorName: 'David Patel',
+      tenantName: 'Maya Singh',
+      cellphone: '084 777 3344',
+      unit: 'House 3',
+      expires: 'In 6 hours',
+      isDriving: true,
+      complexId: '',
+      gatedCommunityId: 'gated-greenvalley',
+      vehicle: {
+        makeModel: 'Mercedes C-Class',
+        registration: 'FS 111 222',
+        color: 'White'
+      }
     }
   ];
 
@@ -100,16 +239,43 @@ export class GuardPortal implements OnDestroy {
     const codeQuery = this.searchCode.replace(/\D/g, '');
     const unitQuery = this.searchUnit.trim().toLowerCase();
     const regQuery = this.searchReg.trim().toLowerCase();
-    if (!codeQuery && !unitQuery && !regQuery) {
-      return this.activeCodes;
+    let codes = this.activeCodes;
+    
+    // Filter by selected complex or gated community
+    if (this.selectedComplex) {
+      codes = codes.filter((code) => code.complexId === this.selectedComplex);
+    } else if (this.selectedGatedCommunity) {
+      codes = codes.filter((code) => code.gatedCommunityId === this.selectedGatedCommunity);
     }
-    return this.activeCodes.filter((code) => {
+    
+    if (!codeQuery && !unitQuery && !regQuery) {
+      return codes;
+    }
+    return codes.filter((code) => {
       const matchesCode = !codeQuery || code.code.includes(codeQuery);
       const matchesUnit = !unitQuery || code.unit.toLowerCase().includes(unitQuery);
       const registration = code.vehicle?.registration?.toLowerCase() ?? '';
       const matchesReg = !regQuery || registration.includes(regQuery);
       return matchesCode && matchesUnit && matchesReg;
     });
+  }
+
+  protected updateComplexSearch(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+    this.searchComplex = input.value;
+    this.showComplexOptions = true;
+  }
+
+  protected updateGatedCommunitySearch(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+    this.searchGatedCommunity = input.value;
+    this.showGatedCommunityOptions = true;
   }
 
   protected updateUnitSearch(event: Event): void {
@@ -130,12 +296,73 @@ export class GuardPortal implements OnDestroy {
     this.showRegOptions = true;
   }
 
+  protected selectComplex(complexId: string): void {
+    this.selectedComplex = complexId;
+    this.selectedGatedCommunity = '';
+    this.searchComplex = this.complexes.find((c) => c.id === complexId)?.name || '';
+    this.showComplexOptions = false;
+    // Reset other searches when complex changes
+    this.searchUnit = '';
+    this.searchCode = '';
+    this.searchReg = '';
+  }
+
+  protected selectGatedCommunity(gatedCommunityId: string): void {
+    this.selectedGatedCommunity = gatedCommunityId;
+    this.selectedComplex = '';
+    this.searchGatedCommunity = this.gatedCommunities.find((g) => g.id === gatedCommunityId)?.name || '';
+    this.searchComplex = '';
+    this.showGatedCommunityOptions = false;
+    // Reset other searches when gated community changes
+    this.searchUnit = '';
+    this.searchCode = '';
+    this.searchReg = '';
+  }
+
+  protected clearGatedCommunity(): void {
+    this.selectedGatedCommunity = '';
+    this.searchGatedCommunity = '';
+    this.selectedComplex = '';
+    this.searchComplex = '';
+    this.showGatedCommunityOptions = false;
+    // Reset other searches
+    this.searchUnit = '';
+    this.searchCode = '';
+    this.searchReg = '';
+  }
+
   protected setUnitDropdown(visible: boolean): void {
     this.showUnitOptions = visible;
   }
 
   protected setRegDropdown(visible: boolean): void {
     this.showRegOptions = visible;
+  }
+
+  protected setComplexDropdown(visible: boolean): void {
+    this.showComplexOptions = visible;
+  }
+
+  protected setGatedCommunityDropdown(visible: boolean): void {
+    this.showGatedCommunityOptions = visible;
+  }
+
+  protected get filteredComplexOptions(): string[] {
+    const list = this.complexes.map((c) => c.name);
+    const query = this.searchComplex.trim().toLowerCase();
+    if (!query) {
+      return list;
+    }
+    return list.filter((name) => name.toLowerCase().includes(query));
+  }
+
+  protected get filteredGatedCommunityOptions(): string[] {
+    const list = this.gatedCommunities.map((g) => g.name);
+    const query = this.searchGatedCommunity.trim().toLowerCase();
+    if (!query) {
+      return list;
+    }
+    return list.filter((name) => name.toLowerCase().includes(query));
   }
 
   protected clearOtherSearches(activeField: 'unit' | 'reg' | 'code'): void {
@@ -175,9 +402,21 @@ export class GuardPortal implements OnDestroy {
   }
 
   protected get filteredUnitOptions(): string[] {
+    let residents = this.residents;
+    let vehicles = this.vehicles;
+    
+    // Filter by complex or gated community
+    if (this.selectedComplex) {
+      residents = residents.filter((r) => r.complexId === this.selectedComplex);
+      vehicles = vehicles.filter((v) => v.complexId === this.selectedComplex);
+    } else if (this.selectedGatedCommunity) {
+      residents = residents.filter((r) => r.gatedCommunityId === this.selectedGatedCommunity);
+      vehicles = vehicles.filter((v) => v.gatedCommunityId === this.selectedGatedCommunity);
+    }
+    
     const units = new Set<string>([
-      ...this.residents.map((resident) => resident.unit),
-      ...this.vehicles.map((vehicle) => vehicle.unit),
+      ...residents.map((resident) => resident.unit),
+      ...vehicles.map((vehicle) => vehicle.unit),
     ]);
     const list = Array.from(units).sort();
     const query = this.searchUnit.trim().toLowerCase();
@@ -188,9 +427,21 @@ export class GuardPortal implements OnDestroy {
   }
 
   protected get filteredRegOptions(): string[] {
+    let vehicles = this.vehicles;
+    let codes = this.activeCodes;
+    
+    // Filter by complex or gated community
+    if (this.selectedComplex) {
+      vehicles = vehicles.filter((v) => v.complexId === this.selectedComplex);
+      codes = codes.filter((c) => c.complexId === this.selectedComplex);
+    } else if (this.selectedGatedCommunity) {
+      vehicles = vehicles.filter((v) => v.gatedCommunityId === this.selectedGatedCommunity);
+      codes = codes.filter((c) => c.gatedCommunityId === this.selectedGatedCommunity);
+    }
+    
     const allVehicles = [
-      ...this.vehicles,
-      ...this.activeCodes
+      ...vehicles,
+      ...codes
         .filter((code) => code.isDriving && code.vehicle)
         .map((code) => ({
           regNumber: code.vehicle?.registration ?? '',
@@ -199,6 +450,8 @@ export class GuardPortal implements OnDestroy {
           color: code.vehicle?.color ?? '',
           unit: code.unit,
           owner: code.visitorName,
+          complexId: code.complexId,
+          gatedCommunityId: code.gatedCommunityId,
         })),
     ];
     const list = allVehicles.map((vehicle) => vehicle.regNumber).sort();
@@ -210,18 +463,39 @@ export class GuardPortal implements OnDestroy {
   }
 
   protected get filteredResidents() {
+    let residents = this.residents;
+    
+    // Filter by complex or gated community
+    if (this.selectedComplex) {
+      residents = residents.filter((r) => r.complexId === this.selectedComplex);
+    } else if (this.selectedGatedCommunity) {
+      residents = residents.filter((r) => r.gatedCommunityId === this.selectedGatedCommunity);
+    }
+    
     const unitQuery = this.searchUnit.trim().toLowerCase();
     if (!unitQuery) {
-      return this.residents;
+      return residents;
     }
-    return this.residents.filter((resident) => resident.unit.toLowerCase().includes(unitQuery));
+    return residents.filter((resident) => resident.unit.toLowerCase().includes(unitQuery));
   }
 
   protected get filteredVehicles() {
+    let vehicles = this.vehicles;
+    let codes = this.activeCodes;
+    
+    // Filter by complex or gated community
+    if (this.selectedComplex) {
+      vehicles = vehicles.filter((v) => v.complexId === this.selectedComplex);
+      codes = codes.filter((c) => c.complexId === this.selectedComplex);
+    } else if (this.selectedGatedCommunity) {
+      vehicles = vehicles.filter((v) => v.gatedCommunityId === this.selectedGatedCommunity);
+      codes = codes.filter((c) => c.gatedCommunityId === this.selectedGatedCommunity);
+    }
+    
     const regQuery = this.searchReg.trim().toLowerCase();
     const allVehicles = [
-      ...this.vehicles,
-      ...this.activeCodes
+      ...vehicles,
+      ...codes
         .filter((code) => code.isDriving && code.vehicle)
         .map((code) => ({
           regNumber: code.vehicle?.registration ?? '',
@@ -230,6 +504,8 @@ export class GuardPortal implements OnDestroy {
           color: code.vehicle?.color ?? '',
           unit: code.unit,
           owner: code.visitorName,
+          complexId: code.complexId,
+          gatedCommunityId: code.gatedCommunityId,
         })),
     ];
     if (!regQuery) {

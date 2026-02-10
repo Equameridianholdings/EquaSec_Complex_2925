@@ -8,7 +8,7 @@
       <div>
         <h1>Guard Portal</h1>
         <p class="guard-name">{{ guardName }}</p>
-        <p class="complex-name">Complex 2925 Fleurhof</p>
+        <p class="complex-name">{{ selectedComplexName }}</p>
       </div>
     </div>
     <div class="status-pill">On Duty • Online</div>
@@ -18,10 +18,67 @@
     <div class="section-title">
       <div>
         <h2>Quick Search</h2>
-        <span class="helper">Search by access code, unit, or registration number.</span>
+        <span class="helper">Search by gated community, complex, access code, unit, or registration number.</span>
       </div>
     </div>
     <div class="search-grid">
+      <div class="search-field">
+        <label for="searchGatedCommunity">Gated Community</label>
+        <div class="search-input-wrapper">
+          <input
+            id="searchGatedCommunity"
+            type="text"
+            placeholder="Select gated community"
+            [(ngModel)]="searchGatedCommunity"
+            class="search-input"
+            (input)="updateGatedCommunitySearch($event)"
+            (focus)="setGatedCommunityDropdown(true)"
+            (blur)="setGatedCommunityDropdown(false)"
+          >
+          <button
+            *ngIf="selectedGatedCommunity"
+            type="button"
+            class="clear-btn"
+            (click)="clearGatedCommunity()"
+            title="Clear gated community"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="typeahead-list" *ngIf="showGatedCommunityOptions && filteredGatedCommunityOptions.length">
+          <button
+            type="button"
+            class="typeahead-item"
+            *ngFor="let gc of gatedCommunities"
+            (mousedown)="selectGatedCommunity(gc.id)"
+          >
+            {{ gc.name }}
+          </button>
+        </div>
+      </div>
+      <div class="search-field">
+        <label for="searchComplex">Complex</label>
+        <input
+          id="searchComplex"
+          type="text"
+          placeholder="Select complex"
+          [(ngModel)]="searchComplex"
+          class="search-input"
+          (input)="updateComplexSearch($event)"
+          (focus)="setComplexDropdown(true)"
+          (blur)="setComplexDropdown(false)"
+        >
+        <div class="typeahead-list" *ngIf="showComplexOptions && filteredComplexOptions.length">
+          <button
+            type="button"
+            class="typeahead-item"
+            *ngFor="let complex of complexes"
+            (mousedown)="selectComplex(complex.id)"
+          >
+            {{ complex.name }}
+          </button>
+        </div>
+      </div>
       <div class="search-field">
         <label for="searchCode">Access Code</label>
         <input

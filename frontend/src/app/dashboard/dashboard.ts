@@ -11,12 +11,24 @@ import { Router } from '@angular/router';
   styleUrl: './dashboard.css',
 })
 export class Dashboard implements OnDestroy {
-  @ViewChild('subtenantCameraVideo') private readonly subtenantCameraVideo?: ElementRef<HTMLVideoElement>;
-  @ViewChild('subtenantCameraCanvas') private readonly subtenantCameraCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('cameraInput') cameraInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('profileCameraVideo') private readonly profileCameraVideo?: ElementRef<HTMLVideoElement>;
+  @ViewChild('profileCameraCanvas') private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
 
   protected isBookingModalOpen = false;
   protected isConfirmationModalOpen = false;
   protected isSubtenantModalOpen = false;
+  protected isPanicConfirmationOpen = false;
+  protected isHoldingSos = false;
+  protected showSosSuccess = false;
+  protected isUpdateDetailsModalOpen = false;
+  protected profilePhotoData = '';
+  protected cameraError = '';
+  protected hasCameraStream = false;
+  protected isPhotoCameraModalOpen = false;
+  private profileCameraStream: MediaStream | null = null;
+  private sosHoldTimer: number | null = null;
+  private sosAutoCloseTimer: number | null = null;
   protected readonly profileName = 'Kamo';
   protected readonly profilePhotoUrl = '';
   protected isDriving = false;
@@ -63,15 +75,66 @@ export class Dashboard implements OnDestroy {
   };
   protected editingSubtenantId: string | null = null;
   protected editingVehicleId: string | null = null;
-  protected subtenantCameraError = '';
-  protected hasSubtenantCameraStream = false;
-  private subtenantCameraStream: MediaStream | null = null;
   protected isVehicleModalOpen = false;
 
   constructor(private readonly router: Router) {}
 
   protected openBookingModal(): void {
     this.isBookingModalOpen = true;
+  }
+
+  protected onPanicButtonClick(): void {
+    this.isPanicConfirmationOpen = true;
+    console.warn('PANIC BUTTON ACTIVATED - Alert sent to security team');
+  }
+
+  protected startSosHold(event: Event): void {
+    event.preventDefault();
+    if (this.isHoldingSos || this.showSosSuccess) {
+      return;
+    }
+
+    this.isHoldingSos = true;
+    this.clearSosHoldTimer();
+    this.sosHoldTimer = window.setTimeout(() => {
+      this.triggerSosSuccess();
+    }, 5000);
+  }
+
+  protected endSosHold(): void {
+    if (!this.isHoldingSos) {
+      return;
+    }
+    this.isHoldingSos = false;
+    this.clearSosHoldTimer();
+  }
+
+  private triggerSosSuccess(): void {
+    this.isHoldingSos = false;
+    this.clearSosHoldTimer();
+    this.showSosSuccess = true;
+    this.clearSosAutoCloseTimer();
+    this.sosAutoCloseTimer = window.setTimeout(() => {
+      window.location.reload();
+    }, 5000);
+  }
+
+  private clearSosHoldTimer(): void {
+    if (this.sosHoldTimer !== null) {
+      window.clearTimeout(this.sosHoldTimer);
+      this.sosHoldTimer = null;
+    }
+  }
+
+  private clearSosAutoCloseTimer(): void {
+    if (this.sosAutoCloseTimer !== null) {
+      window.clearTimeout(this.sosAutoCloseTimer);
+      this.sosAutoCloseTimer = null;
+    }
+  }
+
+  protected closePanicConfirmation(): void {
+    this.isPanicConfirmationOpen = false;
   }
 
   protected closeBookingModal(): void {
@@ -81,16 +144,108 @@ export class Dashboard implements OnDestroy {
 
   protected openSubtenantModal(): void {
     this.isSubtenantModalOpen = true;
-    this.subtenantCameraError = '';
   }
 
   protected closeSubtenantModal(): void {
     this.isSubtenantModalOpen = false;
-    this.stopSubtenantCamera();
   }
 
   protected openVehicleModal(): void {
     this.isVehicleModalOpen = true;
+  }
+
+  protected openUpdateDetailsModal(): void {
+    this.isUpdateDetailsModalOpen = true;
+  }
+
+  protected closeUpdateDetailsModal(): void {
+    this.isUpdateDetailsModalOpen = false;
+  }
+
+  protected triggerCameraInput(): void {
+    this.isPhotoCameraModalOpen = true;
+    setTimeout(() => {
+      void this.startProfileCamera();
+    }, 100);
+  }
+
+  protected onPhotoCapture(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = (e: ProgressEvent<FileReader>) => {
+        this.profilePhotoData = e.target?.result as string;
+        console.log('Photo captured:', this.profilePhotoData);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  protected async startProfileCamera(): Promise<void> {
+    this.cameraError = '';
+    this.profilePhotoData = '';
+
+    try {
+      this.profileCameraStream?.getTracks().forEach((track) => track.stop());
+      this.profileCameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false,
+      });
+
+      const video = this.profileCameraVideo?.nativeElement;
+      if (video) {
+        video.srcObject = this.profileCameraStream;
+        await video.play();
+      }
+      this.hasCameraStream = true;
+    } catch (error) {
+      this.cameraError = 'Unable to access the camera. Please allow camera permissions.';
+      this.profileCameraStream?.getTracks().forEach((track) => track.stop());
+      this.profileCameraStream = null;
+      this.hasCameraStream = false;
+    }
+  }
+
+  protected captureProfilePhoto(): void {
+    const video = this.profileCameraVideo?.nativeElement;
+    const canvas = this.profileCameraCanvas?.nativeElement;
+    if (!video || !canvas) {
+      return;
+    }
+
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return;
+    }
+
+    context.drawImage(video, 0, 0, width, height);
+    this.profilePhotoData = canvas.toDataURL('image/jpeg', 0.9);
+    this.stopProfileCamera();
+  }
+
+  protected retakeProfilePhoto(): void {
+    void this.startProfileCamera();
+  }
+
+  protected closeProfilePhotoModal(): void {
+    this.stopProfileCamera();
+    this.isPhotoCameraModalOpen = false;
+  }
+
+  protected stopProfileCamera(): void {
+    this.profileCameraStream?.getTracks().forEach((track) => track.stop());
+    this.profileCameraStream = null;
+    this.hasCameraStream = false;
+    const video = this.profileCameraVideo?.nativeElement;
+    if (video) {
+      video.srcObject = null;
+    }
   }
 
   protected closeVehicleModal(): void {
@@ -230,66 +385,7 @@ export class Dashboard implements OnDestroy {
     this.closeVehicleModal();
   }
 
-  protected async startSubtenantCamera(): Promise<void> {
-    this.subtenantCameraError = '';
-    this.subtenantForm.photoDataUrl = '';
 
-    try {
-      this.subtenantCameraStream?.getTracks().forEach((track) => track.stop());
-      this.subtenantCameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-        audio: false,
-      });
-
-      const video = this.subtenantCameraVideo?.nativeElement;
-      if (video) {
-        video.srcObject = this.subtenantCameraStream;
-        await video.play();
-      }
-      this.hasSubtenantCameraStream = true;
-    } catch (error) {
-      this.subtenantCameraError = 'Unable to access the camera. Please allow camera permissions.';
-      this.subtenantCameraStream?.getTracks().forEach((track) => track.stop());
-      this.subtenantCameraStream = null;
-      this.hasSubtenantCameraStream = false;
-    }
-  }
-
-  protected captureSubtenantPhoto(): void {
-    const video = this.subtenantCameraVideo?.nativeElement;
-    const canvas = this.subtenantCameraCanvas?.nativeElement;
-    if (!video || !canvas) {
-      return;
-    }
-
-    const width = video.videoWidth || 640;
-    const height = video.videoHeight || 480;
-    canvas.width = width;
-    canvas.height = height;
-
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return;
-    }
-
-    context.drawImage(video, 0, 0, width, height);
-    this.subtenantForm.photoDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    this.stopSubtenantCamera();
-  }
-
-  protected retakeSubtenantPhoto(): void {
-    void this.startSubtenantCamera();
-  }
-
-  protected stopSubtenantCamera(): void {
-    this.subtenantCameraStream?.getTracks().forEach((track) => track.stop());
-    this.subtenantCameraStream = null;
-    this.hasSubtenantCameraStream = false;
-    const video = this.subtenantCameraVideo?.nativeElement;
-    if (video) {
-      video.srcObject = null;
-    }
-  }
 
   protected getSubtenantInitials(name: string, surname: string): string {
     const first = (name || '').trim().charAt(0).toUpperCase();
@@ -308,7 +404,6 @@ export class Dashboard implements OnDestroy {
       photoDataUrl: '',
     };
     this.editingSubtenantId = null;
-    this.subtenantCameraError = '';
   }
 
   private resetVehicleForm(): void {
@@ -343,6 +438,7 @@ export class Dashboard implements OnDestroy {
   }
 
   public ngOnDestroy(): void {
-    this.stopSubtenantCamera();
+    this.clearSosHoldTimer();
+    this.clearSosAutoCloseTimer();
   }
 }
