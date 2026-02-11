@@ -1,21 +1,19 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 
 @Component({
-  selector: 'app-guard-login',
+  selector: 'app-security-manager-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
-  templateUrl: './guard-login.html',
-  styleUrl: './guard-login.css',
+  imports: [CommonModule, FormsModule],
+  templateUrl: './security-manager-login.html',
+  styleUrl: './security-manager-login.css',
 })
-export class GuardLogin {
+export class SecurityManagerLogin {
   protected email = '';
-  protected codeDigits = Array(6).fill('');
+  protected pinDigits = Array(6).fill('');
   protected errorMessage = '';
-  private readonly adminEmail = 'kkpartners@equameridianholdings.com';
-  private readonly adminPin = '654321';
   private readonly securityManagerEmail = 'kk@sec';
   private readonly securityManagerPin = '246800';
 
@@ -29,7 +27,7 @@ export class GuardLogin {
 
     const value = (input.value || '').replace(/\D/g, '').slice(-1);
     input.value = value;
-    this.codeDigits[index] = value;
+    this.pinDigits[index] = value;
     this.errorMessage = '';
 
     if (value && next) {
@@ -56,12 +54,12 @@ export class GuardLogin {
     prev.select();
   }
 
-  protected get guardCode(): string {
-    return this.codeDigits.join('');
+  protected get securityPin(): string {
+    return this.pinDigits.join('');
   }
 
-  protected get isCodeComplete(): boolean {
-    return this.codeDigits.every((digit) => digit.length === 1);
+  protected get isPinComplete(): boolean {
+    return this.pinDigits.every((digit) => digit.length === 1);
   }
 
   protected markTouched(event: Event): void {
@@ -74,29 +72,14 @@ export class GuardLogin {
 
   protected async signIn(): Promise<void> {
     const normalizedEmail = this.email.trim().toLowerCase();
-    const code = this.guardCode;
+    const pin = this.securityPin;
 
-    // Check if security manager
-    if (normalizedEmail === this.securityManagerEmail && code === this.securityManagerPin) {
+    if (normalizedEmail === this.securityManagerEmail && pin === this.securityManagerPin) {
       this.errorMessage = '';
       await this.router.navigate(['/security-manager']);
       return;
     }
 
-    // Check if admin
-    if (normalizedEmail === this.adminEmail && code === this.adminPin) {
-      this.errorMessage = '';
-      await this.router.navigate(['/admin-portal']);
-      return;
-    }
-
-    // Regular guard access
-    if (code === '123456') {
-      this.errorMessage = '';
-      await this.router.navigate(['/guard-portal']);
-      return;
-    }
-
-    this.errorMessage = 'Invalid email or access code. Please try again.';
+    this.errorMessage = 'Invalid email or PIN. Please try again.';
   }
 }

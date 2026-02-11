@@ -31,19 +31,6 @@
   </div>
 
   <div class="action-tiles">
-    <button 
-      type="button" 
-      class="tile-card panic-button"
-      (mousedown)="startSosHold($event)"
-      (touchstart)="startSosHold($event)"
-      (mouseup)="endSosHold()"
-      (mouseleave)="endSosHold()"
-      (touchend)="endSosHold()"
-    >
-      <span class="tile-icon">⚠</span>
-      <span class="tile-label" *ngIf="!isHoldingSos">Panic Button</span>
-      <span class="tile-label" *ngIf="isHoldingSos">Holding...</span>
-    </button>
     <button type="button" class="tile-card primary" (click)="openBookingModal()">
       <span class="tile-icon">+</span>
       <span class="tile-label">Book Visitor</span>
@@ -60,6 +47,10 @@
       <span class="tile-icon">🚗</span>
       <span class="tile-label">Register Vehicle</span>
     </button>
+    <button type="button" class="tile-card secondary" (click)="openChangePinModal()">
+      <span class="tile-icon">🔐</span>
+      <span class="tile-label">Change PIN</span>
+    </button>
     <button type="button" class="tile-card secondary">
       <span class="tile-icon">💳</span>
       <span class="tile-label">Make Payment</span>
@@ -74,21 +65,27 @@
     </button>
   </div>
 
-  <div class="panic-alert" *ngIf="isPanicConfirmationOpen">
-    <div class="panic-alert-content">
-      <span class="panic-alert-icon">⚠️</span>
-      <h3>Emergency Alert Sent</h3>
-      <p>Your emergency alert has been sent to the security team. Help is on the way.</p>
-      <button type="button" class="btn-close" (click)="closePanicConfirmation()">Confirm</button>
-    </div>
-  </div>
+  <button
+    type="button"
+    class="sos-fab"
+    [class.holding]="isHoldingSos"
+    (mousedown)="startSosHold($event)"
+    (touchstart)="startSosHold($event)"
+    (mouseup)="endSosHold()"
+    (mouseleave)="endSosHold()"
+    (touchend)="endSosHold()"
+    (touchcancel)="endSosHold()"
+    aria-label="Emergency SOS"
+  >
+    <span class="sos-text">SOS</span>
+    <span class="sos-sub">Hold 5s</span>
+  </button>
 
-  <div class="sos-success-overlay" *ngIf="showSosSuccess">
-    <div class="sos-success-content">
-      <div class="sos-success-icon">✓</div>
-      <h2>Emergency SOS Activated</h2>
-      <p>Your emergency signal has been sent to security. Help is on the way.</p>
-      <p class="sos-timer">Reloading...</p>
+  <div class="sos-modal" *ngIf="showSosSuccess">
+    <div class="sos-modal-card" role="alert" aria-live="assertive">
+      <div class="sos-icon">✅</div>
+      <h3>Alert Sent</h3>
+      <p>Emergency signal received. Help is on the way.</p>
     </div>
   </div>
 
@@ -104,15 +101,14 @@
       <small>Expires in 14 hours</small>
     </div>
     <div class="code-actions">
-      <a
-        class="btn-share btn-share-small"
-        href="https://wa.me/?text=Dear%20Visitor%2C%20you%20have%20been%20invited%20to%20visit%20Complex%202925%20Fleurhof%20on%202026-01-16%20from%2015%3A00%20to%202026-01-16%20and%2023%3A59.%20Upon%20arrival%2C%20please%20proceed%20directly%20to%20the%20Gatehouse%20and%20present%20the%20following%20PIN%20to%20the%20Security%20Officer%20for%20access%3A%20131249.%20Thank%20you.%20Estate%20Management."
-        target="_blank"
-        rel="noopener"
+      <button
+        type="button"
+        class="btn-whatsapp-share"
+        (click)="shareVisitorCode('882 190', 'Thabo Moloi', '14 hours')"
+        title="Share visitor code on WhatsApp"
       >
-        <img src="/ShareIcon.png" alt="Share" class="share-icon-img" />
-        Share with WhatsApp
-      </a>
+        <img src="/Screenshot 2026-02-11 174917.png" alt="Share" />
+      </button>
     </div>
   </div>
 
@@ -284,16 +280,17 @@
           <p><strong>Colour:</strong> {{ vehicleColor }}</p>
         </ng-container>
       </div>
-      <div class="access-code">131249</div>
-      <a
-        class="btn-share btn-share-small"
-        href="https://wa.me/?text=Dear%20Visitor%2C%20you%20have%20been%20invited%20to%20visit%20Complex%202925%20Fleurhof%20on%202026-01-16%20from%2015%3A00%20to%202026-01-16%20and%2023%3A59.%20Upon%20arrival%2C%20please%20proceed%20directly%20to%20the%20Gatehouse%20and%20present%20the%20following%20PIN%20to%20the%20Security%20Officer%20for%20access%3A%20131249.%20Thank%20you.%20Estate%20Management."
-        target="_blank"
-        rel="noopener"
-      >
-        <img src="/ShareIcon.png" alt="Share" class="share-icon-img" />
-        Share with WhatsApp
-      </a>
+      <div class="code-share-row">
+        <div class="access-code">131249</div>
+        <button
+          type="button"
+          class="btn-whatsapp-share"
+          (click)="shareVisitorCode('131249', visitorName + ' ' + visitorSurname, visitorCell)"
+          title="Share visitor code on WhatsApp"
+        >
+          <img src="/Screenshot 2026-02-11 174917.png" alt="Share" />
+        </button>
+      </div>
     </div>
 
     <div class="modal-actions">
@@ -509,6 +506,62 @@
       <button type="button" class="btn-secondary" (click)="closeUpdateDetailsModal()"><span class="btn-icon-inline">✕</span>Cancel</button>
       <button type="button" class="btn-main"><span class="btn-icon-inline">✓</span>Save Changes</button>
     </div>
+  </div>
+</div>
+
+<!-- Change PIN Modal -->
+<div class="modal-backdrop" *ngIf="isChangePinModalOpen" (click)="closeChangePinModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="change-pin-title" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="change-pin-title">Change Access PIN</h2>
+      <button class="btn-icon" type="button" (click)="closeChangePinModal()">✕</button>
+    </div>
+
+    <form class="modal-form" #changePinForm>
+      <div class="form-group">
+        <label for="current-pin-1">Current PIN</label>
+        <div class="pin-inputs" aria-label="Current 6 digit PIN">
+          <input id="current-pin-1" name="current-pin1" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 1" (input)="onCurrentPinInput($event, 0)" (keydown)="onPinKeydown($event, 0, 'current')">
+          <input id="current-pin-2" name="current-pin2" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 2" (input)="onCurrentPinInput($event, 1)" (keydown)="onPinKeydown($event, 1, 'current')">
+          <input id="current-pin-3" name="current-pin3" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 3" (input)="onCurrentPinInput($event, 2)" (keydown)="onPinKeydown($event, 2, 'current')">
+          <input id="current-pin-4" name="current-pin4" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 4" (input)="onCurrentPinInput($event, 3)" (keydown)="onPinKeydown($event, 3, 'current')">
+          <input id="current-pin-5" name="current-pin5" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 5" (input)="onCurrentPinInput($event, 4)" (keydown)="onPinKeydown($event, 4, 'current')">
+          <input id="current-pin-6" name="current-pin6" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 6" (input)="onCurrentPinInput($event, 5)" (keydown)="onPinKeydown($event, 5, 'current')">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="new-pin-1">New PIN</label>
+        <div class="pin-inputs" aria-label="New 6 digit PIN">
+          <input id="new-pin-1" name="new-pin1" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 1" (input)="onNewPinInput($event, 0)" (keydown)="onPinKeydown($event, 0, 'new')">
+          <input id="new-pin-2" name="new-pin2" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 2" (input)="onNewPinInput($event, 1)" (keydown)="onPinKeydown($event, 1, 'new')">
+          <input id="new-pin-3" name="new-pin3" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 3" (input)="onNewPinInput($event, 2)" (keydown)="onPinKeydown($event, 2, 'new')">
+          <input id="new-pin-4" name="new-pin4" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 4" (input)="onNewPinInput($event, 3)" (keydown)="onPinKeydown($event, 3, 'new')">
+          <input id="new-pin-5" name="new-pin5" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 5" (input)="onNewPinInput($event, 4)" (keydown)="onPinKeydown($event, 4, 'new')">
+          <input id="new-pin-6" name="new-pin6" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 6" (input)="onNewPinInput($event, 5)" (keydown)="onPinKeydown($event, 5, 'new')">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="confirm-pin-1">Confirm PIN</label>
+        <div class="pin-inputs" aria-label="Confirm 6 digit PIN">
+          <input id="confirm-pin-1" name="confirm-pin1" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 1" (input)="onConfirmPinInput($event, 0)" (keydown)="onPinKeydown($event, 0, 'confirm')">
+          <input id="confirm-pin-2" name="confirm-pin2" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 2" (input)="onConfirmPinInput($event, 1)" (keydown)="onPinKeydown($event, 1, 'confirm')">
+          <input id="confirm-pin-3" name="confirm-pin3" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 3" (input)="onConfirmPinInput($event, 2)" (keydown)="onPinKeydown($event, 2, 'confirm')">
+          <input id="confirm-pin-4" name="confirm-pin4" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 4" (input)="onConfirmPinInput($event, 3)" (keydown)="onPinKeydown($event, 3, 'confirm')">
+          <input id="confirm-pin-5" name="confirm-pin5" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 5" (input)="onConfirmPinInput($event, 4)" (keydown)="onPinKeydown($event, 4, 'confirm')">
+          <input id="confirm-pin-6" name="confirm-pin6" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 6" (input)="onConfirmPinInput($event, 5)" (keydown)="onPinKeydown($event, 5, 'confirm')">
+        </div>
+      </div>
+
+      <div *ngIf="changePinError" class="error-message">{{ changePinError }}</div>
+      <div *ngIf="changePinSuccess" class="success-message">{{ changePinSuccess }}</div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="closeChangePinModal()">Cancel</button>
+        <button type="button" class="btn-main" [disabled]="changePinDigits.current.join('').length !== 6 || changePinDigits.new.join('').length !== 6 || changePinDigits.confirm.join('').length !== 6 || changePinDigits.new.join('') !== changePinDigits.confirm.join('')" (click)="submitChangePinForm()">Update PIN</button>
+      </div>
+    </form>
   </div>
 </div>
 
