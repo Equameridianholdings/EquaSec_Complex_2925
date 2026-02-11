@@ -18,11 +18,18 @@ export class Dashboard implements OnDestroy {
   protected isBookingModalOpen = false;
   protected isConfirmationModalOpen = false;
   protected isSubtenantModalOpen = false;
-  protected isPanicConfirmationOpen = false;
   protected isHoldingSos = false;
   protected showSosSuccess = false;
   protected isUpdateDetailsModalOpen = false;
+  protected isChangePinModalOpen = false;
   protected profilePhotoData = '';
+  protected changePinDigits = {
+    current: ['', '', '', '', '', ''],
+    new: ['', '', '', '', '', ''],
+    confirm: ['', '', '', '', '', '']
+  };
+  protected changePinError = '';
+  protected changePinSuccess = '';
   protected cameraError = '';
   protected hasCameraStream = false;
   protected isPhotoCameraModalOpen = false;
@@ -83,11 +90,6 @@ export class Dashboard implements OnDestroy {
     this.isBookingModalOpen = true;
   }
 
-  protected onPanicButtonClick(): void {
-    this.isPanicConfirmationOpen = true;
-    console.warn('PANIC BUTTON ACTIVATED - Alert sent to security team');
-  }
-
   protected startSosHold(event: Event): void {
     event.preventDefault();
     if (this.isHoldingSos || this.showSosSuccess) {
@@ -133,10 +135,6 @@ export class Dashboard implements OnDestroy {
     }
   }
 
-  protected closePanicConfirmation(): void {
-    this.isPanicConfirmationOpen = false;
-  }
-
   protected closeBookingModal(): void {
     this.isBookingModalOpen = false;
     this.resetBookingForm();
@@ -160,6 +158,127 @@ export class Dashboard implements OnDestroy {
 
   protected closeUpdateDetailsModal(): void {
     this.isUpdateDetailsModalOpen = false;
+  }
+
+  protected openChangePinModal(): void {
+    this.isChangePinModalOpen = true;
+    this.changePinDigits = {
+      current: ['', '', '', '', '', ''],
+      new: ['', '', '', '', '', ''],
+      confirm: ['', '', '', '', '', '']
+    };
+    this.changePinError = '';
+    this.changePinSuccess = '';
+  }
+
+  protected closeChangePinModal(): void {
+    this.isChangePinModalOpen = false;
+  }
+
+  protected onCurrentPinInput(event: Event, index: number): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+
+    const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
+    input.value = digit;
+    this.changePinDigits.current[index] = digit;
+
+    if (digit && input.nextElementSibling instanceof HTMLInputElement) {
+      input.nextElementSibling.focus();
+    }
+  }
+
+  protected onNewPinInput(event: Event, index: number): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+
+    const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
+    input.value = digit;
+    this.changePinDigits.new[index] = digit;
+
+    if (digit && input.nextElementSibling instanceof HTMLInputElement) {
+      input.nextElementSibling.focus();
+    }
+  }
+
+  protected onConfirmPinInput(event: Event, index: number): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+
+    const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
+    input.value = digit;
+    this.changePinDigits.confirm[index] = digit;
+
+    if (digit && input.nextElementSibling instanceof HTMLInputElement) {
+      input.nextElementSibling.focus();
+    }
+  }
+
+  protected onPinKeydown(event: KeyboardEvent, index: number, type: 'current' | 'new' | 'confirm'): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+
+    if (event.key === 'Backspace' && !input.value) {
+      const prev = input.previousElementSibling;
+      if (prev instanceof HTMLInputElement) {
+        this.changePinDigits[type][index - 1] = '';
+        prev.focus();
+      }
+    }
+  }
+
+  protected submitChangePinForm(): void {
+    const currentPin = this.changePinDigits.current.join('');
+    const newPin = this.changePinDigits.new.join('');
+    const confirmPin = this.changePinDigits.confirm.join('');
+
+    // Validate all PINs are 6 digits
+    if (currentPin.length !== 6 || !/^\d+$/.test(currentPin)) {
+      this.changePinError = 'Current PIN must be 6 digits.';
+      this.changePinSuccess = '';
+      return;
+    }
+
+    if (newPin.length !== 6 || !/^\d+$/.test(newPin)) {
+      this.changePinError = 'New PIN must be 6 digits.';
+      this.changePinSuccess = '';
+      return;
+    }
+
+    if (confirmPin.length !== 6 || !/^\d+$/.test(confirmPin)) {
+      this.changePinError = 'Confirm PIN must be 6 digits.';
+      this.changePinSuccess = '';
+      return;
+    }
+
+    // Validate PIN confirmation
+    if (newPin !== confirmPin) {
+      this.changePinError = 'New PINs do not match.';
+      this.changePinSuccess = '';
+      return;
+    }
+
+    // Check if current PIN matches new PIN
+    if (currentPin === newPin) {
+      this.changePinError = 'New PIN cannot be the same as current PIN.';
+      this.changePinSuccess = '';
+      return;
+    }
+
+    // Success
+    this.changePinError = '';
+    this.changePinSuccess = 'PIN changed successfully!';
+    setTimeout(() => {
+      this.closeChangePinModal();
+    }, 2000);
   }
 
   protected triggerCameraInput(): void {
@@ -435,6 +554,12 @@ export class Dashboard implements OnDestroy {
       return;
     }
     input.classList.add('touched');
+  }
+
+  protected shareVisitorCode(code: string, visitorName: string, expiresIn: string): void {
+    const message = encodeURIComponent(`Your visitor access code is: ${code}\n\nVisitor: ${visitorName}\nExpires: ${expiresIn}\n\nPlease share this with your visitor.`);
+    const whatsappURL = `https://wa.me/?text=${message}`;
+    window.open(whatsappURL, '_blank');
   }
 
   public ngOnDestroy(): void {

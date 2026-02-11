@@ -4,18 +4,18 @@
       <img class="logo" src="/favicon.png.png" alt="EquaSec logo">
       <div class="brand">
         <h2>EquaSec</h2>
-        <p>Portal Access</p>
+        <p>Security Manager Portal</p>
       </div>
     </div>
 
-    <form #guardLoginForm>
+    <form #securityManagerLoginForm>
       <div class="form-group">
-        <label for="guardEmail">Email Address</label>
+        <label for="securityEmail">Email Address</label>
         <input
           type="email"
-          id="guardEmail"
-          name="guardEmail"
-          placeholder="you@example.com"
+          id="securityEmail"
+          name="securityEmail"
+          placeholder="security@example.com"
           class="form-control"
           [(ngModel)]="email"
           (input)="markTouched($event)"
@@ -96,20 +96,12 @@
         <button
           type="button"
           class="btn-primary"
-          [disabled]="!guardLoginForm.checkValidity() || !isCodeComplete"
+          [disabled]="!securityManagerLoginForm.checkValidity() || !isPinComplete"
           (click)="signIn()"
         >
-          <span class="btn-icon-inline">🛡️</span>Sign In
+          Sign In
         </button>
-      </div>
-
-      <div class="footer-links">
-        <p>Resident login? <a routerLink="/login">Go to resident portal</a></p>
       </div>
     </form>
   </div>
-</div>
-
-<div class="page-footer">
-  <span>© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</span>
 </div>

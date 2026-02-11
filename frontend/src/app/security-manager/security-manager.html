@@ -1,0 +1,443 @@
+<div class="security-manager-container">
+  <!-- Header -->
+  <header class="manager-header">
+    <div class="header-content">
+      <div>
+        <p class="eyebrow">Security Operations</p>
+        <h1>Security Manager Dashboard</h1>
+        <p class="subtext">{{ securityManagerEmail }}</p>
+      </div>
+      <button class="btn-logout" (click)="logout()">Logout</button>
+    </div>
+  </header>
+
+  <!-- Summary Stats -->
+  <section class="summary-stats">
+    <div class="stat-card">
+      <div class="stat-value">{{ assignedComplexes.length }}</div>
+      <div class="stat-label">Assigned Complexes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ gatedCommunities.length }}</div>
+      <div class="stat-label">Gated Communities</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ employees.length }}</div>
+      <div class="stat-label">Total Employees</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ activeGuardsCount }}</div>
+      <div class="stat-label">Active Guards</div>
+    </div>
+  </section>
+
+  <!-- Main Grid -->
+  <div class="manager-grid">
+    <!-- Assigned Complexes Section -->
+    <section class="panel-section">
+      <div class="panel-header">
+        <h2>Assigned Complexes</h2>
+        <span class="helper">Complexes under your management</span>
+      </div>
+      <div class="complexes-grid">
+        <div class="complex-card" *ngFor="let complex of assignedComplexes">
+          <div class="complex-header">
+            <h3>{{ complex.name }}</h3>
+            <span class="badge" [class.active]="complex.status === 'active'" [class.inactive]="complex.status === 'inactive'">
+              {{ complex.status }}
+            </span>
+          </div>
+          <div class="complex-info">
+            <div class="info-row">
+              <span class="label">Location:</span>
+              <span class="value">{{ complex.location }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Units:</span>
+              <span class="value">{{ complex.totalUnits }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Employees:</span>
+              <span class="value">{{ complex.employees }}</span>
+            </div>
+          </div>
+          <button class="btn-view" (click)="openComplexDetails(complex)">View Details</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Security Manager Assignment Section -->
+    <section class="panel-section">
+      <div class="panel-header">
+        <h2>Security Management</h2>
+        <span class="helper">Assign security managers to complexes and gated communities</span>
+      </div>
+      <div class="security-managers-grid">
+        <div class="manager-card" *ngFor="let manager of securityManagers">
+          <div class="manager-profile">
+            <img [src]="manager.profilePicture" [alt]="manager.name" class="profile-picture">
+            <div class="manager-info">
+              <h3>{{ manager.name }} {{ manager.surname }}</h3>
+              <p class="position">{{ manager.position }}</p>
+              <p class="email">{{ manager.email }}</p>
+            </div>
+          </div>
+          <div class="manager-assignments">
+            <div class="assignment-info">
+              <span class="label">Complexes:</span>
+              <span class="value">{{ manager.assignedComplexes.length }}</span>
+            </div>
+            <div class="assignment-info">
+              <span class="label">Communities:</span>
+              <span class="value">{{ manager.assignedCommunities.length }}</span>
+            </div>
+          </div>
+          <button class="btn-assign" (click)="openAssignmentModal(manager)">Manage Assignment</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Employee Management Section -->
+    <section class="panel-section">
+      <div class="panel-header">
+        <h2>Employee Management</h2>
+        <button class="btn-add" (click)="openEmployeeModal()">+ Add Employee</button>
+      </div>
+
+      <!-- Search and Filter -->
+      <div class="search-filter">
+        <input type="text" class="search-input" placeholder="🔍 Search by name, email, or phone..." [(ngModel)]="searchTerm">
+        <select class="filter-select" [(ngModel)]="filterStatus">
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+
+      <!-- Employees Table -->
+      <div class="employees-table" *ngIf="filteredEmployees.length > 0; else noEmployees">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Position</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let emp of filteredEmployees">
+              <td class="emp-name">{{ emp.name }} {{ emp.surname }}</td>
+              <td class="emp-email">{{ emp.email }}</td>
+              <td class="emp-position">
+                <span class="position-badge" [class.guard]="emp.position === 'guard'" [class.supervisor]="emp.position === 'supervisor'" [class.manager]="emp.position === 'manager'">
+                  {{ emp.position }}
+                </span>
+              </td>
+              <td class="emp-status">
+                <span class="status-badge" [class.active]="emp.status === 'active'" [class.inactive]="emp.status === 'inactive'">
+                  {{ emp.status }}
+                </span>
+              </td>
+              <td class="emp-actions">
+                <button class="btn-icon" (click)="editEmployee(emp)" title="Edit">✏️</button>
+                <button class="btn-icon delete" (click)="openDeleteEmployeeModal(emp)" title="Delete">🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noEmployees>
+        <div class="empty-state">
+          <p>No employees found. Click "Add Employee" to get started.</p>
+        </div>
+      </ng-template>
+    </section>
+
+    <!-- Visitors Section -->
+    <section class="panel-section">
+      <div class="panel-header">
+        <div>
+          <h2>Visitors</h2>
+          <span class="helper">Filter visitors by complex or gated community</span>
+        </div>
+      </div>
+
+      <div class="search-filter visitor-filter">
+        <select class="filter-select" [(ngModel)]="visitorFilterType" (ngModelChange)="visitorFilterId = ''">
+          <option value="all">All Locations</option>
+          <option value="complex">By Complex</option>
+          <option value="community">By Gated Community</option>
+        </select>
+        <select class="filter-select" [(ngModel)]="visitorFilterId" [disabled]="visitorFilterType === 'all'">
+          <option value="">Select location</option>
+          <ng-container *ngIf="visitorFilterType === 'complex'">
+            <option *ngFor="let complex of assignedComplexes" [value]="complex.id">{{ complex.name }}</option>
+          </ng-container>
+          <ng-container *ngIf="visitorFilterType === 'community'">
+            <option *ngFor="let community of gatedCommunities" [value]="community.id">{{ community.name }}</option>
+          </ng-container>
+        </select>
+        <input type="date" class="filter-select" [(ngModel)]="visitorStartDate" aria-label="Start date">
+        <input type="date" class="filter-select" [(ngModel)]="visitorEndDate" aria-label="End date">
+      </div>
+
+      <div class="employees-table" *ngIf="filteredVisitors.length > 0; else noVisitors">
+        <table>
+          <thead>
+            <tr>
+              <th>Visitor</th>
+              <th>Visitor Number</th>
+              <th>Tenant</th>
+              <th>Tenant Number</th>
+              <th>Location</th>
+              <th>Visit Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let visitor of filteredVisitors">
+              <td class="emp-name">{{ visitor.name }} {{ visitor.surname }}</td>
+              <td class="emp-email">{{ visitor.phone }}</td>
+              <td>
+                <div class="visitor-tenant">{{ visitor.tenantName }}</div>
+                <div class="visitor-tenant-unit">{{ visitor.tenantUnit }}</div>
+              </td>
+              <td class="emp-email">{{ visitor.tenantPhone }}</td>
+              <td class="visitor-location">
+                <div class="visitor-location-primary">{{ getComplexName(visitor.complexId) }}</div>
+                <div class="visitor-location-secondary" *ngIf="visitor.communityId">{{ getCommunityName(visitor.communityId) }}</div>
+              </td>
+              <td>{{ visitor.visitDate | date: 'MMM dd, yyyy, HH:mm' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noVisitors>
+        <div class="empty-state">
+          <p>No visitors match the selected filter.</p>
+        </div>
+      </ng-template>
+    </section>
+  </div>
+
+  <!-- Add/Edit Employee Modal -->
+  <div class="modal-backdrop" *ngIf="isEmployeeModalOpen" (click)="closeEmployeeModal()">
+    <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ editingEmployeeId ? 'Edit Employee' : 'Add Employee' }}</h2>
+        <button class="btn-close" (click)="closeEmployeeModal()">✕</button>
+      </div>
+
+      <form class="modal-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="emp-name">Name *</label>
+            <input id="emp-name" type="text" class="form-control" placeholder="First name" [(ngModel)]="employeeForm.name" name="name" (blur)="markTouched($event)">
+          </div>
+          <div class="form-group">
+            <label for="emp-surname">Surname *</label>
+            <input id="emp-surname" type="text" class="form-control" placeholder="Last name" [(ngModel)]="employeeForm.surname" name="surname" (blur)="markTouched($event)">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="emp-email">Email *</label>
+            <input id="emp-email" type="email" class="form-control" placeholder="email@example.com" [(ngModel)]="employeeForm.email" name="email" (blur)="markTouched($event)">
+          </div>
+          <div class="form-group">
+            <label for="emp-phone">Phone *</label>
+            <input id="emp-phone" type="tel" class="form-control" placeholder="+27 81 234 5678" [(ngModel)]="employeeForm.phone" name="phone" (blur)="markTouched($event)">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="emp-position">Position *</label>
+            <input id="emp-position" type="text" class="form-control" placeholder="Guard" [(ngModel)]="employeeForm.position" name="position" (blur)="markTouched($event)">
+          </div>
+          <div class="form-group">
+            <label for="emp-status">Status</label>
+            <select id="emp-status" class="form-control" [(ngModel)]="employeeForm.status" name="status">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <div *ngIf="employeeError" class="error-message">{{ employeeError }}</div>
+        <div *ngIf="employeeSuccess" class="success-message">{{ employeeSuccess }}</div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" (click)="closeEmployeeModal()">Cancel</button>
+          <button type="button" class="btn-primary" (click)="submitEmployeeForm()">
+            {{ editingEmployeeId ? 'Update Employee' : 'Add Employee' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Employee Modal -->
+  <div class="modal-backdrop" *ngIf="isDeleteEmployeeModalOpen" (click)="closeDeleteEmployeeModal()">
+    <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Delete Employee</h2>
+        <button class="btn-close" (click)="closeDeleteEmployeeModal()">✕</button>
+      </div>
+
+      <div class="modal-content">
+        <p>
+          Are you sure you want to delete
+          <strong>{{ selectedEmployeeToDelete?.name }} {{ selectedEmployeeToDelete?.surname }}</strong>?
+          This action cannot be undone.
+        </p>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="closeDeleteEmployeeModal()">Cancel</button>
+        <button type="button" class="btn-primary" (click)="confirmDeleteEmployee()">Delete Employee</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Complex Details Modal -->
+  <div class="modal-backdrop" *ngIf="isComplexDetailModalOpen" (click)="closeComplexDetails()">
+    <div class="modal large" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ selectedComplex?.name }}</h2>
+        <button class="btn-close" (click)="closeComplexDetails()">✕</button>
+      </div>
+
+      <div class="modal-content">
+        <div class="details-grid">
+          <div class="detail-item">
+            <span class="detail-label">Location:</span>
+            <span class="detail-value">{{ selectedComplex?.location }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Status:</span>
+            <span class="detail-value">
+              <span class="badge" [class.active]="selectedComplex?.status === 'active'">{{ selectedComplex?.status }}</span>
+            </span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Total Units:</span>
+            <span class="detail-value">{{ selectedComplex?.totalUnits }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Assigned Guards:</span>
+            <span class="detail-value">{{ selectedComplexEmployees.length }}</span>
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <h3>Contract Information</h3>
+        <div class="contract-info-block">
+          <div class="contract-info-row">
+            <span class="contract-info-label">Contract Started:</span>
+            <span class="contract-info-value">{{ selectedComplex?.contractStartDate | date: 'MMM dd, yyyy' }}</span>
+          </div>
+          <div class="contract-info-row">
+            <span class="contract-info-label">Contract Ends:</span>
+            <input
+              type="date"
+              class="contract-date-input"
+              [(ngModel)]="selectedComplex.contractEndDate"
+              aria-label="Contract end date"
+            >
+            <span class="days-remaining" [class.warning]="isContractExpiringSoon(selectedComplex?.contractEndDate)" [class.danger]="isContractExpired(selectedComplex?.contractEndDate)">
+              ({{ getContractDaysRemaining(selectedComplex?.contractEndDate) }} days)
+            </span>
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <h3>Assigned Employees</h3>
+        <div class="employees-list" *ngIf="selectedComplexEmployees.length > 0; else noAssignedEmployees">
+          <div class="employee-item" *ngFor="let emp of selectedComplexEmployees">
+            <div class="employee-info">
+              <div class="emp-name">{{ emp.name }} {{ emp.surname }}</div>
+              <div class="emp-details">
+                <span class="position-badge" [class.guard]="emp.position === 'guard'" [class.supervisor]="emp.position === 'supervisor'" [class.manager]="emp.position === 'manager'">
+                  {{ emp.position }}
+                </span>
+                <span class="emp-email">{{ emp.email }}</span>
+                <span class="emp-phone">{{ emp.phone }}</span>
+              </div>
+            </div>
+            <span class="status-badge" [class.active]="emp.status === 'active'">{{ emp.status }}</span>
+          </div>
+        </div>
+        <ng-template #noAssignedEmployees>
+          <p class="empty-state">No employees assigned to this complex yet.</p>
+        </ng-template>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-primary" (click)="closeComplexDetails()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assignment Modal -->
+  <div class="modal-backdrop" *ngIf="isAssignmentModalOpen" (click)="closeAssignmentModal()">
+    <div class="modal large" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Manage Assignment - {{ selectedSecurityManager?.name }} {{ selectedSecurityManager?.surname }}</h2>
+        <button class="btn-close" (click)="closeAssignmentModal()">✕</button>
+      </div>
+
+      <div class="modal-content">
+        <form class="modal-form">
+          <!-- Complexes Assignment -->
+          <div class="assignment-section">
+            <h3>Assign Complexes</h3>
+            <div class="checkbox-grid">
+              <div class="checkbox-item" *ngFor="let complex of assignedComplexes">
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    [checked]="assignmentForm.assignedComplexes.includes(complex.id)"
+                    (change)="toggleComplexAssignment(complex.id)"
+                  >
+                  <span>{{ complex.name }} ({{ complex.location }})</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-divider"></div>
+
+          <!-- Communities Assignment -->
+          <div class="assignment-section">
+            <h3>Assign Gated Communities</h3>
+            <div class="checkbox-grid">
+              <div class="checkbox-item" *ngFor="let community of gatedCommunities">
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    [checked]="assignmentForm.assignedCommunities.includes(community.id)"
+                    (change)="toggleCommunityAssignment(community.id)"
+                  >
+                  <span>{{ community.name }} ({{ getComplexName(community.complexId) }})</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="assignmentError" class="error-message">{{ assignmentError }}</div>
+          <div *ngIf="assignmentSuccess" class="success-message">{{ assignmentSuccess }}</div>
+        </form>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="closeAssignmentModal()">Cancel</button>
+        <button type="button" class="btn-primary" (click)="submitAssignmentForm()">Save Assignment</button>
+      </div>
+    </div>
+  </div>
+</div>
