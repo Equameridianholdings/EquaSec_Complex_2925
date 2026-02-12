@@ -17,105 +17,10 @@
           name="email"
           placeholder="tenant@example.com" 
           class="form-control"
+          [(ngModel)]="email"
           (input)="markTouched($event)"
           required
         >
-      </div>
-
-      <div class="form-group">
-        <label for="gatedCommunity">Gated Community (Optional)</label>
-        <input
-          type="text"
-          id="gatedCommunitySearch"
-          name="gatedCommunitySearch"
-          placeholder="Type to search gated communities or leave blank for none"
-          class="form-control typeahead-input"
-          [disabled]="isGatedCommunityLocked"
-          (input)="updateGatedCommunitySearch($event); markTouched($event)"
-          (focus)="setGatedCommunityDropdown(true)"
-          (blur)="setGatedCommunityDropdown(false)"
-        >
-        <div class="typeahead-list" *ngIf="!isGatedCommunityLocked && showGatedCommunityOptions && gatedCommunitySearch && filteredGatedCommunities.length">
-          <button
-            type="button"
-            class="typeahead-item"
-            *ngFor="let gatedCommunity of filteredGatedCommunities"
-            (mousedown)="selectGatedCommunityOption(gatedCommunity)"
-          >
-            {{ gatedCommunity.name }}
-          </button>
-        </div>
-        <div class="typeahead-selected" *ngIf="isGatedCommunityLocked">
-          <span>Selected: {{ selectedGatedCommunityName }}</span>
-          <button type="button" class="typeahead-change" (click)="clearGatedCommunitySelection()">Change</button>
-        </div>
-        <small *ngIf="!isGatedCommunity">Showing complexes outside gated communities.</small>
-        <small *ngIf="isGatedCommunity && selectedGatedCommunityId">Showing complexes in {{ selectedGatedCommunityName }}.</small>
-        <small *ngIf="showGatedCommunityOptions && gatedCommunitySearch && !filteredGatedCommunities.length">No gated communities found.</small>
-      </div>
-
-      <div class="form-group">
-        <label for="complex">Complex Number (Optional for Gated Communities)</label>
-        <input
-          type="text"
-          id="complexSearch"
-          name="complexSearch"
-          placeholder="Search complex or skip if you live in a house..."
-          class="form-control typeahead-input"
-          [disabled]="isComplexLocked"
-          (input)="updateComplexSearch($event); markTouched($event)"
-          (focus)="setComplexDropdown(true)"
-          (blur)="setComplexDropdown(false)"
-        >
-        <div class="typeahead-list" *ngIf="!isComplexLocked && showComplexOptions && complexSearch && filteredComplexes.length">
-          <button
-            type="button"
-            class="typeahead-item"
-            *ngFor="let complex of filteredComplexes"
-            (mousedown)="selectComplex(complex)"
-          >
-            {{ complex.name }}
-          </button>
-        </div>
-        <div class="typeahead-selected" *ngIf="isComplexLocked">
-          <span>Selected: {{ selectedComplexName }}</span>
-          <button type="button" class="typeahead-change" (click)="clearComplexSelection()">Change</button>
-        </div>
-        <small *ngIf="isGatedCommunity && !selectedComplexId">Optional: Skip this if you live in a house within the gated community.</small>
-        <small *ngIf="!isGatedCommunity && showComplexOptions && complexSearch && !filteredComplexes.length">No complexes found.</small>
-        <small *ngIf="!isGatedCommunity && !complexSearch">Please search and select your complex.</small>
-        <small *ngIf="isGatedCommunity && showComplexOptions && complexSearch && !filteredComplexes.length">No complexes found.</small>
-      </div>
-
-      <div class="form-group">
-        <label for="unit">Unit/House Number</label>
-        <input
-          type="text"
-          id="unitSearch"
-          name="unitSearch"
-          placeholder="Search unit or house number..."
-          class="form-control typeahead-input"
-          [disabled]="(!selectedComplexId && !selectedGatedCommunityId) || isUnitLocked"
-          (input)="updateUnitSearch($event); markTouched($event)"
-          (focus)="setUnitDropdown(true)"
-          (blur)="setUnitDropdown(false)"
-        >
-        <div class="typeahead-list" *ngIf="(selectedComplexId || selectedGatedCommunityId) && !isUnitLocked && showUnitOptions && filteredUnitOptions.length">
-          <button
-            type="button"
-            class="typeahead-item"
-            *ngFor="let unit of filteredUnitOptions"
-            (mousedown)="selectUnit(unit)"
-          >
-            {{ unit.name }}
-          </button>
-        </div>
-        <div class="typeahead-selected" *ngIf="isUnitLocked">
-          <span>Selected: {{ selectedUnitName }}</span>
-          <button type="button" class="typeahead-change" (click)="clearUnitSelection()">Change</button>
-        </div>
-        <small *ngIf="!selectedComplexId && !selectedGatedCommunityId">Select a complex or gated community first.</small>
-        <small *ngIf="(selectedComplexId || selectedGatedCommunityId) && showUnitOptions && unitSearch && !filteredUnitOptions.length">No units found.</small>
       </div>
 
       <div class="form-group">
@@ -131,15 +36,14 @@
       </div>
 
       <div class="form-actions">
-        <button type="button" class="btn-primary" [disabled]="!(isGatedCommunity && selectedGatedCommunityId) && !(!isGatedCommunity && selectedComplexId && selectedUnitId)" (click)="goToDashboard()">
+        <button type="button" class="btn-primary" [disabled]="!isFormValid()" (click)="goToDashboard()">
           Sign in
         </button>
       </div>
 
       <div class="footer-links">
         <p><a href="#">Forgot PIN?</a></p>
-        <p>Guard on duty? <a routerLink="/guard-login">Sign in here</a></p>
-        <p>New resident? <a routerLink="/register">Register here</a></p>
+        <p>Want to register as a tenant? Please contact your landlord.</p>
       </div>
     </form>
   </div>

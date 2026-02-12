@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <form #registerForm>
+    <form #registerForm="ngForm" (ngSubmit)="goToGuardPortal()">
       <div class="form-group">
         <label for="firstName">Name</label>
         <input
@@ -17,6 +17,7 @@
           name="firstName"
           placeholder="Enter your name"
           class="form-control"
+          ngModel
           (input)="markTouched($event)"
           required
         >
@@ -30,6 +31,7 @@
           name="lastName"
           placeholder="Enter your surname"
           class="form-control"
+          ngModel
           (input)="markTouched($event)"
           required
         >
@@ -222,7 +224,7 @@
       </div>
 
       <div class="form-actions">
-        <button type="button" class="btn-primary" [disabled]="!registerForm.checkValidity() || (isGatedCommunity && !selectedGatedCommunityId) || (!isGatedCommunity && !selectedComplexId) || !selectedUnitId" (click)="goToGuardPortal()">
+        <button type="button" class="btn-primary" [disabled]="!registerForm?.valid || (isGatedCommunity && !selectedGatedCommunityId) || (!isGatedCommunity && !selectedComplexId) || !selectedUnitId" (click)="goToGuardPortal()">
           <span class="btn-icon-inline">✅</span>Register Account
         </button>
       </div>
