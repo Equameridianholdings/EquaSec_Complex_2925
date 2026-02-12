@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, NgZone, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -10,6 +10,10 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './guard-portal.css',
 })
 export class GuardPortal implements OnDestroy {
+  @ViewChild('cameraInput') cameraInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('profileCameraVideo') private readonly profileCameraVideo?: ElementRef<HTMLVideoElement>;
+  @ViewChild('profileCameraCanvas') private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
+
   protected searchCode = '';
   protected searchUnit = '';
   protected searchReg = '';
@@ -29,9 +33,14 @@ export class GuardPortal implements OnDestroy {
   private toastTimeoutId: number | null = null;
   protected isHoldingSos = false;
   protected showSosSuccess = false;
+  protected isPhotoCameraModalOpen = false;
+  protected cameraError = '';
+  protected hasCameraStream = false;
+  protected guardPhotoData = '';
 
   private sosHoldTimer: number | null = null;
   private sosAutoCloseTimer: number | null = null;
+  private profileCameraStream: MediaStream | null = null;
   protected guardName = 'James Mthembu';
   protected guardPhotoUrl = '';
 
@@ -479,6 +488,23 @@ export class GuardPortal implements OnDestroy {
     return residents.filter((resident) => resident.unit.toLowerCase().includes(unitQuery));
   }
 
+  protected get filteredVisitorsForUnit() {
+    let codes = this.activeCodes;
+    
+    // Filter by complex or gated community
+    if (this.selectedComplex) {
+      codes = codes.filter((c) => c.complexId === this.selectedComplex);
+    } else if (this.selectedGatedCommunity) {
+      codes = codes.filter((c) => c.gatedCommunityId === this.selectedGatedCommunity);
+    }
+    
+    const unitQuery = this.searchUnit.trim().toLowerCase();
+    if (!unitQuery) {
+      return [];
+    }
+    return codes.filter((code) => code.unit.toLowerCase().includes(unitQuery));
+  }
+
   protected get filteredVehicles() {
     let vehicles = this.vehicles;
     let codes = this.activeCodes;
@@ -546,7 +572,9 @@ export class GuardPortal implements OnDestroy {
     this.isHoldingSos = true;
     this.clearSosHoldTimer();
     this.sosHoldTimer = window.setTimeout(() => {
-      this.triggerSosSuccess();
+      this.zone.run(() => {
+        this.triggerSosSuccess();
+      });
     }, 5000);
   }
 
@@ -582,8 +610,95 @@ export class GuardPortal implements OnDestroy {
     }
   }
 
+  protected triggerCameraInput(): void {
+    this.isPhotoCameraModalOpen = true;
+    setTimeout(() => {
+      void this.startProfileCamera();
+    }, 100);
+  }
+
+  protected onPhotoCapture(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = (e: ProgressEvent<FileReader>) => {
+        this.guardPhotoData = e.target?.result as string;
+        console.log('Photo captured:', this.guardPhotoData);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  protected async startProfileCamera(): Promise<void> {
+    this.cameraError = '';
+    this.guardPhotoData = '';
+
+    try {
+      this.profileCameraStream?.getTracks().forEach((track) => track.stop());
+      this.profileCameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false,
+      });
+
+      const video = this.profileCameraVideo?.nativeElement;
+      if (video) {
+        video.srcObject = this.profileCameraStream;
+        await video.play();
+      }
+      this.hasCameraStream = true;
+    } catch (error) {
+      this.cameraError = 'Unable to access the camera. Please allow camera permissions.';
+      this.profileCameraStream?.getTracks().forEach((track) => track.stop());
+      this.profileCameraStream = null;
+      this.hasCameraStream = false;
+    }
+  }
+
+  protected captureProfilePhoto(): void {
+    const video = this.profileCameraVideo?.nativeElement;
+    const canvas = this.profileCameraCanvas?.nativeElement;
+    if (!video || !canvas) {
+      return;
+    }
+
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return;
+    }
+
+    context.drawImage(video, 0, 0, width, height);
+    this.guardPhotoData = canvas.toDataURL('image/jpeg', 0.9);
+    this.stopProfileCamera();
+  }
+
+  protected retakeProfilePhoto(): void {
+    void this.startProfileCamera();
+  }
+
+  protected closeProfilePhotoModal(): void {
+    this.stopProfileCamera();
+    this.isPhotoCameraModalOpen = false;
+  }
+
+  protected stopProfileCamera(): void {
+    this.profileCameraStream?.getTracks().forEach((track) => track.stop());
+    this.profileCameraStream = null;
+    this.hasCameraStream = false;
+    const video = this.profileCameraVideo?.nativeElement;
+    if (video) {
+      video.srcObject = null;
+    }
+  }
+
   ngOnDestroy(): void {
     this.clearSosHoldTimer();
     this.clearSosAutoCloseTimer();
+    this.stopProfileCamera();
   }
 }

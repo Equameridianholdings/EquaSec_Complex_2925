@@ -1,9 +1,19 @@
 <div class="guard-portal">
   <header class="guard-header">
     <div class="header-main">
-      <div class="guard-avatar">
-        <img *ngIf="guardPhotoUrl" [src]="guardPhotoUrl" alt="{{ guardName }}" />
-        <span *ngIf="!guardPhotoUrl">{{ guardInitials }}</span>
+      <div class="guard-avatar-container">
+        <div class="guard-avatar">
+          <img *ngIf="guardPhotoUrl || guardPhotoData" [src]="guardPhotoUrl || guardPhotoData" alt="{{ guardName }}" />
+          <span *ngIf="!guardPhotoUrl && !guardPhotoData">{{ guardInitials }}</span>
+        </div>
+        <button 
+          type="button" 
+          class="camera-button" 
+          (click)="triggerCameraInput()"
+          title="Take or upload profile photo"
+        >
+          📷
+        </button>
       </div>
       <div>
         <h1>Guard Portal</h1>
@@ -227,10 +237,11 @@
           <div class="resident-info">
             <div class="info-header">
               <h3>{{ resident.name }}</h3>
-              <span class="pill">Unit {{ resident.unit }}</span>
+              <span class="pill resident-badge">Unit {{ resident.unit }}</span>
             </div>
             <p><strong>Cell:</strong> {{ resident.cellphone }}</p>
             <p><strong>Email:</strong> {{ resident.email }}</p>
+            <span class="status-label">Resident</span>
           </div>
         </div>
       </article>
@@ -241,6 +252,39 @@
         <p>Resident records will appear here.</p>
       </div>
     </ng-template>
+  </section>
+
+  <section class="info-section" *ngIf="showResidents && filteredVisitorsForUnit.length > 0">
+    <div class="section-title">
+      <div>
+        <h2>Booked Visitors for Unit</h2>
+        <span class="helper">Visitors with active access codes for this unit.</span>
+      </div>
+    </div>
+    <div class="info-grid">
+      <article class="info-card visitor-card" *ngFor="let visitor of filteredVisitorsForUnit">
+        <div class="resident-main">
+          <div class="resident-avatar visitor-avatar">
+            <span class="visitor-badge">V</span>
+          </div>
+          <div class="resident-info">
+            <div class="info-header">
+              <h3>{{ visitor.visitorName }}</h3>
+              <span class="pill visitor-pill">Unit {{ visitor.unit }}</span>
+            </div>
+            <p><strong>Cell:</strong> {{ visitor.cellphone }}</p>
+            <p><strong>Visiting:</strong> {{ visitor.tenantName }}</p>
+            <p><strong>Access Code:</strong> <span class="access-code">{{ visitor.code }}</span></p>
+            <p><strong>Expires:</strong> {{ visitor.expires }}</p>
+            <span class="status-label visitor-status">Visitor - {{ visitor.isDriving ? 'Driving' : 'Walking' }}</span>
+            <div class="vehicle-info" *ngIf="visitor.isDriving && visitor.vehicle">
+              <p><strong>Vehicle:</strong> {{ visitor.vehicle.makeModel }} ({{ visitor.vehicle.color }})</p>
+              <p><strong>Registration:</strong> {{ visitor.vehicle.registration }}</p>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
   </section>
 
   <section class="info-section" *ngIf="showVehicles">
@@ -301,4 +345,34 @@
 <div class="toast" *ngIf="toastVisible" role="status" aria-live="polite">
   <span class="toast-icon">✅</span>
   <span>{{ toastMessage }}</span>
+</div>
+
+<!-- Profile Photo Camera Modal -->
+<div class="modal-backdrop" *ngIf="isPhotoCameraModalOpen" (click)="closeProfilePhotoModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="camera-title" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="camera-title">Capture Profile Photo</h2>
+      <button class="btn-icon" type="button" (click)="closeProfilePhotoModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="camera-card">
+        <video #profileCameraVideo class="camera-video" autoplay playsinline muted></video>
+        <canvas #profileCameraCanvas class="camera-canvas"></canvas>
+        <img *ngIf="guardPhotoData" [src]="guardPhotoData" alt="Profile preview" class="camera-preview">
+      </div>
+      <div class="camera-actions">
+        <button type="button" class="btn-secondary" (click)="startProfileCamera()" [disabled]="hasCameraStream">Start Camera</button>
+        <button type="button" class="btn-secondary" (click)="captureProfilePhoto()" [disabled]="!hasCameraStream">Capture</button>
+        <button type="button" class="btn-secondary" (click)="retakeProfilePhoto()" [disabled]="!guardPhotoData">Retake</button>
+      </div>
+      <small *ngIf="cameraError" class="error-text">{{ cameraError }}</small>
+      <small *ngIf="!cameraError && !guardPhotoData">Position your face in the center and tap Capture.</small>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" (click)="closeProfilePhotoModal()"><span class="btn-icon-inline">✕</span>Cancel</button>
+      <button type="button" class="btn-main" [disabled]="!guardPhotoData" (click)="closeProfilePhotoModal()"><span class="btn-icon-inline">✓</span>Use Photo</button>
+    </div>
+  </div>
 </div>

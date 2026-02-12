@@ -1,17 +1,19 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { FormsModule, NgForm } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './register.html',
   styleUrl: './register.css',
 })
 export class Register implements OnDestroy {
   @ViewChild('cameraVideo') private readonly cameraVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('cameraCanvas') private readonly cameraCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('registerForm') protected registerForm?: NgForm;
 
   protected readonly gatedCommunities = [
     {

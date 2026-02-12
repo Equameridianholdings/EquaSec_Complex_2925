@@ -777,6 +777,9 @@ table tbody tr:hover {
 	width: 18px;
 	height: 18px;
 	accent-color: var(--manager-accent);
+	pointer-events: auto;
+	z-index: 1;
+	position: relative;
 }
 
 .checkbox-label span {
