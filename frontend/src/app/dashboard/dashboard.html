@@ -35,17 +35,9 @@
       <span class="tile-icon">+</span>
       <span class="tile-label">Book Visitor</span>
     </button>
-    <button type="button" class="tile-card secondary" (click)="openSubtenantModal()">
-      <span class="tile-icon">👤</span>
-      <span class="tile-label">Add Subtenant</span>
-    </button>
     <button type="button" class="tile-card secondary" (click)="openUpdateDetailsModal()">
       <span class="tile-icon">✏️</span>
       <span class="tile-label">Update Details</span>
-    </button>
-    <button type="button" class="tile-card secondary" (click)="openVehicleModal()">
-      <span class="tile-icon">🚗</span>
-      <span class="tile-label">Register Vehicle</span>
     </button>
     <button type="button" class="tile-card secondary" (click)="openChangePinModal()">
       <span class="tile-icon">🔐</span>
@@ -112,62 +104,47 @@
     </div>
   </div>
 
+  <!-- Unit Residents & Vehicles Section -->
   <div class="section-header">
-    <h3>Subtenant Management</h3>
+    <h3>Unit Residents & Vehicles</h3>
   </div>
 
-  <div class="subtenant-card">
-    <div class="subtenant-list" *ngIf="subtenants.length; else emptySubtenants">
-      <div class="subtenant-item" *ngFor="let subtenant of subtenants">
-        <div class="subtenant-main">
-          <div class="subtenant-avatar">
-            <img *ngIf="subtenant.photoDataUrl" [src]="subtenant.photoDataUrl" alt="{{ subtenant.name }} {{ subtenant.surname }}" />
-            <span *ngIf="!subtenant.photoDataUrl">{{ getSubtenantInitials(subtenant.name, subtenant.surname) }}</span>
+  <div class="unit-info-section">
+    <div class="info-subsection">
+      <h4>Residents in This Unit</h4>
+      <div class="resident-list">
+        <div class="resident-card" *ngFor="let resident of unitResidents">
+          <div class="resident-info">
+            <div class="resident-name">
+              {{ resident.name }}
+            </div>
+            <div class="resident-details">
+              <small>Email: {{ resident.email }}</small>
+              <small>Phone: {{ resident.phone }}</small>
+              <small>ID: {{ resident.idNumber }}</small>
+            </div>
           </div>
-          <div class="subtenant-info">
-            <h4>{{ subtenant.name }} {{ subtenant.surname }}</h4>
-            <p>Cell: {{ subtenant.cellphone }}</p>
-            <p *ngIf="subtenant.email">Email: {{ subtenant.email }}</p>
-            <p *ngIf="subtenant.idNumber">ID: {{ subtenant.idNumber }}</p>
-          </div>
-        </div>
-        <div class="subtenant-controls">
-          <button type="button" class="btn-share btn-icon-only" (click)="editSubtenant(subtenant.id)" title="Edit"><span class="btn-icon-inline">✏️</span></button>
-          <button type="button" class="btn-share btn-icon-only" (click)="deleteSubtenant(subtenant.id)" title="Delete"><span class="btn-icon-inline">🗑️</span></button>
         </div>
       </div>
     </div>
-    <ng-template #emptySubtenants>
-      <p class="empty-state">No subtenants added yet.</p>
-    </ng-template>
-  </div>
 
-  <div class="section-header">
-    <h3>Register Vehicle</h3>
-  </div>
-
-  <div class="subtenant-card">
-    <div class="subtenant-list" *ngIf="vehicles.length; else emptyVehicles">
-      <div class="subtenant-item" *ngFor="let vehicle of vehicles">
-        <div class="subtenant-main">
-          <div class="subtenant-avatar">
-            <span>🚗</span>
+    <div class="info-subsection">
+      <h4>Registered Vehicles</h4>
+      <div class="vehicle-list">
+        <div class="vehicle-card" *ngFor="let vehicle of unitVehicles">
+          <div class="vehicle-info">
+            <div class="vehicle-header">
+              <span class="plate-badge">{{ vehicle.reg }}</span>
+              <span class="vehicle-details">{{ vehicle.make }} {{ vehicle.model }}</span>
+            </div>
+            <div class="vehicle-meta">
+              <small>Color: {{ vehicle.color }}</small>
+              <small>Owner: {{ vehicle.owner }}</small>
+            </div>
           </div>
-          <div class="subtenant-info">
-            <h4>{{ vehicle.make }} {{ vehicle.model }}</h4>
-            <p>Registration: {{ vehicle.regNumber }}</p>
-            <p *ngIf="vehicle.color">Colour: {{ vehicle.color }}</p>
-          </div>
-        </div>
-        <div class="subtenant-controls">
-          <button type="button" class="btn-share btn-icon-only" (click)="editVehicle(vehicle.id)" title="Edit"><span class="btn-icon-inline">✏️</span></button>
-          <button type="button" class="btn-share btn-icon-only" (click)="deleteVehicle(vehicle.id)" title="Remove"><span class="btn-icon-inline">🗑️</span></button>
         </div>
       </div>
     </div>
-    <ng-template #emptyVehicles>
-      <p class="empty-state">No vehicles registered yet.</p>
-    </ng-template>
   </div>
 
   <div class="moving-out-section">
@@ -296,175 +273,6 @@
     <div class="modal-actions">
       <button type="button" class="btn-secondary" (click)="closeConfirmationModal()">Close</button>
     </div>
-  </div>
-</div>
-
-<div class="modal-backdrop" *ngIf="isSubtenantModalOpen" (click)="closeSubtenantModal()">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="subtenant-title" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2 id="subtenant-title">{{ editingSubtenantId ? 'Update Subtenant' : 'Add Subtenant' }}</h2>
-      <button class="btn-icon" type="button" (click)="closeSubtenantModal()">✕</button>
-    </div>
-
-    <form class="modal-form" #subtenantFormRef="ngForm">
-      <div class="form-row">
-        <div class="form-group">
-          <label for="subtenantName">Name</label>
-          <input
-            id="subtenantName"
-            name="subtenantName"
-            type="text"
-            class="form-control"
-            placeholder="Subtenant name"
-            [(ngModel)]="subtenantForm.name"
-            required
-          >
-        </div>
-        <div class="form-group">
-          <label for="subtenantSurname">Surname</label>
-          <input
-            id="subtenantSurname"
-            name="subtenantSurname"
-            type="text"
-            class="form-control"
-            placeholder="Subtenant surname"
-            [(ngModel)]="subtenantForm.surname"
-            required
-          >
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="subtenantCell">Cellphone</label>
-          <input
-            id="subtenantCell"
-            name="subtenantCell"
-            type="tel"
-            class="form-control"
-            placeholder="e.g. 0821234567"
-            inputmode="numeric"
-            pattern="0[0-9]{9}"
-            maxlength="10"
-            [(ngModel)]="subtenantForm.cellphone"
-            required
-          >
-        </div>
-        <div class="form-group">
-          <label for="subtenantEmail">Email</label>
-          <input
-            id="subtenantEmail"
-            name="subtenantEmail"
-            type="text"
-            class="form-control"
-            placeholder="tenant@example.com"
-            [(ngModel)]="subtenantForm.email"
-            required
-          >
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="subtenantIdNumber">ID Number (Optional)</label>
-          <input
-            id="subtenantIdNumber"
-            name="subtenantIdNumber"
-            type="text"
-            class="form-control"
-            placeholder="13-digit ID number"
-            inputmode="numeric"
-            maxlength="13"
-            [(ngModel)]="subtenantForm.idNumber"
-          >
-        </div>
-      </div>
-
-
-
-      <div class="modal-actions">
-        <button type="button" class="btn-secondary" (click)="cancelSubtenantEdit()"><span class="btn-icon-inline">✕</span>Cancel</button>
-        <button
-          type="button"
-          class="btn-main"
-          [disabled]="!subtenantFormRef.valid"
-          (click)="addOrUpdateSubtenant()"
-        >
-          <span class="btn-icon-inline">{{ editingSubtenantId ? '🔄' : '➕' }}</span>{{ editingSubtenantId ? 'Update Subtenant' : 'Add Subtenant' }}
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="modal-backdrop" *ngIf="isVehicleModalOpen" (click)="closeVehicleModal()">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vehicle-title" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2 id="vehicle-title">{{ editingVehicleId ? 'Update Vehicle' : 'Add Vehicle' }}</h2>
-      <button class="btn-icon" type="button" (click)="closeVehicleModal()">✕</button>
-    </div>
-
-    <form class="modal-form" #vehicleFormRef="ngForm">
-      <div class="form-row">
-        <div class="form-group">
-          <label for="vehicleMake">Make</label>
-          <input
-            id="vehicleMake"
-            name="vehicleMake"
-            type="text"
-            class="form-control"
-            placeholder="e.g. Toyota"
-            [(ngModel)]="vehicleForm.make"
-            required
-          >
-        </div>
-        <div class="form-group">
-          <label for="vehicleModel">Model</label>
-          <input
-            id="vehicleModel"
-            name="vehicleModel"
-            type="text"
-            class="form-control"
-            placeholder="e.g. Corolla"
-            [(ngModel)]="vehicleForm.model"
-            required
-          >
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="vehicleRegNumber">Registration Number</label>
-          <input
-            id="vehicleRegNumber"
-            name="vehicleRegNumber"
-            type="text"
-            class="form-control"
-            placeholder="e.g. ABC 123 GP"
-            [(ngModel)]="vehicleForm.regNumber"
-            required
-          >
-        </div>
-        <div class="form-group">
-          <label for="vehicleColor">Colour (Optional)</label>
-          <input
-            id="vehicleColor"
-            name="vehicleColor"
-            type="text"
-            class="form-control"
-            placeholder="e.g. Silver"
-            [(ngModel)]="vehicleForm.color"
-          >
-        </div>
-      </div>
-
-      <div class="modal-actions">
-        <button type="button" class="btn-secondary" (click)="cancelVehicleEdit()"><span class="btn-icon-inline">✕</span>Cancel</button>
-        <button type="button" class="btn-main" [disabled]="!vehicleFormRef.valid" (click)="addOrUpdateVehicle()">
-          <span class="btn-icon-inline">{{ editingVehicleId ? '🔄' : '➕' }}</span>{{ editingVehicleId ? 'Update Vehicle' : 'Add Vehicle' }}
-        </button>
-      </div>
-    </form>
   </div>
 </div>
 
