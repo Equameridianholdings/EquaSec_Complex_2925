@@ -26,12 +26,12 @@
       <div class="form-group">
         <label for="pin-1">6-Digit PIN</label>
         <div class="pin-inputs" aria-label="6 digit PIN">
-          <input id="pin-1" name="pin1" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 1" required (input)="onPinInput($event, 0)" (keydown)="onPinKeydown($event, 0)">
-          <input id="pin-2" name="pin2" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 2" required (input)="onPinInput($event, 1)" (keydown)="onPinKeydown($event, 1)">
-          <input id="pin-3" name="pin3" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 3" required (input)="onPinInput($event, 2)" (keydown)="onPinKeydown($event, 2)">
-          <input id="pin-4" name="pin4" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 4" required (input)="onPinInput($event, 3)" (keydown)="onPinKeydown($event, 3)">
-          <input id="pin-5" name="pin5" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 5" required (input)="onPinInput($event, 4)" (keydown)="onPinKeydown($event, 4)">
-          <input id="pin-6" name="pin6" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 6" required (input)="onPinInput($event, 5)" (keydown)="onPinKeydown($event, 5)">
+          <input id="pin-1" name="pin1" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 1" required [(ngModel)]="pinDigits[0]" (input)="onPinInput($event, 0)" (keydown)="onPinKeydown($event, 0)">
+          <input id="pin-2" name="pin2" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 2" required [(ngModel)]="pinDigits[1]" (input)="onPinInput($event, 1)" (keydown)="onPinKeydown($event, 1)">
+          <input id="pin-3" name="pin3" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 3" required [(ngModel)]="pinDigits[2]" (input)="onPinInput($event, 2)" (keydown)="onPinKeydown($event, 2)">
+          <input id="pin-4" name="pin4" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 4" required [(ngModel)]="pinDigits[3]" (input)="onPinInput($event, 3)" (keydown)="onPinKeydown($event, 3)">
+          <input id="pin-5" name="pin5" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 5" required [(ngModel)]="pinDigits[4]" (input)="onPinInput($event, 4)" (keydown)="onPinKeydown($event, 4)">
+          <input id="pin-6" name="pin6" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" class="pin-box" aria-label="Digit 6" required [(ngModel)]="pinDigits[5]" (input)="onPinInput($event, 5)" (keydown)="onPinKeydown($event, 5)">
         </div>
       </div>
 
@@ -43,7 +43,7 @@
 
       <div class="footer-links">
         <p><a href="#">Forgot PIN?</a></p>
-        <p>Want to register as a tenant? Please contact your landlord.</p>
+        <p>To register, please visit the security office.</p>
       </div>
     </form>
   </div>

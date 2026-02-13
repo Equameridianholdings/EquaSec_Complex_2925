@@ -18,76 +18,37 @@
       <div>
         <h1>Guard Portal</h1>
         <p class="guard-name">{{ guardName }}</p>
-        <p class="complex-name">{{ selectedComplexName }}</p>
+        <p class="complex-name">Station: {{ selectedStationName }}</p>
+        <button type="button" class="station-change" (click)="changeStation()" [disabled]="showStationPrompt">
+          Change station
+        </button>
       </div>
     </div>
-    <div class="status-pill">On Duty • Online</div>
+    <div class="header-actions">
+      <div class="status-pill">Shift started: {{ shiftStartLabel }}</div>
+      <button type="button" class="end-shift" (click)="endShift()">End shift</button>
+    </div>
   </header>
 
   <section class="search-panel">
     <div class="section-title">
       <div>
         <h2>Quick Search</h2>
-        <span class="helper">Search by gated community, complex, access code, unit, or registration number.</span>
+        <span class="helper">Search by access code, unit, or registration number.</span>
       </div>
     </div>
     <div class="search-grid">
-      <div class="search-field">
-        <label for="searchGatedCommunity">Gated Community</label>
-        <div class="search-input-wrapper">
-          <input
-            id="searchGatedCommunity"
-            type="text"
-            placeholder="Select gated community"
-            [(ngModel)]="searchGatedCommunity"
-            class="search-input"
-            (input)="updateGatedCommunitySearch($event)"
-            (focus)="setGatedCommunityDropdown(true)"
-            (blur)="setGatedCommunityDropdown(false)"
-          >
-          <button
-            *ngIf="selectedGatedCommunity"
-            type="button"
-            class="clear-btn"
-            (click)="clearGatedCommunity()"
-            title="Clear gated community"
-          >
-            ✕
-          </button>
-        </div>
-        <div class="typeahead-list" *ngIf="showGatedCommunityOptions && filteredGatedCommunityOptions.length">
-          <button
-            type="button"
-            class="typeahead-item"
-            *ngFor="let gc of gatedCommunities"
-            (mousedown)="selectGatedCommunity(gc.id)"
-          >
-            {{ gc.name }}
-          </button>
-        </div>
-      </div>
-      <div class="search-field">
-        <label for="searchComplex">Complex</label>
-        <input
-          id="searchComplex"
-          type="text"
-          placeholder="Select complex"
-          [(ngModel)]="searchComplex"
+      <div class="search-field" *ngIf="stationType === 'gated'">
+        <label for="searchComplexFilter">Complex (for unit search)</label>
+        <select
+          id="searchComplexFilter"
           class="search-input"
-          (input)="updateComplexSearch($event)"
-          (focus)="setComplexDropdown(true)"
-          (blur)="setComplexDropdown(false)"
+          [value]="searchComplexFilter"
+          (change)="onSearchComplexFilterChange($event)"
         >
-        <div class="typeahead-list" *ngIf="showComplexOptions && filteredComplexOptions.length">
-          <button
-            type="button"
-            class="typeahead-item"
-            *ngFor="let complex of complexes"
-            (mousedown)="selectComplex(complex.id)"
-          >
-            {{ complex.name }}
-          </button>
-        </div>
+          <option value="">Select complex</option>
+          <option *ngFor="let complex of complexes" [value]="complex.id">{{ complex.name }}</option>
+        </select>
       </div>
       <div class="search-field">
         <label for="searchCode">Access Code</label>
@@ -107,12 +68,13 @@
         <input
           id="searchUnit"
           type="text"
-          placeholder="e.g. 402"
+          [placeholder]="unitSearchDisabled ? 'Select a complex first' : 'e.g. 402'"
           [(ngModel)]="searchUnit"
           class="search-input"
           (input)="updateUnitSearch($event)"
            (focus)="clearOtherSearches('unit'); setUnitDropdown(true)"
           (blur)="setUnitDropdown(false)"
+          [disabled]="unitSearchDisabled"
         >
         <div class="typeahead-list" *ngIf="showUnitOptions && filteredUnitOptions.length">
           <button
@@ -228,7 +190,7 @@
       </div>
     </div>
     <div class="info-grid" *ngIf="showResidents && filteredResidents.length > 0; else noResidents">
-      <article class="info-card resident-card" *ngFor="let resident of filteredResidents">
+      <article class="info-card resident-card" *ngFor="let resident of filteredResidents" [class.compact]="searchUnit">
         <div class="resident-main">
           <div class="resident-avatar">
             <img *ngIf="resident.photoDataUrl" [src]="resident.photoDataUrl" alt="{{ resident.name }}" />
@@ -254,6 +216,62 @@
     </ng-template>
   </section>
 
+  <div class="station-modal" *ngIf="showStationPrompt">
+    <div class="station-card" role="dialog" aria-modal="true">
+      <h2>Choose your station</h2>
+      <p>Where are you working today?</p>
+      <div class="station-type">
+        <label>
+          <input type="radio" name="stationType" [value]="'gated'" [(ngModel)]="stationType" (change)="chooseStationType('gated')">
+          Gated community
+        </label>
+        <label>
+          <input type="radio" name="stationType" [value]="'complex'" [(ngModel)]="stationType" (change)="chooseStationType('complex')">
+          Complex
+        </label>
+      </div>
+
+      <div class="station-picker" *ngIf="stationType === 'gated'">
+        <label for="stationGated">Select gated community</label>
+        <select id="stationGated" [(ngModel)]="selectedGatedCommunity" (change)="onStationGatedChange()">
+          <option value="" disabled>Select gated community</option>
+          <option *ngFor="let gc of gatedCommunities" [value]="gc.id">{{ gc.name }}</option>
+        </select>
+      </div>
+
+      <div class="station-picker" *ngIf="stationType === 'gated' && selectedGatedCommunity">
+        <label for="stationGatedComplex">Select complex (optional)</label>
+        <select id="stationGatedComplex" [(ngModel)]="selectedComplex">
+          <option value="">All complexes</option>
+          <option *ngFor="let complex of complexes" [value]="complex.id">{{ complex.name }}</option>
+        </select>
+      </div>
+
+      <div class="station-picker" *ngIf="stationType === 'complex'">
+        <label for="stationComplex">Select complex</label>
+        <select id="stationComplex" [(ngModel)]="selectedComplex">
+          <option value="" disabled>Select complex</option>
+          <option *ngFor="let complex of standaloneComplexes" [value]="complex.id">{{ complex.name }}</option>
+        </select>
+      </div>
+
+      <button type="button" class="station-confirm" (click)="confirmStationSelection()" [disabled]="!stationSelectionReady">
+        Start shift
+      </button>
+    </div>
+  </div>
+
+  <div class="endshift-modal" *ngIf="showEndShiftConfirm">
+    <div class="endshift-card" role="dialog" aria-modal="true">
+      <h2>End shift?</h2>
+      <p>This will log you out and clear your station for the next login.</p>
+      <div class="endshift-actions">
+        <button type="button" class="endshift-cancel" (click)="cancelEndShift()">Cancel</button>
+        <button type="button" class="endshift-confirm" (click)="confirmEndShift()">End shift</button>
+      </div>
+    </div>
+  </div>
+
   <section class="info-section" *ngIf="showResidents && filteredVisitorsForUnit.length > 0">
     <div class="section-title">
       <div>
@@ -262,7 +280,7 @@
       </div>
     </div>
     <div class="info-grid">
-      <article class="info-card visitor-card" *ngFor="let visitor of filteredVisitorsForUnit">
+      <article class="info-card visitor-card" *ngFor="let visitor of filteredVisitorsForUnit" [class.compact]="searchUnit">
         <div class="resident-main">
           <div class="resident-avatar visitor-avatar">
             <span class="visitor-badge">V</span>
