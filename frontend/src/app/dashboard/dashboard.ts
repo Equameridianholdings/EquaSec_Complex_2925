@@ -17,7 +17,6 @@ export class Dashboard implements OnDestroy {
 
   protected isBookingModalOpen = false;
   protected isConfirmationModalOpen = false;
-  protected isSubtenantModalOpen = false;
   protected isHoldingSos = false;
   protected showSosSuccess = false;
   protected isUpdateDetailsModalOpen = false;
@@ -47,42 +46,39 @@ export class Dashboard implements OnDestroy {
   protected vehicleModel = '';
   protected vehicleReg = '';
   protected vehicleColor = '';
-  protected subtenants: Array<{
-    id: string;
-    name: string;
-    surname: string;
-    cellphone: string;
-    idNumber?: string;
-    email?: string;
-    photoDataUrl?: string;
-  }> = [];
-  protected vehicles: Array<{
-    id: string;
-    make: string;
-    model: string;
-    regNumber: string;
-    color?: string;
-  }> = [];
 
-  protected subtenantForm = {
-    id: '',
-    name: '',
-    surname: '',
-    cellphone: '',
-    idNumber: '',
-    email: '',
-    photoDataUrl: '',
-  };
-  protected vehicleForm = {
-    id: '',
-    make: '',
-    model: '',
-    regNumber: '',
-    color: '',
-  };
-  protected editingSubtenantId: string | null = null;
-  protected editingVehicleId: string | null = null;
-  protected isVehicleModalOpen = false;
+  // Unit residents and vehicles
+  protected unitResidents = [
+    {
+      name: 'Kamo Moloi',
+      email: 'kamo.moloi@example.com',
+      phone: '+27 82 555 0198',
+      idNumber: '9012155123088',
+    },
+    {
+      name: 'Sarah Moloi',
+      email: 'sarah.moloi@example.com',
+      phone: '+27 83 444 0123',
+      idNumber: '8805205234089',
+    },
+  ];
+
+  protected unitVehicles = [
+    {
+      make: 'Toyota',
+      model: 'Corolla',
+      reg: 'ABC 123 GP',
+      color: 'Silver',
+      owner: 'Kamo Moloi',
+    },
+    {
+      make: 'Honda',
+      model: 'Civic',
+      reg: 'XYZ 456 GP',
+      color: 'Blue',
+      owner: 'Sarah Moloi',
+    },
+  ];
 
   constructor(private readonly router: Router) {}
 
@@ -138,18 +134,6 @@ export class Dashboard implements OnDestroy {
   protected closeBookingModal(): void {
     this.isBookingModalOpen = false;
     this.resetBookingForm();
-  }
-
-  protected openSubtenantModal(): void {
-    this.isSubtenantModalOpen = true;
-  }
-
-  protected closeSubtenantModal(): void {
-    this.isSubtenantModalOpen = false;
-  }
-
-  protected openVehicleModal(): void {
-    this.isVehicleModalOpen = true;
   }
 
   protected openUpdateDetailsModal(): void {
@@ -367,10 +351,6 @@ export class Dashboard implements OnDestroy {
     }
   }
 
-  protected closeVehicleModal(): void {
-    this.isVehicleModalOpen = false;
-  }
-
   protected openConfirmationModal(): void {
     this.isBookingModalOpen = false;
     this.isConfirmationModalOpen = true;
@@ -402,138 +382,6 @@ export class Dashboard implements OnDestroy {
 
   protected goToGuardLogin(): void {
     void this.router.navigate(['/guard-login']);
-  }
-
-  protected addOrUpdateSubtenant(): void {
-    const payload = {
-      id: this.editingSubtenantId ?? `subtenant-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      name: this.subtenantForm.name.trim(),
-      surname: this.subtenantForm.surname.trim(),
-      cellphone: this.subtenantForm.cellphone.trim(),
-      idNumber: this.subtenantForm.idNumber.trim() || undefined,
-      email: this.subtenantForm.email.trim() || undefined,
-      photoDataUrl: this.subtenantForm.photoDataUrl || undefined,
-    };
-
-    if (this.editingSubtenantId) {
-      this.subtenants = this.subtenants.map((item) => (item.id === this.editingSubtenantId ? payload : item));
-    } else {
-      this.subtenants = [...this.subtenants, payload];
-    }
-
-    this.resetSubtenantForm();
-    this.closeSubtenantModal();
-  }
-
-  protected editSubtenant(subtenantId: string): void {
-    const subtenant = this.subtenants.find((item) => item.id === subtenantId);
-    if (!subtenant) {
-      return;
-    }
-
-    this.subtenantForm = {
-      id: subtenant.id,
-      name: subtenant.name,
-      surname: subtenant.surname,
-      cellphone: subtenant.cellphone,
-      idNumber: subtenant.idNumber ?? '',
-      email: subtenant.email ?? '',
-      photoDataUrl: subtenant.photoDataUrl ?? '',
-    };
-    this.editingSubtenantId = subtenant.id;
-    this.openSubtenantModal();
-  }
-
-  protected deleteSubtenant(subtenantId: string): void {
-    this.subtenants = this.subtenants.filter((item) => item.id !== subtenantId);
-    if (this.editingSubtenantId === subtenantId) {
-      this.resetSubtenantForm();
-    }
-  }
-
-  protected cancelSubtenantEdit(): void {
-    this.resetSubtenantForm();
-    this.closeSubtenantModal();
-  }
-
-  protected addOrUpdateVehicle(): void {
-    const payload = {
-      id: this.editingVehicleId ?? `vehicle-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      make: this.vehicleForm.make.trim(),
-      model: this.vehicleForm.model.trim(),
-      regNumber: this.vehicleForm.regNumber.trim(),
-      color: this.vehicleForm.color.trim() || undefined,
-    };
-
-    if (this.editingVehicleId) {
-      this.vehicles = this.vehicles.map((item) => (item.id === this.editingVehicleId ? payload : item));
-    } else {
-      this.vehicles = [...this.vehicles, payload];
-    }
-
-    this.resetVehicleForm();
-    this.closeVehicleModal();
-  }
-
-  protected editVehicle(vehicleId: string): void {
-    const vehicle = this.vehicles.find((item) => item.id === vehicleId);
-    if (!vehicle) {
-      return;
-    }
-
-    this.vehicleForm = {
-      id: vehicle.id,
-      make: vehicle.make,
-      model: vehicle.model,
-      regNumber: vehicle.regNumber,
-      color: vehicle.color ?? '',
-    };
-    this.editingVehicleId = vehicle.id;
-    this.openVehicleModal();
-  }
-
-  protected deleteVehicle(vehicleId: string): void {
-    this.vehicles = this.vehicles.filter((item) => item.id !== vehicleId);
-    if (this.editingVehicleId === vehicleId) {
-      this.resetVehicleForm();
-    }
-  }
-
-  protected cancelVehicleEdit(): void {
-    this.resetVehicleForm();
-    this.closeVehicleModal();
-  }
-
-
-
-  protected getSubtenantInitials(name: string, surname: string): string {
-    const first = (name || '').trim().charAt(0).toUpperCase();
-    const last = (surname || '').trim().charAt(0).toUpperCase();
-    return `${first}${last}` || 'NA';
-  }
-
-  private resetSubtenantForm(): void {
-    this.subtenantForm = {
-      id: '',
-      name: '',
-      surname: '',
-      cellphone: '',
-      idNumber: '',
-      email: '',
-      photoDataUrl: '',
-    };
-    this.editingSubtenantId = null;
-  }
-
-  private resetVehicleForm(): void {
-    this.vehicleForm = {
-      id: '',
-      make: '',
-      model: '',
-      regNumber: '',
-      color: '',
-    };
-    this.editingVehicleId = null;
   }
 
   private resetBookingForm(): void {
