@@ -10,7 +10,6 @@ import { SecurityManager } from './security-manager/security-manager';
 export const routes: Routes = [
 	{ path: '', pathMatch: 'full', redirectTo: 'login' },
 	{ path: 'login', component: Login },
-
 	{ path: 'dashboard', component: Dashboard },
 	{ path: 'guard-portal', component: GuardPortal },
 	{ path: 'admin-portal', component: AdminPortal },

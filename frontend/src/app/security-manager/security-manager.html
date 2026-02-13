@@ -11,25 +11,7 @@
     </div>
   </header>
 
-  <!-- Summary Stats -->
-  <section class="summary-stats">
-    <div class="stat-card">
-      <div class="stat-value">{{ assignedComplexes.length }}</div>
-      <div class="stat-label">Assigned Complexes</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">{{ gatedCommunities.length }}</div>
-      <div class="stat-label">Gated Communities</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">{{ employees.length }}</div>
-      <div class="stat-label">Total Employees</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">{{ activeGuardsCount }}</div>
-      <div class="stat-label">Active Guards</div>
-    </div>
-  </section>
+ 
 
   <!-- Main Grid -->
   <div class="manager-grid">
@@ -287,52 +269,54 @@
       </div>
 
       <div class="visitors-table-container" *ngIf="filteredVisitors.length > 0; else noVisitors">
-        <table class="visitors-table">
-          <thead>
-            <tr>
-              <th>Visitor Name</th>
-              <th>Visitor Phone</th>
-              <th>Vehicle</th>
-              <th>Tenant Name</th>
-              <th>Unit & Location</th>
-              <th>Tenant Phone</th>
-              <th>Visit Date & Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let visitor of filteredVisitors" class="visitor-table-row">
-              <td class="col-visitor-name">
-                <strong>{{ visitor.name }} {{ visitor.surname }}</strong>
-              </td>
-              <td class="col-visitor-phone">{{ visitor.phone }}</td>
-              <td class="col-vehicle">
-                <span *ngIf="visitor.vehicle; else walkInVehicle" class="vehicle-info">
-                  {{ visitor.vehicle.make }} {{ visitor.vehicle.model }}
-                  <br>
-                  <span class="vehicle-reg-plate">{{ visitor.vehicle.reg }}</span>
-                  <span *ngIf="visitor.vehicle.color" class="vehicle-color">{{ visitor.vehicle.color }}</span>
-                </span>
-                <ng-template #walkInVehicle>
-                  <span class="walk-in-badge">Walk-in</span>
-                </ng-template>
-              </td>
-              <td class="col-tenant-name">{{ visitor.tenantName }}</td>
-              <td class="col-unit-location">
-                <div class="unit-location-path">
-                  <span class="location-text location-primary">{{ visitor.tenantUnit }}</span>
-                  <span class="location-arrow">→</span>
-                  <span class="location-text">{{ getComplexName(visitor.complexId) }}</span>
-                  <ng-container *ngIf="visitor.communityId">
+        <div class="responsive-table-wrapper">
+          <table class="visitors-table">
+            <thead>
+              <tr>
+                <th>Visitor Name</th>
+                <th>Visitor Phone</th>
+                <th>Vehicle</th>
+                <th>Tenant Name</th>
+                <th>Unit & Location</th>
+                <th>Tenant Phone</th>
+                <th>Visit Date & Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let visitor of filteredVisitors" class="visitor-table-row">
+                <td class="col-visitor-name">
+                  <strong>{{ visitor.name }} {{ visitor.surname }}</strong>
+                </td>
+                <td class="col-visitor-phone">{{ visitor.phone }}</td>
+                <td class="col-vehicle">
+                  <span *ngIf="visitor.vehicle; else walkInVehicle" class="vehicle-info">
+                    {{ visitor.vehicle.make }} {{ visitor.vehicle.model }}
+                    <br>
+                    <span class="vehicle-reg-plate">{{ visitor.vehicle.reg }}</span>
+                    <span *ngIf="visitor.vehicle.color" class="vehicle-color">{{ visitor.vehicle.color }}</span>
+                  </span>
+                  <ng-template #walkInVehicle>
+                    <span class="walk-in-badge">Walk-in</span>
+                  </ng-template>
+                </td>
+                <td class="col-tenant-name">{{ visitor.tenantName }}</td>
+                <td class="col-unit-location">
+                  <div class="unit-location-path">
+                    <span class="location-text location-primary">{{ visitor.tenantUnit }}</span>
                     <span class="location-arrow">→</span>
-                    <span class="location-text">{{ getCommunityName(visitor.communityId) }}</span>
-                  </ng-container>
-                </div>
-              </td>
-              <td class="col-tenant-phone">{{ visitor.tenantPhone }}</td>
-              <td class="col-date"><span class="date-line">{{ visitor.visitDate | date: 'MMM dd, yyyy' }}</span><span class="time-line">{{ visitor.visitDate | date: 'HH:mm' }}</span></td>
-            </tr>
-          </tbody>
-        </table>
+                    <span class="location-text">{{ getComplexName(visitor.complexId) }}</span>
+                    <ng-container *ngIf="visitor.communityId">
+                      <span class="location-arrow">→</span>
+                      <span class="location-text">{{ getCommunityName(visitor.communityId) }}</span>
+                    </ng-container>
+                  </div>
+                </td>
+                <td class="col-tenant-phone">{{ visitor.tenantPhone }}</td>
+                <td class="col-date"><span class="date-line">{{ visitor.visitDate | date: 'MMM dd, yyyy' }}</span><span class="time-line">{{ visitor.visitDate | date: 'HH:mm' }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
       <ng-template #noVisitors>
         <div class="empty-state">

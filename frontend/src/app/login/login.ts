@@ -12,6 +12,7 @@ import { Router } from '@angular/router';
 })
 export class Login {
   protected email = '';
+  protected pinDigits = Array.from({ length: 6 }, () => '');
 
   constructor(private readonly router: Router) {}
 
@@ -24,6 +25,7 @@ export class Login {
     input.classList.add('touched');
     const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
     input.value = digit;
+    this.pinDigits[index] = digit;
     if (digit && input.nextElementSibling instanceof HTMLInputElement) {
       input.nextElementSibling.focus();
     }
@@ -52,14 +54,7 @@ export class Login {
   }
 
   protected getPinValue(): string {
-    const pinInputs = document.querySelectorAll('.pin-box');
-    let pin = '';
-    pinInputs.forEach((input) => {
-      if (input instanceof HTMLInputElement) {
-        pin += input.value;
-      }
-    });
-    return pin;
+    return this.pinDigits.join('');
   }
 
   protected isFormValid(): boolean {
