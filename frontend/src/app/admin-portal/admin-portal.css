@@ -1,3 +1,85 @@
+/* Complex action row for Delete and Update buttons side by side */
+.complex-action-row {
+	display: flex;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.complex-delete-btn {
+	background: #f44336;
+	color: #fff;
+	border: none;
+	box-shadow: 0 2px 8px rgba(244,67,54,0.12);
+	transition: background 0.2s;
+}
+.complex-delete-btn:hover {
+	background: #d32f2f;
+}
+
+.complex-update-btn {
+	background: #fff;
+	color: #222;
+	border: 1px solid #bbb;
+	transition: background 0.2s, color 0.2s;
+}
+.complex-update-btn:hover {
+	background: #f5f5f5;
+	color: #1976d2;
+	border-color: #1976d2;
+}
+/* Red X icon for unassigned status */
+.xmark {
+	color: #e53935;
+	font-size: 18px;
+	font-weight: bold;
+	margin-right: 6px;
+	vertical-align: middle;
+}
+/* Smaller update button and inline icon/text */
+.btn-update-small {
+	padding: 2px 8px;
+	font-size: 13px;
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	background-color: #f3f3f3;
+	border: 1px solid #bbb;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background 0.2s;
+}
+.btn-update-small:hover {
+	background-color: #e0e0e0;
+}
+.update-icon-text {
+	display: flex;
+	align-items: center;
+}
+/* Make Add/Remove Security buttons same width */
+.security-action-buttons {
+	display: flex;
+	gap: 12px;
+}
+.action-btn-wide {
+	min-width: 160px;
+	flex: 1 1 0;
+	text-align: center;
+}
+/* Modal button width and validation error styling */
+.modal-actions-wide {
+	display: flex;
+	gap: 12px;
+}
+.modal-btn-wide {
+	min-width: 120px;
+	flex: 1 1 0;
+	text-align: center;
+}
+.validation-error {
+	color: #d32f2f;
+	font-size: 13px;
+	margin-top: 4px;
+}
 :host {
 	--portal-bg: #f8fafc;
 	--portal-accent: #1e3a5f;
