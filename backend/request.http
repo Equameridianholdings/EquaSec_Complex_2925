@@ -1,11 +1,2 @@
-POST http://localhost:3000/user/register
+GET http://localhost:3000/unit/
 Content-Type: application/json
-
-{
-    "cellNumber": "0978645321",
-    "emailAddress": "sec@test.com",
-    "name": "Dummy",
-    "surname": "Protect",
-    "type": "security",
-    "unit": null
-}
