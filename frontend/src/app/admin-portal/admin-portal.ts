@@ -10,6 +10,28 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './admin-portal.css',
 })
 export class AdminPortal implements OnInit {
+  // State for updating a security company
+  protected showUpdateSecurityModal = false;
+  protected editingSecurityCompany: any = null;
+
+  openUpdateSecurityModal(company: any): void {
+    this.editingSecurityCompany = { ...company };
+    this.showUpdateSecurityModal = true;
+  }
+
+  closeUpdateSecurityModal(): void {
+    this.showUpdateSecurityModal = false;
+    this.editingSecurityCompany = null;
+  }
+
+  submitUpdateSecurity(): void {
+    if (!this.editingSecurityCompany) return;
+    const idx = this.registeredSecurityCompanies.findIndex((c: any) => c.companyName === this.editingSecurityCompany.companyName);
+    if (idx > -1) {
+      this.registeredSecurityCompanies[idx] = { ...this.editingSecurityCompany };
+    }
+    this.closeUpdateSecurityModal();
+  }
           /**
            * Delete a complex from onboardedComplexes.
            */
