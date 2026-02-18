@@ -6,7 +6,6 @@ const securityCompany = new mongoose.Schema({
     contractEndDate: { required: true, type: Date },
     contractStartDate: { required: true, type: Date },
     psiraNumber: { required: true, type: String },
-    registrationCode: { required: true, type: String },
     sosOptin: { required: true, type: Boolean },
     userName: { required: true, type: String },
 });

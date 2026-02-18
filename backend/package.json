@@ -13,6 +13,7 @@
     "test": "vitest",
     "test:run": "vitest --run",
     "test:ui": "vitest --ui",
+    "test:integration": "vitest run -- integration",
     "coverage": "vitest run --coverage",
     "prepare": "husky"
   },
@@ -32,12 +33,14 @@
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@tsconfig/node22": "^22.0.5",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/express-validator": "^2.20.33",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.2.3",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/eslint-plugin": "^1.6.6",
+    "@vitest/ui": "^4.0.18",
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.3",
     "babel-loader": "^10.0.0",
@@ -46,11 +49,13 @@
     "eslint-plugin-perfectionist": "^5.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "mongodb-memory-server": "^11.0.1",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "vitest-mock-express": "^2.2.0"
   },
   "type": "module",
   "imports": {

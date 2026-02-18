@@ -1,9 +1,5 @@
-import VerifyToken, { UserPayload } from "#utils/verifyToken.js";
+import VerifyToken from "#utils/verifyToken.js";
 import { NextFunction, Request, Response } from "express";
-
-export interface AuthRequest extends Request {
-    user: UserPayload;
-}
 
 const AuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
     const token = req.headers.authorization;

@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./",
+    "allowSyntheticDefaultImports": true,
   },
-  "include": ["**/*.ts", "*/**/*.ts"],
+  "include": ["**/*.ts", "*/**/*.ts", "__tests__/unit/.encryption"],
   "exclude": ["dist"]
 }
