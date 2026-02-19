@@ -6,6 +6,7 @@ import { DataService } from '../services/data.service';
 import { loginDTO } from '../interfaces/userDTO';
 import { ResponseBody } from '../interfaces/ResponseBody';
 import { StorageService } from '../services/storage.service';
+import { LoginFormDTO } from '../interfaces/forms/loginFormDTO';
 
 @Component({
   selector: 'app-login',
@@ -15,8 +16,25 @@ import { StorageService } from '../services/storage.service';
   styleUrl: './login.css',
 })
 export class Login {
-  protected email = '';
-  protected pinDigits = Array.from({ length: 6 }, () => '');
+  protected loginForm: LoginFormDTO = {
+    email: '',
+    pinDigits: Array.from({ length: 6 }, () => '')
+  };
+  protected get email(): string {
+    return this.loginForm.email;
+  }
+
+  protected set email(value: string) {
+    this.loginForm.email = value;
+  }
+
+  protected get pinDigits(): string[] {
+    return this.loginForm.pinDigits;
+  }
+
+  protected set pinDigits(value: string[]) {
+    this.loginForm.pinDigits = value;
+  }
 
   constructor(
     private readonly router: Router,
@@ -33,7 +51,7 @@ export class Login {
     input.classList.add('touched');
     const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
     input.value = digit;
-    this.pinDigits[index] = digit;
+    this.loginForm.pinDigits[index] = digit;
     if (digit && input.nextElementSibling instanceof HTMLInputElement) {
       input.nextElementSibling.focus();
     }
@@ -62,17 +80,17 @@ export class Login {
   }
 
   protected getPinValue(): string {
-    return this.pinDigits.join('');
+    return this.loginForm.pinDigits.join('');
   }
 
   protected isFormValid(): boolean {
     const pin = this.getPinValue();
-    return this.email.trim().length > 0 && pin.length === 6;
+    return this.loginForm.email.trim().length > 0 && pin.length === 6;
   }
 
   submitForm(email: string, pin: string) {
     this.service
-      .post<ResponseBody>('user/login', { emailAddress: email, password: pin.replaceAll(',', '') })
+      .post<ResponseBody>('user/login', { emailAddress: this.loginForm.email, password: this.getPinValue().replaceAll(',', '') })
       .subscribe({
         next: (res) => {
           this.storage.setItem("bearer-token", res.payload.token);

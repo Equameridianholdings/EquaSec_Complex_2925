@@ -2,6 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { DataService } from '../services/data.service';
+import { EmployeeFormDTO } from '../interfaces/forms/employeeFormDTO';
+import { ManagerAssignmentFormDTO } from '../interfaces/forms/managerAssignmentFormDTO';
+import { TenantFormDTO } from '../interfaces/forms/tenantFormDTO';
+import { VehicleFormDTO } from '../interfaces/forms/vehicleFormDTO';
 
 @Component({
   selector: 'app-security-manager',
@@ -11,8 +16,8 @@ import { Router } from '@angular/router';
   styleUrl: './security-manager.css',
 })
 export class SecurityManager implements OnInit {
-  protected readonly securityManagerName = 'Security Manager';
-  protected readonly securityManagerEmail = 'security@equasec.com';
+  protected securityManagerName = 'Security Manager';
+  protected securityManagerEmail = 'security@equasec.com';
   protected assignedComplexes: Array<{
     id: string;
     name: string;
@@ -115,7 +120,7 @@ export class SecurityManager implements OnInit {
   protected selectedEmployeeToDelete: any = null;
   protected selectedTenantToDelete: any = null;
 
-  protected employeeForm = {
+  protected employeeForm: EmployeeFormDTO = {
     id: '',
     name: '',
     surname: '',
@@ -129,7 +134,7 @@ export class SecurityManager implements OnInit {
   protected employeeError = '';
   protected employeeSuccess = '';
 
-  protected assignmentForm = {
+  protected assignmentForm: ManagerAssignmentFormDTO = {
     securityManagerId: '',
     assignedComplexes: [] as string[],
     assignedCommunities: [] as string[],
@@ -137,7 +142,7 @@ export class SecurityManager implements OnInit {
   protected assignmentError = '';
   protected assignmentSuccess = '';
 
-  protected tenantForm = {
+  protected tenantForm: TenantFormDTO = {
     id: '',
     name: '',
     surname: '',
@@ -150,9 +155,9 @@ export class SecurityManager implements OnInit {
     communityResidenceType: 'house' as 'house' | 'complex',
     communityComplexId: '',
     address: '',
-    vehicles: [] as Array<{ make: string; model: string; reg: string; color?: string }>,
+    vehicles: [] as VehicleFormDTO[],
   };
-  protected currentVehicle = {
+  protected currentVehicle: VehicleFormDTO = {
     make: '',
     model: '',
     reg: '',
@@ -178,270 +183,171 @@ export class SecurityManager implements OnInit {
   protected visitorStartDate = '';
   protected visitorEndDate = '';
 
-  constructor(private readonly router: Router) {}
+  constructor(private readonly router: Router, private readonly dataService: DataService) {}
 
   ngOnInit(): void {
+    this.loadCurrentUser();
     this.loadAssignedComplexes();
     this.loadGatedCommunities();
-    this.loadEmployees();
-    this.loadSecurityManagers();
+    this.loadUsers();
     this.loadVisitors();
-    this.loadTenants();
+  }
+
+  private loadCurrentUser(): void {
+    this.dataService.get<any>('user/current').subscribe({
+      next: (user) => {
+        if (!user) {
+          return;
+        }
+        this.securityManagerName = `${user.name ?? ''} ${user.surname ?? ''}`.trim() || this.securityManagerName;
+        this.securityManagerEmail = user.emailAddress ?? this.securityManagerEmail;
+      },
+      error: () => null,
+    });
   }
 
   private loadAssignedComplexes(): void {
-    // Mock data - in real app, fetch from API
-    this.assignedComplexes = [
-      {
-        id: 'complex-1',
-        name: 'Complex 2925 Fleurhof',
-        location: 'Johannesburg',
-        status: 'active',
-        totalUnits: 145,
-        employees: 8,
-        contractStartDate: '2022-09-15',
-        contractEndDate: '2026-08-30',
-        units: this.generateUnits(145),
+    this.dataService.get<any[]>('complex').subscribe({
+      next: (complexes) => {
+        this.assignedComplexes = (complexes || []).map((complex) => ({
+          id: complex._id ?? complex.id ?? '',
+          name: complex.name ?? '',
+          location: complex.address ?? '',
+          status: 'active',
+          totalUnits: complex.numberOfUnits ?? 0,
+          employees: 0,
+          contractStartDate: '',
+          contractEndDate: '',
+          units: this.generateUnits(complex.numberOfUnits ?? 0),
+        }));
       },
-      {
-        id: 'complex-2',
-        name: 'Greenfield Estate',
-        location: 'Pretoria',
-        status: 'active',
-        totalUnits: 98,
-        employees: 6,
-        contractStartDate: '2023-02-01',
-        contractEndDate: '2028-08-31',
-        units: this.generateUnits(98),
+      error: () => {
+        this.assignedComplexes = [];
       },
-      {
-        id: 'complex-3',
-        name: 'Sunset Gardens',
-        location: 'Cape Town',
-        status: 'active',
-        totalUnits: 112,
-        employees: 7,
-        contractStartDate: '2025-01-10',
-        contractEndDate: '2029-01-31',
-        units: this.generateUnits(112),
-      },
-    ];
+    });
   }
 
   private loadGatedCommunities(): void {
-    // Mock data
-    this.gatedCommunities = [
-      {
-        id: 'gc-1',
-        name: 'North Estate',
-        complexId: 'complex-1',
-        status: 'active',
-        totalResidents: 45,
-        contractStartDate: '2023-04-01',
-        contractEndDate: '2026-03-31',
-        houses: this.generateHouses(20),
-        complexesInCommunity: [
-          {
-            id: 'gc1-complex-1',
-            name: 'North Tower A',
-            units: this.generateUnits(15),
-          },
-          {
-            id: 'gc1-complex-2',
-            name: 'North Tower B',
-            units: this.generateUnits(10),
-          },
-        ],
+    this.dataService.get<any[]>('gatedCommunity').subscribe({
+      next: (communities) => {
+        this.gatedCommunities = (communities || []).map((community) => ({
+          id: community._id ?? community.id ?? '',
+          name: community.name ?? '',
+          complexId: community.complexId ?? '',
+          status: 'active',
+          totalResidents: community.numberOfHouses ?? 0,
+          contractStartDate: '',
+          contractEndDate: '',
+          houses: this.generateHouses(community.numberOfHouses ?? 0),
+          complexesInCommunity: [],
+        }));
       },
-      {
-        id: 'gc-2',
-        name: 'South Pavilion',
-        complexId: 'complex-1',
-        status: 'active',
-        totalResidents: 38,
-        contractStartDate: '2024-05-15',
-        contractEndDate: '2029-05-15',
-        houses: this.generateHouses(30),
-        complexesInCommunity: [
-          {
-            id: 'gc2-complex-1',
-            name: 'Pavilion Court',
-            units: this.generateUnits(8),
-          },
-        ],
+      error: () => {
+        this.gatedCommunities = [];
       },
-      {
-        id: 'gc-3',
-        name: 'East Wing',
-        complexId: 'complex-2',
-        status: 'active',
-        totalResidents: 28,
-        contractStartDate: '2023-12-01',
-        contractEndDate: '2027-11-30',
-        houses: this.generateHouses(28),
+    });
+  }
+  private loadUsers(): void {
+    this.dataService.get<any>('user').subscribe({
+      next: (response) => {
+        const users = Array.isArray(response) ? response : response?.payload ?? [];
+        this.employees = users
+          .filter((user: any) => this.hasRole(user, 'security'))
+          .map((user: any) => ({
+            id: user._id ?? '',
+            name: user.name ?? '',
+            surname: user.surname ?? '',
+            email: user.emailAddress ?? '',
+            phone: user.cellNumber ?? '',
+            position: this.hasRole(user, 'admin') ? 'admin-Guard' : 'Guard',
+            assignedComplex: user.complex?._id ?? '',
+            status: 'active',
+          }));
+
+        this.securityManagers = users
+          .filter((user: any) => this.hasRole(user, 'manager'))
+          .map((user: any) => ({
+            id: user._id ?? '',
+            name: user.name ?? '',
+            surname: user.surname ?? '',
+            email: user.emailAddress ?? '',
+            phone: user.cellNumber ?? '',
+            position: 'Security Manager',
+            profilePicture: user.profilePhoto ?? '',
+            assignedComplexes: user.complex?._id ? [user.complex._id] : [],
+            assignedCommunities: [],
+            status: 'active',
+          }));
+
+        this.tenants = users
+          .filter((user: any) => this.hasRole(user, 'tenant') || this.hasRole(user, 'user'))
+          .map((user: any) => ({
+            id: user._id ?? '',
+            name: user.name ?? '',
+            surname: user.surname ?? '',
+            email: user.emailAddress ?? '',
+            phone: user.cellNumber ?? '',
+            idNumber: user.idNumber ?? '',
+            residenceType: user.complex?._id ? 'complex' : 'community',
+            complexId: user.complex?._id ?? '',
+            communityId: '',
+            communityResidenceType: 'house',
+            communityComplexId: '',
+            address: user.address ?? '',
+            vehicles: [],
+            registeredDate: new Date().toISOString().split('T')[0],
+          }));
       },
-    ];
+      error: () => {
+        this.employees = [];
+        this.securityManagers = [];
+        this.tenants = [];
+      },
+    });
   }
 
-  private loadEmployees(): void {
-    // Mock data
-    this.employees = [
-      {
-        id: 'emp-1',
-        name: 'John',
-        surname: 'Ndlela',
-        email: 'john.ndlela@equasec.com',
-        phone: '+27 81 234 5678',
-        position: 'admin-Guard',
-        assignedComplex: 'complex-1',
-        status: 'active',
-      },
-      {
-        id: 'emp-2',
-        name: 'Thabo',
-        surname: 'Khumalo',
-        email: 'thabo.khumalo@equasec.com',
-        phone: '+27 82 345 6789',
-        position: 'Guard',
-        assignedComplex: 'complex-1',
-        status: 'active',
-      },
-      {
-        id: 'emp-3',
-        name: 'Sipho',
-        surname: 'Dlamini',
-        email: 'sipho.dlamini@equasec.com',
-        phone: '+27 83 456 7890',
-        position: 'Guard',
-        assignedComplex: 'complex-2',
-        status: 'active',
-      },
-      {
-        id: 'emp-4',
-        name: 'Nomsa',
-        surname: 'Mthembu',
-        email: 'nomsa.mthembu@equasec.com',
-        phone: '+27 84 567 8901',
-        position: 'admin-Guard',
-        assignedComplex: 'complex-3',
-        status: 'active',
-      },
-    ];
-  }
-
-  private loadSecurityManagers(): void {
-    // Mock data with profile pictures
-    this.securityManagers = [
-      {
-        id: 'sm-1',
-        name: 'Mandla',
-        surname: 'Sithole',
-        email: 'mandla.sithole@equasec.com',
-        phone: '+27 81 111 1111',
-        position: 'Senior Security Manager',
-        profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mandla',
-        assignedComplexes: ['complex-1'],
-        assignedCommunities: ['gc-1', 'gc-2'],
-        status: 'active',
-      },
-      {
-        id: 'sm-2',
-        name: 'Lindiwe',
-        surname: 'Mkhize',
-        email: 'lindiwe.mkhize@equasec.com',
-        phone: '+27 82 222 2222',
-        position: 'Security Manager',
-        profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Lindiwe',
-        assignedComplexes: ['complex-2'],
-        assignedCommunities: ['gc-3'],
-        status: 'active',
-      },
-      {
-        id: 'sm-3',
-        name: 'Karim',
-        surname: 'Hassan',
-        email: 'karim.hassan@equasec.com',
-        phone: '+27 83 333 3333',
-        position: 'Security Manager',
-        profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Karim',
-        assignedComplexes: [],
-        assignedCommunities: [],
-        status: 'active',
-      },
-    ];
+  private hasRole(user: any, role: string): boolean {
+    const type = user?.type;
+    if (Array.isArray(type)) {
+      return type.includes(role);
+    }
+    if (typeof type === 'string') {
+      return type.includes(role);
+    }
+    return false;
   }
 
   private loadVisitors(): void {
-    // Mock data
-    this.visitors = [
-      {
-        id: 'visit-1',
-        name: 'Zanele',
-        surname: 'Nkosi',
-        phone: '+27 72 111 2222',
-        tenantName: 'Lerato Matsebula',
-        tenantUnit: 'North Tower A, Unit 5',
-        tenantPhone: '+27 81 333 0187',
-        visitDate: '2026-02-11T10:30:00',
-        complexId: '',
-        communityId: 'gc-1',
-        communityResidenceType: 'complex',
-        communityComplexId: 'north-tower-a',
-        vehicle: {
-          make: 'Toyota',
-          model: 'Corolla',
-          reg: 'ABC 123 GP',
-          color: 'Silver',
-        },
+    this.dataService.get<any[]>('logs').subscribe({
+      next: (logs) => {
+        this.visitors = (logs || []).map((log) => {
+          const visitor = log.visitor ?? {};
+          const tenant = visitor.user ?? {};
+          return {
+            id: visitor._id ?? '',
+            name: visitor.name ?? '',
+            surname: visitor.surname ?? '',
+            phone: visitor.contact ?? '',
+            tenantName: `${tenant.name ?? ''} ${tenant.surname ?? ''}`.trim(),
+            tenantUnit: tenant.unit ?? '',
+            tenantPhone: tenant.cellNumber ?? '',
+            visitDate: log.date ?? '',
+            complexId: tenant.complex?._id ?? '',
+            vehicle: visitor.vehicle
+              ? {
+                  make: visitor.vehicle.make ?? '',
+                  model: visitor.vehicle.model ?? '',
+                  reg: visitor.vehicle.registerationNumber ?? visitor.vehicle.registration ?? '',
+                  color: visitor.vehicle.color ?? '',
+                }
+              : undefined,
+          };
+        });
       },
-      {
-        id: 'visit-2',
-        name: 'Peter',
-        surname: 'Jacobs',
-        phone: '+27 72 333 4444',
-        tenantName: 'Thandi Moagi',
-        tenantUnit: 'Unit 5',
-        tenantPhone: '+27 73 444 5599',
-        visitDate: '2026-02-11T12:15:00',
-        complexId: 'complex-2',
-        vehicle: {
-          make: 'Honda',
-          model: 'Civic',
-          reg: 'DEF 456 JH',
-          color: 'Black',
-        },
+      error: () => {
+        this.visitors = [];
       },
-      {
-        id: 'visit-3',
-        name: 'Ayesha',
-        surname: 'Khan',
-        phone: '+27 72 555 6666',
-        tenantName: 'Thabo Dlamini',
-        tenantUnit: 'House 25',
-        tenantPhone: '+27 84 222 0156',
-        visitDate: '2026-02-12T09:00:00',
-        complexId: '',
-        communityId: 'gc-1',
-        communityResidenceType: 'house',
-      },
-      {
-        id: 'visit-4',
-        name: 'Sam',
-        surname: 'Mokoena',
-        phone: '+27 72 777 8888',
-        tenantName: 'Lerato Phiri',
-        tenantUnit: 'Unit 19',
-        tenantPhone: '+27 76 111 7788',
-        visitDate: '2026-02-12T18:45:00',
-        complexId: 'complex-3',
-        vehicle: {
-          make: 'Volkswagen',
-          model: 'Polo',
-          reg: 'GHI 789 LP',
-          color: 'Red',
-        },
-      },
-    ];
+    });
   }
 
   protected openEmployeeModal(): void {
@@ -535,7 +441,6 @@ export class SecurityManager implements OnInit {
       this.closeEmployeeModal();
     }, 1500);
   }
-
   protected openComplexDetails(complex: any): void {
     this.selectedComplex = complex;
     this.selectedComplexEmployees = this.employees.filter((e) => e.assignedComplex === complex.id);
@@ -936,12 +841,12 @@ export class SecurityManager implements OnInit {
       address: this.tenantForm.address.trim(),
       vehicles: this.tenantForm.vehicles,
       registeredDate: this.editingTenantId
-        ? this.tenants.find((t) => t.id === this.editingTenantId)?.registeredDate || new Date().toISOString().split('T')[0]
+        ? this.tenants.find((t: any) => t.id === this.editingTenantId)?.registeredDate || new Date().toISOString().split('T')[0]
         : new Date().toISOString().split('T')[0],
     };
 
     if (this.editingTenantId) {
-      const index = this.tenants.findIndex((t) => t.id === this.editingTenantId);
+      const index = this.tenants.findIndex((t: any) => t.id === this.editingTenantId);
       if (index > -1) {
         this.tenants[index] = tenantData;
       }
@@ -968,7 +873,7 @@ export class SecurityManager implements OnInit {
 
   protected confirmDeleteTenant(): void {
     if (this.selectedTenantToDelete) {
-      this.tenants = this.tenants.filter((t) => t.id !== this.selectedTenantToDelete.id);
+      this.tenants = this.tenants.filter((t: any) => t.id !== this.selectedTenantToDelete.id);
       this.closeDeleteTenantModal();
     }
   }
@@ -981,7 +886,7 @@ export class SecurityManager implements OnInit {
     }
 
     // Check for duplicate registration
-    if (this.tenantForm.vehicles.some(v => v.reg === this.currentVehicle.reg)) {
+    if (this.tenantForm.vehicles.some((v: any) => v.reg === this.currentVehicle.reg)) {
       this.tenantError = 'A vehicle with this registration number is already added.';
       return;
     }
@@ -991,7 +896,7 @@ export class SecurityManager implements OnInit {
       make: this.currentVehicle.make.trim(),
       model: this.currentVehicle.model.trim(),
       reg: this.currentVehicle.reg.trim(),
-      color: this.currentVehicle.color.trim() || undefined,
+      color: this.currentVehicle.color.trim(),
     });
 
     // Reset current vehicle form
@@ -1085,7 +990,7 @@ export class SecurityManager implements OnInit {
     if (!this.tenantForm.complexId) {
       return [];
     }
-    const complex = this.assignedComplexes.find(c => c.id === this.tenantForm.complexId);
+    const complex = this.assignedComplexes.find((c: any) => c.id === this.tenantForm.complexId);
     return complex?.units || [];
   }
 
@@ -1093,7 +998,7 @@ export class SecurityManager implements OnInit {
     if (!this.tenantForm.communityId) {
       return [];
     }
-    const community = this.gatedCommunities.find(gc => gc.id === this.tenantForm.communityId);
+    const community = this.gatedCommunities.find((gc: any) => gc.id === this.tenantForm.communityId);
     return community?.houses || [];
   }
 
@@ -1101,7 +1006,7 @@ export class SecurityManager implements OnInit {
     if (!this.tenantForm.communityId) {
       return [];
     }
-    const community = this.gatedCommunities.find(gc => gc.id === this.tenantForm.communityId);
+    const community = this.gatedCommunities.find((gc: any) => gc.id === this.tenantForm.communityId);
     return community?.complexesInCommunity || [];
   }
 
@@ -1109,13 +1014,13 @@ export class SecurityManager implements OnInit {
     if (!this.tenantForm.communityComplexId) {
       return [];
     }
-    const community = this.gatedCommunities.find(gc => gc.id === this.tenantForm.communityId);
-    const complex = community?.complexesInCommunity?.find(c => c.id === this.tenantForm.communityComplexId);
+    const community = this.gatedCommunities.find((gc: any) => gc.id === this.tenantForm.communityId);
+    const complex = community?.complexesInCommunity?.find((c: any) => c.id === this.tenantForm.communityComplexId);
     return complex?.units || [];
   }
 
   protected get filteredTenants(): any[] {
-    return this.tenants.filter((tenant) => {
+    return this.tenants.filter((tenant: any) => {
       const matchesSearch =
         tenant.name.toLowerCase().includes(this.tenantSearchTerm.toLowerCase()) ||
         tenant.surname.toLowerCase().includes(this.tenantSearchTerm.toLowerCase()) ||

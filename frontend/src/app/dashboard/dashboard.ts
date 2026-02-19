@@ -1,7 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { VisitorBookingFormDTO } from '../interfaces/forms/visitorBookingFormDTO';
+import { ChangePinFormDTO } from '../interfaces/forms/changePinFormDTO';
+import { DataService } from '../services/data.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -10,7 +13,7 @@ import { Router } from '@angular/router';
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
-export class Dashboard implements OnDestroy {
+export class Dashboard implements OnDestroy, OnInit {
   @ViewChild('cameraInput') cameraInput!: ElementRef<HTMLInputElement>;
   @ViewChild('profileCameraVideo') private readonly profileCameraVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('profileCameraCanvas') private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
@@ -22,7 +25,80 @@ export class Dashboard implements OnDestroy {
   protected isUpdateDetailsModalOpen = false;
   protected isChangePinModalOpen = false;
   protected profilePhotoData = '';
-  protected changePinDigits = {
+  protected visitorBookingForm: VisitorBookingFormDTO = {
+    visitorName: '',
+    visitorSurname: '',
+    visitorCell: '',
+    visitorIdNumber: '',
+    vehicleMake: '',
+    vehicleModel: '',
+    vehicleReg: '',
+    vehicleColor: ''
+  };
+  get visitorName(): string {
+    return this.visitorBookingForm.visitorName;
+  }
+
+  set visitorName(value: string) {
+    this.visitorBookingForm.visitorName = value;
+  }
+
+  get visitorSurname(): string {
+    return this.visitorBookingForm.visitorSurname;
+  }
+
+  set visitorSurname(value: string) {
+    this.visitorBookingForm.visitorSurname = value;
+  }
+
+  get visitorCell(): string {
+    return this.visitorBookingForm.visitorCell;
+  }
+
+  set visitorCell(value: string) {
+    this.visitorBookingForm.visitorCell = value;
+  }
+
+  get visitorIdNumber(): string {
+    return this.visitorBookingForm.visitorIdNumber;
+  }
+
+  set visitorIdNumber(value: string) {
+    this.visitorBookingForm.visitorIdNumber = value;
+  }
+
+  get vehicleMake(): string {
+    return this.visitorBookingForm.vehicleMake;
+  }
+
+  set vehicleMake(value: string) {
+    this.visitorBookingForm.vehicleMake = value;
+  }
+
+  get vehicleModel(): string {
+    return this.visitorBookingForm.vehicleModel;
+  }
+
+  set vehicleModel(value: string) {
+    this.visitorBookingForm.vehicleModel = value;
+  }
+
+  get vehicleReg(): string {
+    return this.visitorBookingForm.vehicleReg;
+  }
+
+  set vehicleReg(value: string) {
+    this.visitorBookingForm.vehicleReg = value;
+  }
+
+  get vehicleColor(): string {
+    return this.visitorBookingForm.vehicleColor;
+  }
+
+  set vehicleColor(value: string) {
+    this.visitorBookingForm.vehicleColor = value;
+  }
+  protected changePinForm: ChangePinFormDTO = {
     current: ['', '', '', '', '', ''],
     new: ['', '', '', '', '', ''],
     confirm: ['', '', '', '', '', '']
@@ -35,52 +111,87 @@ export class Dashboard implements OnDestroy {
   private profileCameraStream: MediaStream | null = null;
   private sosHoldTimer: number | null = null;
   private sosAutoCloseTimer: number | null = null;
-  protected readonly profileName = 'Kamo';
-  protected readonly profilePhotoUrl = '';
+  protected profileName = 'Kamo';
+  protected profilePhotoUrl = '';
   protected isDriving = false;
-  protected visitorName = '';
-  protected visitorSurname = '';
-  protected visitorCell = '';
-  protected visitorIdNumber = '';
-  protected vehicleMake = '';
-  protected vehicleModel = '';
-  protected vehicleReg = '';
-  protected vehicleColor = '';
+  private currentUserComplexId = '';
 
   // Unit residents and vehicles
-  protected unitResidents = [
-    {
-      name: 'Kamo Moloi',
-      email: 'kamo.moloi@example.com',
-      phone: '+27 82 555 0198',
-      idNumber: '9012155123088',
-    },
-    {
-      name: 'Sarah Moloi',
-      email: 'sarah.moloi@example.com',
-      phone: '+27 83 444 0123',
-      idNumber: '8805205234089',
-    },
-  ];
+  protected unitResidents: Array<{ name: string; email: string; phone: string; idNumber: string }> = [];
 
-  protected unitVehicles = [
-    {
-      make: 'Toyota',
-      model: 'Corolla',
-      reg: 'ABC 123 GP',
-      color: 'Silver',
-      owner: 'Kamo Moloi',
-    },
-    {
-      make: 'Honda',
-      model: 'Civic',
-      reg: 'XYZ 456 GP',
-      color: 'Blue',
-      owner: 'Sarah Moloi',
-    },
-  ];
+  protected unitVehicles: Array<{ make: string; model: string; reg: string; color: string; owner: string }> = [];
 
-  constructor(private readonly router: Router) {}
+  constructor(private readonly router: Router, private readonly dataService: DataService) {}
+
+  ngOnInit(): void {
+    this.loadDashboardData();
+  }
+
+  private loadDashboardData(): void {
+    this.dataService.get<any>('user/current').subscribe({
+      next: (user) => {
+        if (user) {
+          this.profileName = `${user.name ?? ''} ${user.surname ?? ''}`.trim() || this.profileName;
+          this.profilePhotoUrl = user.profilePhoto ?? '';
+          this.currentUserComplexId = user.complex?._id ?? '';
+        }
+        this.loadResidents();
+        this.loadVehicles();
+      },
+      error: () => {
+        this.loadResidents();
+        this.loadVehicles();
+      },
+    });
+  }
+
+  private loadResidents(): void {
+    this.dataService.get<any>('user').subscribe({
+      next: (response) => {
+        const users = Array.isArray(response) ? response : response?.payload ?? [];
+        this.unitResidents = (users || [])
+          .filter((user: any) => {
+            if (!this.currentUserComplexId) {
+              return true;
+            }
+            return user.complex?._id === this.currentUserComplexId;
+          })
+          .map((user: any) => ({
+            name: `${user.name ?? ''} ${user.surname ?? ''}`.trim(),
+            email: user.emailAddress ?? '',
+            phone: user.cellNumber ?? '',
+            idNumber: user.idNumber ?? '',
+          }));
+      },
+      error: () => {
+        this.unitResidents = [];
+      },
+    });
+  }
+
+  private loadVehicles(): void {
+    this.dataService.get<any[]>('vehicle').subscribe({
+      next: (vehicles) => {
+        this.unitVehicles = (vehicles || [])
+          .filter((vehicle) => {
+            if (!this.currentUserComplexId) {
+              return true;
+            }
+            return vehicle.user?.complex?._id === this.currentUserComplexId;
+          })
+          .map((vehicle) => ({
+            make: vehicle.make ?? '',
+            model: vehicle.model ?? '',
+            reg: vehicle.registerationNumber ?? vehicle.reg ?? '',
+            color: vehicle.color ?? '',
+            owner: `${vehicle.user?.name ?? ''} ${vehicle.user?.surname ?? ''}`.trim(),
+          }));
+      },
+      error: () => {
+        this.unitVehicles = [];
+      },
+    });
+  }
 
   protected openBookingModal(): void {
     this.isBookingModalOpen = true;
@@ -146,7 +257,7 @@ export class Dashboard implements OnDestroy {
 
   protected openChangePinModal(): void {
     this.isChangePinModalOpen = true;
-    this.changePinDigits = {
+    this.changePinForm = {
       current: ['', '', '', '', '', ''],
       new: ['', '', '', '', '', ''],
       confirm: ['', '', '', '', '', '']
@@ -167,7 +278,7 @@ export class Dashboard implements OnDestroy {
 
     const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
     input.value = digit;
-    this.changePinDigits.current[index] = digit;
+    this.changePinForm.current[index] = digit;
 
     if (digit && input.nextElementSibling instanceof HTMLInputElement) {
       input.nextElementSibling.focus();
@@ -182,7 +293,7 @@ export class Dashboard implements OnDestroy {
 
     const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
     input.value = digit;
-    this.changePinDigits.new[index] = digit;
+    this.changePinForm.new[index] = digit;
 
     if (digit && input.nextElementSibling instanceof HTMLInputElement) {
       input.nextElementSibling.focus();
@@ -197,7 +308,7 @@ export class Dashboard implements OnDestroy {
 
     const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
     input.value = digit;
-    this.changePinDigits.confirm[index] = digit;
+    this.changePinForm.confirm[index] = digit;
 
     if (digit && input.nextElementSibling instanceof HTMLInputElement) {
       input.nextElementSibling.focus();
@@ -213,16 +324,16 @@ export class Dashboard implements OnDestroy {
     if (event.key === 'Backspace' && !input.value) {
       const prev = input.previousElementSibling;
       if (prev instanceof HTMLInputElement) {
-        this.changePinDigits[type][index - 1] = '';
+        this.changePinForm[type][index - 1] = '';
         prev.focus();
       }
     }
   }
 
   protected submitChangePinForm(): void {
-    const currentPin = this.changePinDigits.current.join('');
-    const newPin = this.changePinDigits.new.join('');
-    const confirmPin = this.changePinDigits.confirm.join('');
+    const currentPin = this.changePinForm.current.join('');
+    const newPin = this.changePinForm.new.join('');
+    const confirmPin = this.changePinForm.confirm.join('');
 
     // Validate all PINs are 6 digits
     if (currentPin.length !== 6 || !/^\d+$/.test(currentPin)) {
@@ -386,14 +497,16 @@ export class Dashboard implements OnDestroy {
 
   private resetBookingForm(): void {
     this.isDriving = false;
-    this.visitorName = '';
-    this.visitorSurname = '';
-    this.visitorCell = '';
-    this.visitorIdNumber = '';
-    this.vehicleMake = '';
-    this.vehicleModel = '';
-    this.vehicleReg = '';
-    this.vehicleColor = '';
+    this.visitorBookingForm = {
+      visitorName: '',
+      visitorSurname: '',
+      visitorCell: '',
+      visitorIdNumber: '',
+      vehicleMake: '',
+      vehicleModel: '',
+      vehicleReg: '',
+      vehicleColor: ''
+    };
   }
 
   protected markTouched(event: Event): void {
