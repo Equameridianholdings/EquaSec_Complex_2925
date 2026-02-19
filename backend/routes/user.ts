@@ -41,7 +41,6 @@ userRouter.post(
   validateSchema,
   async (req: Request, res: Response) => {
     const user: UserDTO = req.body as UserDTO;
-
     try {
       user.salt = await bcrypt.genSalt(10);
       const hashPassword = await bcrypt.hash(user.password as unknown as string, user.salt);
