@@ -1,17 +1,24 @@
-import * as jwt from 'jsonwebtoken'
+import jsonwebtoken from "jsonwebtoken";
 
 interface JwtPayload {
-    id?: string;
-    role: string[];
+  email: string;
+  role: string[];
 }
 
-export default function GenerateJWT(id: string, role: string[]): string {
-    const claims: JwtPayload = {
-        id: id,
-        role: role,
-    }
+export default function GenerateJWT(email: string, role: string[]): string {
+  const { sign } = jsonwebtoken;
+  const claims: JwtPayload = {
+    email: email,
+    role: role,
+  };
 
-    const SECRET_KEY = process.env.SECRET_KEY as unknown as string;
-    
-    return jwt.sign(claims, SECRET_KEY, { algorithm: 'HS512', expiresIn: '24h' } as jwt.SignOptions);
+  const SECRET_KEY = process.env.SECRET_KEY as unknown as string;
+
+  try {
+    const token = sign(claims, SECRET_KEY, { algorithm: "HS512", expiresIn: "24h" });
+
+    return token;
+  } catch (error) {
+    throw new Error(error as string);
+  }
 }

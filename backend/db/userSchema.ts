@@ -12,7 +12,6 @@ const user = new mongoose.Schema({
     salt: { required: true, type: String, unique: true},
     surname: {required: true, type: String},
     type: { default: "user", required: true, type: Array}, // User or Admin or Security or Security-admin
-    unit: {type: Object},
 })
 
 const userSchema = mongoose.model("User", user);

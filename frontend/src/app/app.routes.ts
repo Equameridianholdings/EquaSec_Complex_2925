@@ -13,5 +13,6 @@ export const routes: Routes = [
 	{ path: 'dashboard', component: Dashboard },
 	{ path: 'guard-portal', component: GuardPortal },
 	{ path: 'admin-portal', component: AdminPortal },
-	{ path: 'security-manager', component: SecurityManager }
+	{ path: 'security-manager', component: SecurityManager },
+	{ path: "**", component: Login},
 ];

@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import jsonwebtoken from "jsonwebtoken";
 
 export interface UserPayload {
     id: string;
@@ -7,9 +7,9 @@ export interface UserPayload {
 
 export default function VerifyToken(token: string) {
     try {
+        const { verify } = jsonwebtoken
         const SECRET_KEY = process.env.SECRET_KEY as unknown as string;
-         
-        const decoded = jwt.verify(token, SECRET_KEY, { algorithms: ['HS512'] }) as UserPayload;
+        const decoded = verify(token, SECRET_KEY, { algorithms: ['HS512'] }) as UserPayload;
         return decoded;
     } catch {
         return null;

@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <form #loginForm>
+    <form #loginForm (ngSubmit)="submitForm(email, pinDigits.join())">
       <div class="form-group">
         <label for="email">Email Address</label>
         <input 
@@ -36,7 +36,7 @@
       </div>
 
       <div class="form-actions">
-        <button type="button" class="btn-primary" [disabled]="!isFormValid()" (click)="goToDashboard()">
+        <button type="submit" class="btn-primary" [disabled]="!isFormValid()">
           Sign in
         </button>
       </div>

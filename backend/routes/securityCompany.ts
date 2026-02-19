@@ -1,8 +1,9 @@
 import securityCompanySchema from "#db/securityCompanySchema.js";
 import { securityCompanyBodyValidation, SecurityCompanyDTO } from "#interfaces/securityCompanyDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
+import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import validateObjectId from "#utils/validateObjectId.js";
-import { Router } from "express";
+import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 
 const securityCompanyRouter = Router();
@@ -47,11 +48,7 @@ securityCompanyRouter.get("/:id", validateObjectId, async (req, res) => {
   }
 });
 
-securityCompanyRouter.post("/", async (req, res) => {
-  const validated = await securityCompanyBodyValidation.run(req);
-
-  if (validated.length > 0) return res.status(400).json({ message: "Invalid details", payload: validated });
-  
+securityCompanyRouter.post("/", securityCompanyBodyValidation, validateSchema, async (req: Request, res: Response) => {  
   const securityCompany = req.body as SecurityCompanyDTO;
   try {
     const newSecurityCompany = new securityCompanySchema(securityCompany);

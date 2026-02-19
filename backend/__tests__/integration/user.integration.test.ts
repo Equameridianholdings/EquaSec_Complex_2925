@@ -92,15 +92,4 @@ const sampleUser: UserDTO = {
   salt: "",
   surname: "TestSurname",
   type: ["tenant"],
-  unit: {
-    complex: {
-      address: "125 Test St, Test",
-      name: "2nd Test Estate",
-      numberOfUnits: 50,
-    },
-    number: 2,
-    numberOfParkingBays: 2,
-    numberOfRooms: 2,
-    occupied: true,
-  },
 };

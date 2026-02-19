@@ -1,7 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { DataService } from '../services/data.service';
+import { loginDTO } from '../interfaces/userDTO';
+import { ResponseBody } from '../interfaces/ResponseBody';
+import { StorageService } from '../services/storage.service';
 
 @Component({
   selector: 'app-login',
@@ -14,7 +18,11 @@ export class Login {
   protected email = '';
   protected pinDigits = Array.from({ length: 6 }, () => '');
 
-  constructor(private readonly router: Router) {}
+  constructor(
+    private readonly router: Router,
+    private service: DataService,
+    private storage: StorageService,
+  ) {}
 
   protected onPinInput(event: Event, index: number): void {
     const input = event.target as HTMLInputElement | null;
@@ -62,7 +70,36 @@ export class Login {
     return this.email.trim().length > 0 && pin.length === 6;
   }
 
-  protected goToDashboard(): void {
-    void this.router.navigate(['/dashboard']);
+  submitForm(email: string, pin: string) {
+    this.service
+      .post<ResponseBody>('user/login', { emailAddress: email, password: pin.replaceAll(',', '') })
+      .subscribe({
+        next: (res) => {
+          this.storage.setItem("bearer-token", res.payload.token);
+          switch (res.payload.type.includes('admin')) {
+            case res.payload.type.includes('admin'):
+              this.router.navigate(['/admin-portal']);
+              break;
+
+            case res.payload.type.includes('manager'):
+              this.router.navigate(['/security-manager']);
+              break;
+
+            case res.payload.type.includes('security'):
+              this.router.navigate(['/gaurd-portal']);
+              break;
+
+            case res.payload.type.includes('tenant'):
+              this.router.navigate(['/dashboard']);
+              break;
+
+            default:
+              break;
+          }
+        },
+        error: (err) => {
+          console.error(err);
+        },
+      });
   }
 }

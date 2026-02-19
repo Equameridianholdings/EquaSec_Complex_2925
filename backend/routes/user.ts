@@ -22,7 +22,7 @@ userRouter.post(
   body("confirmPassword")
     .custom((value, { req }) => {
       const user = req.body as UserDTO;
-      return value === (user.password as unknown as string);
+      return value === user.password as unknown as string;
     })
     .withMessage("Passwords do not match."),
   // body("idNumber")
@@ -74,7 +74,7 @@ const loginBodyValidation: Schema = {
     isLength: {
       errorMessage: "Incorrect password length",
       options: {
-        max: 6,
+        max: 7,
         min: 6,
       },
     },
@@ -96,9 +96,9 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
     if (!isValidPassword) return res.status(401).json({message: "Invalid login details"});
 
     //Issue jwt
-    const token = GenerateJWT(user[0]._id as unknown as string, user[0].type);
+    const token = GenerateJWT(user[0].emailAddress, user[0].type);
     
-    if (VerifyToken(token)) return res.status(200).json({ message: "Logged in successfully", payload: token }); //return jwt token
+    if (VerifyToken(token)) return res.status(200).json({ message: "Logged in successfully", payload: { token: token, type: user[0].type } }); //return jwt token
 
     return res.status(500).json({message: "Error issuing valid token signature. Please try again later."});
   } catch {

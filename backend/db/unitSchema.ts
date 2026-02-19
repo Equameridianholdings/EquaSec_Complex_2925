@@ -7,6 +7,7 @@ const unit = new mongoose.Schema({
     numberOfParkingBays: {required: true, type: Int32},
     numberOfRooms: {required: true, type: Int32},
     occupied: {requred: true, type: Boolean},
+    users: {type: Array},
 });
 
 const unitSchema = mongoose.model("Unit", unit);

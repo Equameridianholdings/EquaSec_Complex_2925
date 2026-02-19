@@ -11,7 +11,7 @@ const AuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
     
     try {
         const decoded = VerifyToken(token);
-
+        
         if (decoded) {
             res.set("role", decoded.role);
             res.set("id", decoded.id);

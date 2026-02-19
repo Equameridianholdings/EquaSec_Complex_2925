@@ -1,6 +1,7 @@
 import { checkSchema } from "express-validator/lib/middlewares/schema.js";
 
 import { complexDTO } from "./complexDTO.js";
+import { UserDTO } from "./userDTO.js";
 
 export interface unitDTO {
   _id?: string;
@@ -9,6 +10,7 @@ export interface unitDTO {
   numberOfParkingBays: number;
   numberOfRooms: number;
   occupied: boolean;
+  users: UserDTO[];
 }
 
 export const unitBodyValidation = checkSchema({

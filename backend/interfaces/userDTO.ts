@@ -2,7 +2,6 @@ import { Schema } from "express-validator/lib/middlewares/schema.js";
 import { ObjectId } from "mongoose";
 
 import { complexDTO } from "./complexDTO.js";
-import { unitDTO } from "./unitDTO.js";
 
 export interface UserDTO {
     _id?: ObjectId;
@@ -18,7 +17,6 @@ export interface UserDTO {
     salt?: string;
     surname: string;
     type: string[];
-    unit?: unitDTO;
 }
 
 export const userBodyValidation: Schema = {
@@ -30,17 +28,6 @@ export const userBodyValidation: Schema = {
                 min: 10,
             },
         },
-    },
-    confirmPassword:{
-        errorMessage: "Field is required",
-        isEmpty: false,
-        isLength: {
-            errorMessage: "Invalid password length or pattern.",
-            options: {
-                max: 6,
-                min: 6,
-            },
-        }
     },
     emailAddress: {
         errorMessage: "Invalid email address.",
@@ -70,13 +57,13 @@ export const userBodyValidation: Schema = {
     password: {
         errorMessage: "Field is required",
         isEmpty: false,
-        isLength: {
-            errorMessage: "Invalid password length or pattern.",
-            options: {
-                max: 6,
-                min: 6,
-            },
-        }
+        // isLength: {
+        //     errorMessage: "Invalid password length or pattern.",
+        //     options: {
+        //         max: 6,
+        //         min: 6,
+        //     },
+        // }
     },
     profilePhoto: {
         errorMessage: "Field is required",
@@ -100,10 +87,5 @@ export const userBodyValidation: Schema = {
     type: {
         errorMessage: "Field is required",
         isEmpty: false,
-    },
-    unit: {
-        errorMessage: "Field is required",
-        isEmpty: false,
-        isObject: true,
     },
 };
