@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import complexRouter from "#routes/complex.js";
 import emergencyContactRouter from "#routes/emergenyContact.js";
 import gatedCommunityRouter from "#routes/gatedCommunity.js";
@@ -30,7 +29,7 @@ const corsOptions: CorsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify allowed methods
   optionsSuccessStatus: 204, // Use 204 for successful OPTIONS requests
   origin: (origin, callback) => {
-    if (allowedOrigins.includes(origin as string) || !origin) {
+    if (allowedOrigins.includes(origin as unknown as string) || !origin) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'), false);
