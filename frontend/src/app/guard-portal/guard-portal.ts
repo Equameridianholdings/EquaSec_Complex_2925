@@ -2,6 +2,10 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, PLATFORM_ID, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
+import { GuardPortalFiltersFormDTO } from '../interfaces/forms/guardPortalFiltersFormDTO';
+import { DataService } from '../services/data.service';
 
 @Component({
   selector: 'app-guard-portal',
@@ -15,14 +19,63 @@ export class GuardPortal implements OnInit, OnDestroy {
   @ViewChild('profileCameraVideo') private readonly profileCameraVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('profileCameraCanvas') private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
 
-  protected searchCode = '';
-  protected searchUnit = '';
-  protected searchReg = '';
-  protected searchComplex = '';
-  protected searchGatedCommunity = '';
-  protected searchComplexFilter = '';
-  protected selectedComplex = '';
-  protected selectedGatedCommunity = '';
+  protected filtersForm: GuardPortalFiltersFormDTO = {
+    searchCode: '',
+    searchUnit: '',
+    searchReg: '',
+    searchComplex: '',
+    searchGatedCommunity: '',
+    searchComplexFilter: '',
+    selectedComplex: '',
+    selectedGatedCommunity: ''
+  };
+  protected get searchCode(): string {
+    return this.filtersForm.searchCode;
+  }
+
+  protected set searchCode(value: string) {
+    this.filtersForm.searchCode = value;
+  }
+
+  protected get searchUnit(): string {
+    return this.filtersForm.searchUnit;
+  }
+
+  protected set searchUnit(value: string) {
+    this.filtersForm.searchUnit = value;
+  }
+
+  protected get searchReg(): string {
+    return this.filtersForm.searchReg;
+  }
+
+  protected set searchReg(value: string) {
+    this.filtersForm.searchReg = value;
+  }
+
+  protected get searchComplexFilter(): string {
+    return this.filtersForm.searchComplexFilter;
+  }
+
+  protected set searchComplexFilter(value: string) {
+    this.filtersForm.searchComplexFilter = value;
+  }
+
+  protected get selectedGatedCommunity(): string {
+    return this.filtersForm.selectedGatedCommunity;
+  }
+
+  protected set selectedGatedCommunity(value: string) {
+    this.filtersForm.selectedGatedCommunity = value;
+  }
+
+  protected get selectedComplex(): string {
+    return this.filtersForm.selectedComplex;
+  }
+
+  protected set selectedComplex(value: string) {
+    this.filtersForm.selectedComplex = value;
+  }
   protected showUnitOptions = false;
   protected showRegOptions = false;
   protected showComplexOptions = false;
@@ -57,29 +110,30 @@ export class GuardPortal implements OnInit, OnDestroy {
     private readonly zone: NgZone,
     private readonly cdr: ChangeDetectorRef,
     private readonly router: Router,
+    private readonly dataService: DataService,
   ) {}
   protected get guardInitials(): string {
     return (this.guardName || 'Guard').trim().slice(0, 2).toUpperCase();
   }
 
   protected get selectedComplexName(): string {
-    const complex = this.complexes.find((c) => c.id === this.selectedComplex);
+    const complex = this.complexes.find((c) => c.id === this.filtersForm.selectedComplex);
     return complex?.name || 'Select a complex';
   }
 
   protected get selectedGatedCommunityName(): string {
-    const gc = this.gatedCommunities.find((g) => g.id === this.selectedGatedCommunity);
+    const gc = this.gatedCommunities.find((g) => g.id === this.filtersForm.selectedGatedCommunity);
     return gc?.name || 'Select a gated community';
   }
 
   protected get selectedStationName(): string {
-    if (this.selectedComplex && this.selectedGatedCommunity) {
+    if (this.filtersForm.selectedComplex && this.filtersForm.selectedGatedCommunity) {
       return `${this.selectedComplexName} - ${this.selectedGatedCommunityName}`;
     }
-    if (this.selectedComplex) {
+    if (this.filtersForm.selectedComplex) {
       return this.selectedComplexName;
     }
-    if (this.selectedGatedCommunity) {
+    if (this.filtersForm.selectedGatedCommunity) {
       return this.selectedGatedCommunityName;
     }
     return 'Select station';
@@ -87,10 +141,10 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected get stationSelectionReady(): boolean {
     if (this.stationType === 'gated') {
-      return this.selectedGatedCommunity.length > 0;
+      return this.filtersForm.selectedGatedCommunity.length > 0;
     }
     if (this.stationType === 'complex') {
-      return this.selectedComplex.length > 0;
+      return this.filtersForm.selectedComplex.length > 0;
     }
     return false;
   }
@@ -113,208 +167,160 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (this.stationType !== 'gated') {
       return false;
     }
-    const hasStationComplex = this.selectedComplex.length > 0;
-    const hasSearchComplex = this.searchComplexFilter.length > 0;
+    const hasStationComplex = this.filtersForm.selectedComplex.length > 0;
+    const hasSearchComplex = this.filtersForm.searchComplexFilter.length > 0;
     return !hasStationComplex && !hasSearchComplex;
   }
 
   ngOnInit(): void {
-    this.restoreStationSelection();
+    this.loadGuardPortalData();
   }
+  protected gatedCommunities: Array<{ id: string; name: string; complexes: Array<{ id: string; name: string }> }> = [];
 
-  protected readonly gatedCommunities = [
-    {
-      id: 'gated-paradise',
-      name: 'Paradise Estate',
-      complexes: [
-        { id: 'complex-skyline', name: 'Skyline Residences' },
-        { id: 'complex-harbor', name: 'Harbor Heights' },
-      ],
-    },
-    {
-      id: 'gated-greenvalley',
-      name: 'Green Valley Security Estate',
-      complexes: [
-        { id: 'complex-oakwood', name: 'Oakwood Manor' },
-      ],
-    },
-    {
-      id: 'gated-central',
-      name: 'Central Park Security Estate',
-      complexes: [
-        { id: 'complex-central-residences', name: 'Central Residences' },
-        { id: 'complex-central-heights', name: 'Central Heights' },
-      ],
-    },
-  ];
-
-  protected readonly standaloneComplexes = [
-    { id: 'complex-1', name: 'Complex 2925 Fleurhof' },
-    { id: 'complex-2', name: 'Sunset View Estate' },
-    { id: 'complex-3', name: 'Green Park Apartments' },
-  ];
+  protected standaloneComplexes: Array<{ id: string; name: string }> = [];
 
   protected get complexes(): Array<{ id: string; name: string }> {
-    if (this.selectedGatedCommunity) {
-      const gc = this.gatedCommunities.find((g) => g.id === this.selectedGatedCommunity);
+    if (this.filtersForm.selectedGatedCommunity) {
+      const gc = this.gatedCommunities.find((g) => g.id === this.filtersForm.selectedGatedCommunity);
       return gc?.complexes ?? [];
     }
     return this.standaloneComplexes;
   }
 
-  protected readonly residents = [
-    {
-      name: 'Lerato Nkosi',
-      unit: '402',
-      cellphone: '082 123 4567',
-      email: 'lerato@example.com',
-      photoDataUrl: '',
-      complexId: 'complex-1',
-      gatedCommunityId: '',
-    },
-    {
-      name: 'Sipho Dlamini',
-      unit: '118',
-      cellphone: '071 445 2211',
-      email: 'sipho@example.com',
-      photoDataUrl: '',
-      complexId: 'complex-1',
-      gatedCommunityId: '',
-    },
-    {
-      name: 'James Williams',
-      unit: '201',
-      cellphone: '083 555 8899',
-      email: 'james@example.com',
-      photoDataUrl: '',
-      complexId: 'complex-skyline',
-      gatedCommunityId: 'gated-paradise',
-    },
-    {
-      name: 'Maya Singh',
-      unit: 'House 3',
-      cellphone: '084 777 3344',
-      email: 'maya@example.com',
-      photoDataUrl: '',
-      complexId: '',
-      gatedCommunityId: 'gated-greenvalley',
-    },
-  ];
-  protected readonly vehicles = [
-    {
-      make: 'Toyota',
-      model: 'Hilux',
-      regNumber: 'GP 123 456',
-      color: 'Silver',
-      unit: '402',
-      owner: 'Lerato Nkosi',
-      complexId: 'complex-1',
-      gatedCommunityId: '',
-    },
-    {
-      make: 'VW',
-      model: 'Polo',
-      regNumber: 'GT 654 321',
-      color: 'Blue',
-      unit: '118',
-      owner: 'Sipho Dlamini',
-      complexId: 'complex-1',
-      gatedCommunityId: '',
-    },
-    {
-      make: 'BMW',
-      model: 'X5',
-      regNumber: 'NW 789 012',
-      color: 'Black',
-      unit: '201',
-      owner: 'James Williams',
-      complexId: 'complex-skyline',
-      gatedCommunityId: 'gated-paradise',
-    },
-    {
-      make: 'Mercedes',
-      model: 'C-Class',
-      regNumber: 'FS 111 222',
-      color: 'White',
-      unit: 'House 3',
-      owner: 'Maya Singh',
-      complexId: '',
-      gatedCommunityId: 'gated-greenvalley',
-    },
-  ];
-  protected readonly activeCodes = [
-    {
-      code: '131249',
-      visitorName: 'Thabo Moloi',
-      tenantName: 'Lerato Nkosi',
-      cellphone: '082 123 4567',
-      unit: '402',
-      expires: 'In 8 hours',
-      isDriving: true,
-      complexId: 'complex-1',
-      gatedCommunityId: '',
-      vehicle: {
-        makeModel: 'Toyota Hilux',
-        registration: 'GP 123 456',
-        color: 'Silver'
-      }
-    },
-    {
-      code: '882190',
-      visitorName: 'Ayanda Mokoena',
-      tenantName: 'Sipho Dlamini',
-      cellphone: '071 445 2211',
-      unit: '118',
-      expires: 'In 5 hours',
-      isDriving: false,
-      complexId: 'complex-1',
-      gatedCommunityId: '',
-    },
-    {
-      code: '445321',
-      visitorName: 'Rebecca Johnson',
-      tenantName: 'James Williams',
-      cellphone: '083 555 8899',
-      unit: '201',
-      expires: 'In 3 hours',
-      isDriving: true,
-      complexId: 'complex-skyline',
-      gatedCommunityId: 'gated-paradise',
-      vehicle: {
-        makeModel: 'BMW X5',
-        registration: 'NW 789 012',
-        color: 'Black'
-      }
-    },
-    {
-      code: '556789',
-      visitorName: 'David Patel',
-      tenantName: 'Maya Singh',
-      cellphone: '084 777 3344',
-      unit: 'House 3',
-      expires: 'In 6 hours',
-      isDriving: true,
-      complexId: '',
-      gatedCommunityId: 'gated-greenvalley',
-      vehicle: {
-        makeModel: 'Mercedes C-Class',
-        registration: 'FS 111 222',
-        color: 'White'
-      }
+  protected residents: Array<{
+    name: string;
+    unit: string;
+    cellphone: string;
+    email: string;
+    photoDataUrl: string;
+    complexId: string;
+    gatedCommunityId: string;
+  }> = [];
+  protected vehicles: Array<{
+    make: string;
+    model: string;
+    regNumber: string;
+    color: string;
+    unit: string;
+    owner: string;
+    complexId: string;
+    gatedCommunityId: string;
+  }> = [];
+  protected activeCodes: Array<any> = [];
+
+  private loadGuardPortalData(): void {
+    this.dataService
+      .get<any>('user/current')
+      .pipe(
+        switchMap((currentUser) => {
+          if (currentUser) {
+            this.guardName = `${currentUser.name ?? ''} ${currentUser.surname ?? ''}`.trim() || this.guardName;
+            this.guardPhotoUrl = currentUser.profilePhoto ?? '';
+          }
+          const guardId = currentUser?._id as string | undefined;
+          const visitors$ = guardId ? this.dataService.get<any[]>(`visitor/${guardId}`) : of([]);
+          return forkJoin({
+            gated: this.dataService.get<any[]>('gatedCommunity').pipe(catchError(() => of([]))),
+            complexes: this.dataService.get<any[]>('complex').pipe(catchError(() => of([]))),
+            users: this.dataService.get<any[]>('user').pipe(catchError(() => of([]))),
+            vehicles: this.dataService.get<any[]>('vehicle').pipe(catchError(() => of([]))),
+            visitors: visitors$.pipe(catchError(() => of([]))),
+          });
+        }),
+        catchError(() =>
+          forkJoin({
+            gated: of([]),
+            complexes: of([]),
+            users: of([]),
+            vehicles: of([]),
+            visitors: of([]),
+          })
+        )
+      )
+      .subscribe(({ gated, complexes, users, vehicles, visitors }) => {
+        this.gatedCommunities = (gated || []).map((community) => ({
+          id: community._id ?? community.id ?? '',
+          name: community.name ?? '',
+          complexes: [],
+        }));
+
+        this.standaloneComplexes = (complexes || []).map((complex) => ({
+          id: complex._id ?? complex.id ?? '',
+          name: complex.name ?? '',
+        }));
+
+        this.residents = (users || []).map((user) => ({
+          name: `${user.name ?? ''} ${user.surname ?? ''}`.trim(),
+          unit: user.unit ?? '',
+          cellphone: user.cellNumber ?? '',
+          email: user.emailAddress ?? '',
+          photoDataUrl: user.profilePhoto ?? '',
+          complexId: user.complex?._id ?? '',
+          gatedCommunityId: '',
+        }));
+
+        this.vehicles = (vehicles || []).map((vehicle) => ({
+          make: vehicle.make ?? '',
+          model: vehicle.model ?? '',
+          regNumber: vehicle.registerationNumber ?? vehicle.regNumber ?? '',
+          color: vehicle.color ?? '',
+          unit: vehicle.unit ?? '',
+          owner: `${vehicle.user?.name ?? ''} ${vehicle.user?.surname ?? ''}`.trim(),
+          complexId: vehicle.user?.complex?._id ?? '',
+          gatedCommunityId: '',
+        }));
+
+        this.activeCodes = (visitors || []).map((visitor) => ({
+          code: String(visitor.code ?? ''),
+          visitorName: `${visitor.name ?? ''} ${visitor.surname ?? ''}`.trim(),
+          tenantName: `${visitor.user?.name ?? ''} ${visitor.user?.surname ?? ''}`.trim(),
+          cellphone: visitor.contact ?? '',
+          unit: visitor.user?.unit ?? '',
+          expires: this.formatExpiryLabel(visitor.expiry),
+          isDriving: Boolean(visitor.driving),
+          complexId: visitor.user?.complex?._id ?? '',
+          gatedCommunityId: '',
+          vehicle: visitor.vehicle
+            ? {
+                makeModel: `${visitor.vehicle.make ?? ''} ${visitor.vehicle.model ?? ''}`.trim(),
+                registration: visitor.vehicle.registerationNumber ?? visitor.vehicle.registration ?? '',
+                color: visitor.vehicle.color ?? '',
+              }
+            : undefined,
+        }));
+
+        this.restoreStationSelection();
+        this.cdr.markForCheck();
+      });
+  }
+
+  private formatExpiryLabel(expiry: unknown): string {
+    if (!expiry) {
+      return '';
     }
-  ];
+    const expiryDate = new Date(expiry as string);
+    if (Number.isNaN(expiryDate.getTime())) {
+      return '';
+    }
+    const diffMs = expiryDate.getTime() - Date.now();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours <= 0) {
+      return 'Expired';
+    }
+    return `In ${diffHours} hours`;
+  }
 
   protected get filteredCodes() {
-    const codeQuery = this.searchCode.replace(/\D/g, '');
-    const unitQuery = this.searchUnit.trim().toLowerCase();
-    const regQuery = this.searchReg.trim().toLowerCase();
+    const codeQuery = this.filtersForm.searchCode.replace(/\D/g, '');
+    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
+    const regQuery = this.filtersForm.searchReg.trim().toLowerCase();
     let codes = this.activeCodes;
     
     // Filter by selected complex or gated community
-    if (this.selectedComplex) {
-      codes = codes.filter((code) => code.complexId === this.selectedComplex);
-    } else if (this.selectedGatedCommunity) {
-      codes = codes.filter((code) => code.gatedCommunityId === this.selectedGatedCommunity);
+    if (this.filtersForm.selectedComplex) {
+      codes = codes.filter((code) => code.complexId === this.filtersForm.selectedComplex);
+    } else if (this.filtersForm.selectedGatedCommunity) {
+      codes = codes.filter((code) => code.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
     }
     
     if (!codeQuery && !unitQuery && !regQuery) {
@@ -334,7 +340,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (!input) {
       return;
     }
-    this.searchComplex = input.value;
+    this.filtersForm.searchComplex = input.value;
     this.showComplexOptions = true;
   }
 
@@ -343,7 +349,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (!input) {
       return;
     }
-    this.searchGatedCommunity = input.value;
+    this.filtersForm.searchGatedCommunity = input.value;
     this.showGatedCommunityOptions = true;
   }
 
@@ -355,7 +361,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (this.unitSearchDisabled) {
       return;
     }
-    this.searchUnit = input.value;
+    this.filtersForm.searchUnit = input.value;
     this.showUnitOptions = true;
   }
 
@@ -364,43 +370,43 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (!input) {
       return;
     }
-    this.searchReg = input.value;
+    this.filtersForm.searchReg = input.value;
     this.showRegOptions = true;
   }
 
   protected selectComplex(complexId: string): void {
-    this.selectedComplex = complexId;
-    this.selectedGatedCommunity = '';
-    this.searchComplex = this.complexes.find((c) => c.id === complexId)?.name || '';
+    this.filtersForm.selectedComplex = complexId;
+    this.filtersForm.selectedGatedCommunity = '';
+    this.filtersForm.searchComplex = this.complexes.find((c) => c.id === complexId)?.name || '';
     this.showComplexOptions = false;
     // Reset other searches when complex changes
-    this.searchUnit = '';
-    this.searchCode = '';
-    this.searchReg = '';
+    this.filtersForm.searchUnit = '';
+    this.filtersForm.searchCode = '';
+    this.filtersForm.searchReg = '';
   }
 
   protected selectGatedCommunity(gatedCommunityId: string): void {
-    this.selectedGatedCommunity = gatedCommunityId;
-    this.selectedComplex = '';
-    this.searchGatedCommunity = this.gatedCommunities.find((g) => g.id === gatedCommunityId)?.name || '';
-    this.searchComplex = '';
+    this.filtersForm.selectedGatedCommunity = gatedCommunityId;
+    this.filtersForm.selectedComplex = '';
+    this.filtersForm.searchGatedCommunity = this.gatedCommunities.find((g) => g.id === gatedCommunityId)?.name || '';
+    this.filtersForm.searchComplex = '';
     this.showGatedCommunityOptions = false;
     // Reset other searches when gated community changes
-    this.searchUnit = '';
-    this.searchCode = '';
-    this.searchReg = '';
+    this.filtersForm.searchUnit = '';
+    this.filtersForm.searchCode = '';
+    this.filtersForm.searchReg = '';
   }
 
   protected clearGatedCommunity(): void {
-    this.selectedGatedCommunity = '';
-    this.searchGatedCommunity = '';
-    this.selectedComplex = '';
-    this.searchComplex = '';
+    this.filtersForm.selectedGatedCommunity = '';
+    this.filtersForm.searchGatedCommunity = '';
+    this.filtersForm.selectedComplex = '';
+    this.filtersForm.searchComplex = '';
     this.showGatedCommunityOptions = false;
     // Reset other searches
-    this.searchUnit = '';
-    this.searchCode = '';
-    this.searchReg = '';
+    this.filtersForm.searchUnit = '';
+    this.filtersForm.searchCode = '';
+    this.filtersForm.searchReg = '';
   }
 
   protected setUnitDropdown(visible: boolean): void {
@@ -422,17 +428,17 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected chooseStationType(type: 'gated' | 'complex'): void {
     this.stationType = type;
     if (type === 'gated') {
-      this.selectedComplex = '';
-      this.searchComplex = '';
+      this.filtersForm.selectedComplex = '';
+      this.filtersForm.searchComplex = '';
     } else {
-      this.selectedGatedCommunity = '';
-      this.searchGatedCommunity = '';
-      this.selectedComplex = '';
+      this.filtersForm.selectedGatedCommunity = '';
+      this.filtersForm.searchGatedCommunity = '';
+      this.filtersForm.selectedComplex = '';
     }
   }
 
   protected onStationGatedChange(): void {
-    this.selectedComplex = '';
+    this.filtersForm.selectedComplex = '';
   }
 
   protected confirmStationSelection(): void {
@@ -441,23 +447,23 @@ export class GuardPortal implements OnInit, OnDestroy {
     }
 
     if (this.stationType === 'gated') {
-      this.searchGatedCommunity = this.selectedGatedCommunityName;
-      if (this.selectedComplex) {
-        this.searchComplex = this.selectedComplexName;
+      this.filtersForm.searchGatedCommunity = this.selectedGatedCommunityName;
+      if (this.filtersForm.selectedComplex) {
+        this.filtersForm.searchComplex = this.selectedComplexName;
       } else {
-        this.searchComplex = '';
+        this.filtersForm.searchComplex = '';
       }
-      this.searchComplexFilter = this.selectedComplex || '';
+      this.filtersForm.searchComplexFilter = this.filtersForm.selectedComplex || '';
     } else if (this.stationType === 'complex') {
-      this.searchComplex = this.selectedComplexName;
-      this.selectedGatedCommunity = '';
-      this.searchGatedCommunity = '';
-      this.searchComplexFilter = '';
+      this.filtersForm.searchComplex = this.selectedComplexName;
+      this.filtersForm.selectedGatedCommunity = '';
+      this.filtersForm.searchGatedCommunity = '';
+      this.filtersForm.searchComplexFilter = '';
     }
 
-    this.searchUnit = '';
-    this.searchCode = '';
-    this.searchReg = '';
+    this.filtersForm.searchUnit = '';
+    this.filtersForm.searchCode = '';
+    this.filtersForm.searchReg = '';
     this.showStationPrompt = false;
     this.stationLocked = true;
     if (!this.shiftStartAt) {
@@ -470,14 +476,14 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.stationLocked = false;
     this.showStationPrompt = true;
     this.stationType = '';
-    this.selectedGatedCommunity = '';
-    this.searchGatedCommunity = '';
-    this.selectedComplex = '';
-    this.searchComplex = '';
-    this.searchUnit = '';
-    this.searchCode = '';
-    this.searchReg = '';
-    this.searchComplexFilter = '';
+    this.filtersForm.selectedGatedCommunity = '';
+    this.filtersForm.searchGatedCommunity = '';
+    this.filtersForm.selectedComplex = '';
+    this.filtersForm.searchComplex = '';
+    this.filtersForm.searchUnit = '';
+    this.filtersForm.searchCode = '';
+    this.filtersForm.searchReg = '';
+    this.filtersForm.searchComplexFilter = '';
     this.clearStationSelection();
   }
 
@@ -501,8 +507,8 @@ export class GuardPortal implements OnInit, OnDestroy {
     }
     const payload = {
       stationType: this.stationType,
-      selectedGatedCommunity: this.selectedGatedCommunity,
-      selectedComplex: this.selectedComplex,
+      selectedGatedCommunity: this.filtersForm.selectedGatedCommunity,
+      selectedComplex: this.filtersForm.selectedComplex,
       shiftStartedAt: this.shiftStartAt?.toISOString() ?? '',
     };
     window.localStorage.setItem(this.stationStorageKey, JSON.stringify(payload));
@@ -530,19 +536,19 @@ export class GuardPortal implements OnInit, OnDestroy {
       }
 
       this.stationType = parsed.stationType;
-      this.selectedGatedCommunity = parsed.selectedGatedCommunity ?? '';
-      this.selectedComplex = parsed.selectedComplex ?? '';
+      this.filtersForm.selectedGatedCommunity = parsed.selectedGatedCommunity ?? '';
+      this.filtersForm.selectedComplex = parsed.selectedComplex ?? '';
       this.shiftStartAt = parsed.shiftStartedAt ? new Date(parsed.shiftStartedAt) : new Date();
 
       if (this.stationType === 'gated') {
-        this.searchGatedCommunity = this.selectedGatedCommunityName;
-        this.searchComplex = this.selectedComplex ? this.selectedComplexName : '';
-        this.searchComplexFilter = this.selectedComplex || '';
+        this.filtersForm.searchGatedCommunity = this.selectedGatedCommunityName;
+        this.filtersForm.searchComplex = this.filtersForm.selectedComplex ? this.selectedComplexName : '';
+        this.filtersForm.searchComplexFilter = this.filtersForm.selectedComplex || '';
       } else if (this.stationType === 'complex') {
-        this.searchComplex = this.selectedComplexName;
-        this.searchGatedCommunity = '';
-        this.selectedGatedCommunity = '';
-        this.searchComplexFilter = '';
+        this.filtersForm.searchComplex = this.selectedComplexName;
+        this.filtersForm.searchGatedCommunity = '';
+        this.filtersForm.selectedGatedCommunity = '';
+        this.filtersForm.searchComplexFilter = '';
       }
 
       this.showStationPrompt = false;
@@ -561,7 +567,7 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected get filteredComplexOptions(): string[] {
     const list = this.complexes.map((c) => c.name);
-    const query = this.searchComplex.trim().toLowerCase();
+    const query = this.filtersForm.searchComplex.trim().toLowerCase();
     if (!query) {
       return list;
     }
@@ -570,7 +576,7 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected get filteredGatedCommunityOptions(): string[] {
     const list = this.gatedCommunities.map((g) => g.name);
-    const query = this.searchGatedCommunity.trim().toLowerCase();
+    const query = this.filtersForm.searchGatedCommunity.trim().toLowerCase();
     if (!query) {
       return list;
     }
@@ -579,22 +585,22 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected clearOtherSearches(activeField: 'unit' | 'reg' | 'code'): void {
     if (activeField === 'unit') {
-      this.searchCode = '';
-      this.searchReg = '';
+      this.filtersForm.searchCode = '';
+      this.filtersForm.searchReg = '';
       this.showRegOptions = false;
       this.showCodes = false;
       this.showResidents = true;
       this.showVehicles = false;
     } else if (activeField === 'reg') {
-      this.searchCode = '';
-      this.searchUnit = '';
+      this.filtersForm.searchCode = '';
+      this.filtersForm.searchUnit = '';
       this.showUnitOptions = false;
       this.showCodes = true;
       this.showResidents = false;
       this.showVehicles = true;
     } else if (activeField === 'code') {
-      this.searchUnit = '';
-      this.searchReg = '';
+      this.filtersForm.searchUnit = '';
+      this.filtersForm.searchReg = '';
       this.showUnitOptions = false;
       this.showRegOptions = false;
       this.showCodes = true;
@@ -604,7 +610,7 @@ export class GuardPortal implements OnInit, OnDestroy {
   }
 
   protected selectUnit(unit: string): void {
-    this.searchUnit = unit;
+    this.filtersForm.searchUnit = unit;
     this.showUnitOptions = false;
   }
 
@@ -613,28 +619,28 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (!select) {
       return;
     }
-    this.searchComplexFilter = select.value;
-    this.searchUnit = '';
+    this.filtersForm.searchComplexFilter = select.value;
+    this.filtersForm.searchUnit = '';
     this.showUnitOptions = false;
   }
 
   protected selectReg(reg: string): void {
-    this.searchReg = reg;
+    this.filtersForm.searchReg = reg;
     this.showRegOptions = false;
   }
 
   protected get filteredUnitOptions(): string[] {
     let residents = this.residents;
     let vehicles = this.vehicles;
-    const complexFilter = this.searchComplexFilter || this.selectedComplex;
+    const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
 
     // Filter by complex or gated community
     if (complexFilter) {
       residents = residents.filter((r) => r.complexId === complexFilter);
       vehicles = vehicles.filter((v) => v.complexId === complexFilter);
-    } else if (this.selectedGatedCommunity) {
-      residents = residents.filter((r) => r.gatedCommunityId === this.selectedGatedCommunity);
-      vehicles = vehicles.filter((v) => v.gatedCommunityId === this.selectedGatedCommunity);
+    } else if (this.filtersForm.selectedGatedCommunity) {
+      residents = residents.filter((r) => r.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
+      vehicles = vehicles.filter((v) => v.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
     }
     
     const units = new Set<string>([
@@ -642,7 +648,7 @@ export class GuardPortal implements OnInit, OnDestroy {
       ...vehicles.map((vehicle) => vehicle.unit),
     ]);
     const list = Array.from(units).sort();
-    const query = this.searchUnit.trim().toLowerCase();
+    const query = this.filtersForm.searchUnit.trim().toLowerCase();
     if (!query) {
       return list;
     }
@@ -654,12 +660,12 @@ export class GuardPortal implements OnInit, OnDestroy {
     let codes = this.activeCodes;
     
     // Filter by complex or gated community
-    if (this.selectedComplex) {
-      vehicles = vehicles.filter((v) => v.complexId === this.selectedComplex);
-      codes = codes.filter((c) => c.complexId === this.selectedComplex);
-    } else if (this.selectedGatedCommunity) {
-      vehicles = vehicles.filter((v) => v.gatedCommunityId === this.selectedGatedCommunity);
-      codes = codes.filter((c) => c.gatedCommunityId === this.selectedGatedCommunity);
+    if (this.filtersForm.selectedComplex) {
+      vehicles = vehicles.filter((v) => v.complexId === this.filtersForm.selectedComplex);
+      codes = codes.filter((c) => c.complexId === this.filtersForm.selectedComplex);
+    } else if (this.filtersForm.selectedGatedCommunity) {
+      vehicles = vehicles.filter((v) => v.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
+      codes = codes.filter((c) => c.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
     }
     
     const allVehicles = [
@@ -678,7 +684,7 @@ export class GuardPortal implements OnInit, OnDestroy {
         })),
     ];
     const list = allVehicles.map((vehicle) => vehicle.regNumber).sort();
-    const query = this.searchReg.trim().toLowerCase();
+    const query = this.filtersForm.searchReg.trim().toLowerCase();
     if (!query) {
       return list;
     }
@@ -687,16 +693,16 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected get filteredResidents() {
     let residents = this.residents;
-    const complexFilter = this.searchComplexFilter || this.selectedComplex;
+    const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
 
     // Filter by complex or gated community
     if (complexFilter) {
       residents = residents.filter((r) => r.complexId === complexFilter);
-    } else if (this.selectedGatedCommunity) {
-      residents = residents.filter((r) => r.gatedCommunityId === this.selectedGatedCommunity);
+    } else if (this.filtersForm.selectedGatedCommunity) {
+      residents = residents.filter((r) => r.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
     }
     
-    const unitQuery = this.searchUnit.trim().toLowerCase();
+    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
     if (!unitQuery) {
       return residents;
     }
@@ -705,16 +711,16 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected get filteredVisitorsForUnit() {
     let codes = this.activeCodes;
-    const complexFilter = this.searchComplexFilter || this.selectedComplex;
+    const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
 
     // Filter by complex or gated community
     if (complexFilter) {
       codes = codes.filter((c) => c.complexId === complexFilter);
-    } else if (this.selectedGatedCommunity) {
-      codes = codes.filter((c) => c.gatedCommunityId === this.selectedGatedCommunity);
+    } else if (this.filtersForm.selectedGatedCommunity) {
+      codes = codes.filter((c) => c.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
     }
     
-    const unitQuery = this.searchUnit.trim().toLowerCase();
+    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
     if (!unitQuery) {
       return [];
     }
@@ -724,18 +730,18 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected get filteredVehicles() {
     let vehicles = this.vehicles;
     let codes = this.activeCodes;
-    const complexFilter = this.searchComplexFilter || this.selectedComplex;
+    const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
 
     // Filter by complex or gated community
     if (complexFilter) {
       vehicles = vehicles.filter((v) => v.complexId === complexFilter);
       codes = codes.filter((c) => c.complexId === complexFilter);
-    } else if (this.selectedGatedCommunity) {
-      vehicles = vehicles.filter((v) => v.gatedCommunityId === this.selectedGatedCommunity);
-      codes = codes.filter((c) => c.gatedCommunityId === this.selectedGatedCommunity);
+    } else if (this.filtersForm.selectedGatedCommunity) {
+      vehicles = vehicles.filter((v) => v.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
+      codes = codes.filter((c) => c.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
     }
     
-    const regQuery = this.searchReg.trim().toLowerCase();
+    const regQuery = this.filtersForm.searchReg.trim().toLowerCase();
     const allVehicles = [
       ...vehicles,
       ...codes

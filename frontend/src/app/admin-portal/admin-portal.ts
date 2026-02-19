@@ -1,6 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SecurityCompanyFormDTO } from '../interfaces/forms/securityCompanyFormDTO';
+import { ComplexOnboardingFormDTO } from '../interfaces/forms/complexOnboardingFormDTO';
+import { GatedCommunityFormDTO } from '../interfaces/forms/gatedCommunityFormDTO';
+import { AssignmentFormDTO } from '../interfaces/forms/assignmentFormDTO';
+import { GatedAssignmentFormDTO } from '../interfaces/forms/gatedAssignmentFormDTO';
+import { AdminPortalFiltersFormDTO } from '../interfaces/forms/adminPortalFiltersFormDTO';
+import { DataService } from '../services/data.service';
 
 @Component({
   selector: 'app-admin-portal',
@@ -10,6 +17,7 @@ import { FormsModule } from '@angular/forms';
   styleUrl: './admin-portal.css',
 })
 export class AdminPortal implements OnInit {
+  constructor(private readonly dataService: DataService) {}
   // State for updating a security company
   protected showUpdateSecurityModal = false;
   protected editingSecurityCompany: any = null;
@@ -84,10 +92,12 @@ export class AdminPortal implements OnInit {
       this.showGatedCommunityModal = true;
       if (community) {
         this.editingGatedCommunity = community;
-        this.gatedCommunityName = community.gatedCommunityName;
-        this.gatedUnitStart = community.unitStart;
-        this.gatedUnitEnd = community.unitEnd;
-        this.gatedCommunityPrice = community.price;
+        this.gatedCommunityForm = {
+          gatedCommunityName: community.gatedCommunityName,
+          gatedUnitStart: community.unitStart,
+          gatedUnitEnd: community.unitEnd,
+          gatedCommunityPrice: community.price
+        };
         this.gatedCommunityError = '';
         this.gatedCommunitySuccess = '';
       } else {
@@ -106,7 +116,6 @@ export class AdminPortal implements OnInit {
       }
     }
   public adminEmail: string = 'kkpartners@equameridian.com';
-  public gatedCommunityPrice: number | string = '';
   public editingGatedCommunity: any = null;
   public complexPrice: number | string = '';
 
@@ -165,7 +174,7 @@ export class AdminPortal implements OnInit {
   }
 
   // Form state for add/remove
-  protected newSecurityCompany: any = { companyName: '', companyEmail: '', companyTel: '', cipcReg: '', psiraNumber: '', assignments: [] };
+  protected newSecurityCompany: SecurityCompanyFormDTO = { companyName: '', companyEmail: '', companyTel: '', cipcReg: '', psiraNumber: '' };
   protected removeCompanyName: string = '';
 
   // Add Security Company handler
@@ -204,22 +213,113 @@ export class AdminPortal implements OnInit {
     this.closeUpdateComplexModal();
   }
   protected showUnitConfigStep = false;
-  protected complexName = '';
+  protected complexOnboardingForm: ComplexOnboardingFormDTO = {
+    complexName: '',
+    unitStart: '',
+    unitEnd: '',
+    parkingMode: 'fixed',
+    fixedParkingCount: '',
+    parkingIsUnlimited: false,
+    selectedGatedCommunityForOnboarding: ''
+  };
+  protected get complexName(): string {
+    return this.complexOnboardingForm.complexName;
+  }
+
+  protected set complexName(value: string) {
+    this.complexOnboardingForm.complexName = value;
+  }
+
+  protected get unitStart(): number | string {
+    return this.complexOnboardingForm.unitStart;
+  }
+
+  protected set unitStart(value: number | string) {
+    this.complexOnboardingForm.unitStart = value;
+  }
+
+  protected get unitEnd(): number | string {
+    return this.complexOnboardingForm.unitEnd;
+  }
+
+  protected set unitEnd(value: number | string) {
+    this.complexOnboardingForm.unitEnd = value;
+  }
+
+  protected get parkingMode(): 'fixed' | 'per-unit' {
+    return this.complexOnboardingForm.parkingMode;
+  }
+
+  protected set parkingMode(value: 'fixed' | 'per-unit') {
+    this.complexOnboardingForm.parkingMode = value;
+  }
+
+  protected get fixedParkingCount(): number | string {
+    return this.complexOnboardingForm.fixedParkingCount;
+  }
+
+  protected set fixedParkingCount(value: number | string) {
+    this.complexOnboardingForm.fixedParkingCount = value;
+  }
+
+  protected get parkingIsUnlimited(): boolean {
+    return this.complexOnboardingForm.parkingIsUnlimited;
+  }
+
+  protected set parkingIsUnlimited(value: boolean) {
+    this.complexOnboardingForm.parkingIsUnlimited = value;
+  }
+
+  protected get selectedGatedCommunityForOnboarding(): string {
+    return this.complexOnboardingForm.selectedGatedCommunityForOnboarding;
+  }
+
+  protected set selectedGatedCommunityForOnboarding(value: string) {
+    this.complexOnboardingForm.selectedGatedCommunityForOnboarding = value;
+  }
   protected showGatedCommunityModal = false;
-  protected gatedCommunityName = '';
-  protected gatedUnitStart: number | string = '';
-  protected gatedUnitEnd: number | string = '';
+  protected gatedCommunityForm: GatedCommunityFormDTO = {
+    gatedCommunityName: '',
+    gatedUnitStart: '',
+    gatedUnitEnd: '',
+    gatedCommunityPrice: ''
+  };
+  protected get gatedCommunityName(): string {
+    return this.gatedCommunityForm.gatedCommunityName;
+  }
+
+  protected set gatedCommunityName(value: string) {
+    this.gatedCommunityForm.gatedCommunityName = value;
+  }
+
+  protected get gatedUnitStart(): number | string {
+    return this.gatedCommunityForm.gatedUnitStart;
+  }
+
+  protected set gatedUnitStart(value: number | string) {
+    this.gatedCommunityForm.gatedUnitStart = value;
+  }
+
+  protected get gatedUnitEnd(): number | string {
+    return this.gatedCommunityForm.gatedUnitEnd;
+  }
+
+  protected set gatedUnitEnd(value: number | string) {
+    this.gatedCommunityForm.gatedUnitEnd = value;
+  }
+
+  protected get gatedCommunityPrice(): number | string {
+    return this.gatedCommunityForm.gatedCommunityPrice;
+  }
+
+  protected set gatedCommunityPrice(value: number | string) {
+    this.gatedCommunityForm.gatedCommunityPrice = value;
+  }
   protected gatedCommunityError = '';
   protected gatedCommunitySuccess = '';
-  protected unitStart: number | string = '';
-  protected unitEnd: number | string = '';
-  protected parkingMode: 'fixed' | 'per-unit' = 'fixed';
-  protected fixedParkingCount: number | string = '';
-  protected parkingIsUnlimited = false;
-  protected selectedGatedCommunityForOnboarding = '';
+  protected unitList: Array<{ unitNumber: number; parkingBays: number | string }> = [];
   protected onboardingError = '';
   protected onboardingSuccess = '';
-  protected unitList: Array<{ unitNumber: number; parkingBays: number | string }> = [];
   protected showSecurityModal = false;
   protected selectedComplexName = '';
   protected securityCompanyName = '';
@@ -233,9 +333,34 @@ export class AdminPortal implements OnInit {
   protected securitySuccess = '';
   protected showAssignModal = false;
   protected selectedCompanyForAssignment: any = null;
-  protected assignmentComplexName = '';
-  protected assignmentContractStart = '';
-  protected assignmentContractEnd = '';
+  protected assignmentForm: AssignmentFormDTO = {
+    assignmentComplexName: '',
+    assignmentContractStart: '',
+    assignmentContractEnd: ''
+  };
+  protected get assignmentComplexName(): string {
+    return this.assignmentForm.assignmentComplexName;
+  }
+
+  protected set assignmentComplexName(value: string) {
+    this.assignmentForm.assignmentComplexName = value;
+  }
+
+  protected get assignmentContractStart(): string {
+    return this.assignmentForm.assignmentContractStart;
+  }
+
+  protected set assignmentContractStart(value: string) {
+    this.assignmentForm.assignmentContractStart = value;
+  }
+
+  protected get assignmentContractEnd(): string {
+    return this.assignmentForm.assignmentContractEnd;
+  }
+
+  protected set assignmentContractEnd(value: string) {
+    this.assignmentForm.assignmentContractEnd = value;
+  }
   protected assignmentError = '';
   protected assignmentSuccess = '';
   protected showUnassignModal = false;
@@ -246,10 +371,43 @@ export class AdminPortal implements OnInit {
   protected showGatedComplexAssignModal = false;
   protected showGatedSecurityAssignModal = false;
   protected selectedGatedCommunity: any = null;
-  protected gatedAssignmentComplexName = '';
-  protected gatedAssignmentCompanyName = '';
-  protected gatedSecurityContractStart = '';
-  protected gatedSecurityContractEnd = '';
+  protected gatedAssignmentForm: GatedAssignmentFormDTO = {
+    gatedAssignmentComplexName: '',
+    gatedAssignmentCompanyName: '',
+    gatedSecurityContractStart: '',
+    gatedSecurityContractEnd: ''
+  };
+  protected get gatedAssignmentComplexName(): string {
+    return this.gatedAssignmentForm.gatedAssignmentComplexName;
+  }
+
+  protected set gatedAssignmentComplexName(value: string) {
+    this.gatedAssignmentForm.gatedAssignmentComplexName = value;
+  }
+
+  protected get gatedAssignmentCompanyName(): string {
+    return this.gatedAssignmentForm.gatedAssignmentCompanyName;
+  }
+
+  protected set gatedAssignmentCompanyName(value: string) {
+    this.gatedAssignmentForm.gatedAssignmentCompanyName = value;
+  }
+
+  protected get gatedSecurityContractStart(): string {
+    return this.gatedAssignmentForm.gatedSecurityContractStart;
+  }
+
+  protected set gatedSecurityContractStart(value: string) {
+    this.gatedAssignmentForm.gatedSecurityContractStart = value;
+  }
+
+  protected get gatedSecurityContractEnd(): string {
+    return this.gatedAssignmentForm.gatedSecurityContractEnd;
+  }
+
+  protected set gatedSecurityContractEnd(value: string) {
+    this.gatedAssignmentForm.gatedSecurityContractEnd = value;
+  }
   protected gatedAssignmentError = '';
   protected gatedAssignmentSuccess = '';
   protected gatedSecurityUnassignTarget: any = null;
@@ -257,259 +415,132 @@ export class AdminPortal implements OnInit {
   protected gatedCommunityFilter = '';
   
   // Contract history filters and sorting
-  protected contractSearchTerm = '';
-  protected contractComplexFilter = '';
-  protected contractCompanyFilter = '';
-  protected contractStartDateFilter = '';
-  protected contractEndDateFilter = '';
+  protected contractFilters: AdminPortalFiltersFormDTO = {
+    contractSearchTerm: '',
+    contractComplexFilter: '',
+    contractCompanyFilter: '',
+    contractStartDateFilter: '',
+    contractEndDateFilter: '',
+    visitorSearchTerm: '',
+    selectedComplexFilter: '',
+    filterStartDate: '',
+    filterEndDate: '',
+    filterStartTime: '',
+    filterEndTime: '',
+    timeframeFilter: '',
+    gatedCommunityFilter: ''
+  };
+  protected get contractSearchTerm(): string {
+    return this.contractFilters.contractSearchTerm;
+  }
+
+  protected set contractSearchTerm(value: string) {
+    this.contractFilters.contractSearchTerm = value;
+  }
+
+  protected get contractComplexFilter(): string {
+    return this.contractFilters.contractComplexFilter;
+  }
+
+  protected set contractComplexFilter(value: string) {
+    this.contractFilters.contractComplexFilter = value;
+  }
+
+  protected get contractCompanyFilter(): string {
+    return this.contractFilters.contractCompanyFilter;
+  }
+
+  protected set contractCompanyFilter(value: string) {
+    this.contractFilters.contractCompanyFilter = value;
+  }
+
+  protected get contractStartDateFilter(): string {
+    return this.contractFilters.contractStartDateFilter;
+  }
+
+  protected set contractStartDateFilter(value: string) {
+    this.contractFilters.contractStartDateFilter = value;
+  }
+
+  protected get contractEndDateFilter(): string {
+    return this.contractFilters.contractEndDateFilter;
+  }
+
+  protected set contractEndDateFilter(value: string) {
+    this.contractFilters.contractEndDateFilter = value;
+  }
+
+  protected get visitorSearchTerm(): string {
+    return this.contractFilters.visitorSearchTerm;
+  }
+
+  protected set visitorSearchTerm(value: string) {
+    this.contractFilters.visitorSearchTerm = value;
+  }
+
+  protected get selectedComplexFilter(): string {
+    return this.contractFilters.selectedComplexFilter;
+  }
+
+  protected set selectedComplexFilter(value: string) {
+    this.contractFilters.selectedComplexFilter = value;
+  }
+
+  protected get filterStartDate(): string {
+    return this.contractFilters.filterStartDate;
+  }
+
+  protected set filterStartDate(value: string) {
+    this.contractFilters.filterStartDate = value;
+  }
+
+  protected get filterEndDate(): string {
+    return this.contractFilters.filterEndDate;
+  }
+
+  protected set filterEndDate(value: string) {
+    this.contractFilters.filterEndDate = value;
+  }
+
+  protected get filterStartTime(): string {
+    return this.contractFilters.filterStartTime;
+  }
+
+  protected set filterStartTime(value: string) {
+    this.contractFilters.filterStartTime = value;
+  }
+
+  protected get filterEndTime(): string {
+    return this.contractFilters.filterEndTime;
+  }
+
+  protected set filterEndTime(value: string) {
+    this.contractFilters.filterEndTime = value;
+  }
+
+  protected get timeframeFilter(): string {
+    return this.contractFilters.timeframeFilter;
+  }
+
+  protected set timeframeFilter(value: string) {
+    this.contractFilters.timeframeFilter = value;
+  }
   protected sortContractColumn = 'contractEndDate';
   protected sortContractDirection: 'asc' | 'desc' = 'desc';
   protected filteredContractHistory: Array<any> = [];
   
-  // Visitor history filters and sorting
-  protected visitorSearchTerm = '';
-  protected selectedComplexFilter = '';
-  protected filterStartDate = '';
-  protected filterEndDate = '';
-  protected filterStartTime = '';
-  protected filterEndTime = '';
-  protected timeframeFilter = '';
+  // Visitor history filters
   protected sortColumn = 'entryTime';
   protected sortDirection: 'asc' | 'desc' = 'desc';
   protected filteredVisitorHistory: Array<any> = [];
   
-  protected registeredSecurityCompanies: Array<any> = [
-    {
-      companyName: 'Guardian Security Services',
-      companyEmail: 'info@guardiansecurity.co.za',
-      companyTel: '+27 11 123 4567',
-      cipcReg: '2023/654321',
-      psiraNumber: 'PSA123456',
-      assignments: [
-        {
-          complexName: 'Complex 2925 Fleurhof',
-          contractStart: '2024-01-15',
-          contractEnd: '2025-01-15',
-        },
-        {
-          complexName: 'Sunset View Estate',
-          contractStart: '2024-02-01',
-          contractEnd: '2025-01-31',
-        },
-        {
-          complexName: 'Green Park Apartments',
-          contractStart: '2024-03-15',
-          contractEnd: '2025-03-14',
-        },
-      ],
-    },
-    {
-      companyName: 'Apex Protection Group',
-      companyEmail: 'contact@apexprotection.co.za',
-      companyTel: '+27 21 456 7890',
-      cipcReg: '2022/789012',
-      psiraNumber: 'PSA789012',
-      assignments: [
-        {
-          complexName: 'Meridian Heights',
-          contractStart: '2024-03-01',
-          contractEnd: '2026-02-28',
-        },
-      ],
-    },
-    {
-      companyName: 'Elite Security Solutions',
-      companyEmail: 'support@elitesecurity.co.za',
-      companyTel: '+27 31 234 5678',
-      cipcReg: '2023/345678',
-      psiraNumber: 'PSA345678',
-      assignments: [
-        {
-          complexName: 'Equa Residences',
-          contractStart: '2024-06-01',
-          contractEnd: '2025-05-31',
-        },
-      ],
-    },
-    {
-      companyName: 'Sentinel Watch Services',
-      companyEmail: 'admin@sentinelwatch.co.za',
-      companyTel: '+27 12 987 6543',
-      cipcReg: '2024/111222',
-      psiraNumber: 'PSA111222',
-      assignments: [],
-    },
-    {
-      companyName: 'SafeGuard Security',
-      companyEmail: 'info@safeguardsec.co.za',
-      companyTel: '+27 11 555 8888',
-      cipcReg: '2023/999888',
-      psiraNumber: 'PSA999888',
-      assignments: [],
-    },
-  ];
+  protected registeredSecurityCompanies: Array<any> = [];
 
-  protected contractHistory: Array<any> = [
-    {
-      companyName: 'SecureGuard Services',
-      complexName: 'Sunset View Estate',
-      contractStartDate: '2024-01-01',
-      contractEndDate: '2025-12-31',
-      status: 'Ended',
-      companyEmail: 'info@secureguard.co.za',
-      companyTel: '+27 11 456 7890',
-      psiraNumber: 'PSA234567',
-    },
-    {
-      companyName: 'SecureGuard Services',
-      complexName: 'Green Valley Complex',
-      contractStartDate: '2024-11-20',
-      contractEndDate: '2025-11-20',
-      status: 'Ended',
-      companyEmail: 'info@secureguard.co.za',
-      companyTel: '+27 11 456 7890',
-      psiraNumber: 'PSA234567',
-    },
-    {
-      companyName: 'Premier Security Group',
-      complexName: 'Green Park Apartments',
-      contractStartDate: '2024-11-15',
-      contractEndDate: '2025-11-15',
-      status: 'Ended',
-      companyEmail: 'contact@premiersecurity.co.za',
-      companyTel: '+27 21 567 8901',
-      psiraNumber: 'PSA345678',
-    },
-    {
-      companyName: 'Premier Security Group',
-      complexName: 'Riverside Plaza',
-      contractStartDate: '2024-10-30',
-      contractEndDate: '2025-10-30',
-      status: 'Ended',
-      companyEmail: 'contact@premiersecurity.co.za',
-      companyTel: '+27 21 567 8901',
-      psiraNumber: 'PSA345678',
-    },
-    {
-      companyName: 'Guardian Security Services',
-      complexName: 'Complex 2925 Fleurhof',
-      contractStartDate: '2024-01-15',
-      contractEndDate: '2025-01-15',
-      status: 'Ended',
-      companyEmail: 'info@guardiansecurity.co.za',
-      companyTel: '+27 11 123 4567',
-      psiraNumber: 'PSA123456',
-    },
-    {
-      companyName: 'Guardian Security Services',
-      complexName: 'Parkview Heights',
-      contractStartDate: '2024-03-10',
-      contractEndDate: '2025-03-10',
-      status: 'Ended',
-      companyEmail: 'info@guardiansecurity.co.za',
-      companyTel: '+27 11 123 4567',
-      psiraNumber: 'PSA123456',
-    },
-    {
-      companyName: 'Elite Protection Ltd',
-      complexName: 'Meridian Heights',
-      contractStartDate: '2023-08-30',
-      contractEndDate: '2024-08-30',
-      status: 'Ended',
-      companyEmail: 'admin@eliteprotection.co.za',
-      companyTel: '+27 12 678 9012',
-      psiraNumber: 'PSA456789',
-    },
-    {
-      companyName: 'Fortress Security Corp',
-      complexName: 'Equa Residences',
-      contractStartDate: '2023-06-15',
-      contractEndDate: '2024-06-15',
-      status: 'Ended',
-      companyEmail: 'support@fortresssecurity.co.za',
-      companyTel: '+27 31 789 0123',
-      psiraNumber: 'PSA567890',
-    },
-    {
-      companyName: 'Fortress Security Corp',
-      complexName: 'Crescent Holdings',
-      contractStartDate: '2023-07-25',
-      contractEndDate: '2024-07-25',
-      status: 'Ended',
-      companyEmail: 'support@fortresssecurity.co.za',
-      companyTel: '+27 31 789 0123',
-      psiraNumber: 'PSA567890',
-    },
-  ];
+  protected contractHistory: Array<any> = [];
 
-  protected visitorHistory: Array<any> = [
-    {
-      visitorName: 'John Mabunda',
-      visitorPhone: '+27 82 345 6789',
-      unitVisited: 'Unit 245',
-      tenantName: 'Sipho',
-      tenantSurname: 'Khumalo',
-      tenantPhone: '+27 81 123 4567',
-      complexName: 'Complex 2925 Fleurhof',
-      entryTime: '2026-02-07T09:15:00',
-      securityGuard: 'Thabo Ndlovu',
-    },
-    {
-      visitorName: 'Sarah Johnson',
-      visitorPhone: '+27 83 456 7890',
-      unitVisited: 'Unit 102',
-      tenantName: 'Nomsa',
-      tenantSurname: 'Dube',
-      tenantPhone: '+27 82 987 6543',
-      complexName: 'Meridian Heights',
-      entryTime: '2026-02-07T11:45:00',
-      securityGuard: 'Peter Sithole',
-    },
-    {
-      visitorName: 'Michael Dlamini',
-      visitorPhone: '+27 84 567 8901',
-      unitVisited: 'Unit 45',
-      tenantName: 'Thandiwe',
-      tenantSurname: 'Nkosi',
-      tenantPhone: '+27 83 222 3344',
-      complexName: 'Equa Residences',
-      entryTime: '2026-02-07T14:00:00',
-      securityGuard: 'John Mokoena',
-    },
-    {
-      visitorName: 'Lisa van der Merwe',
-      visitorPhone: '+27 85 678 9012',
-      unitVisited: 'Unit 310',
-      tenantName: 'Bongani',
-      tenantSurname: 'Mthembu',
-      tenantPhone: '+27 84 555 7788',
-      complexName: 'Complex 2925 Fleurhof',
-      entryTime: '2026-02-06T16:30:00',
-      securityGuard: 'Thabo Ndlovu',
-    },
-    {
-      visitorName: 'Ahmed Hassan',
-      visitorPhone: '+27 86 789 0123',
-      unitVisited: 'Unit 205',
-      tenantName: 'Precious',
-      tenantSurname: 'Ngcobo',
-      tenantPhone: '+27 85 444 1199',
-      complexName: 'Meridian Heights',
-      entryTime: '2026-02-06T10:00:00',
-      securityGuard: 'Peter Sithole',
-    },
-  ];
+  protected visitorHistory: Array<any> = [];
 
-  protected gatedCommunities: Array<any> = [
-    {
-      gatedCommunityName: 'Fleurhof Gardens',
-      unitStart: 1,
-      unitEnd: 50,
-      price: 1200,
-      complexes: [],
-      securityAssignments: []
-    }
-  ];
+  protected gatedCommunities: Array<any> = [];
   // Open update modal for a complex within a gated community
   openUpdateGatedComplexModal(gatedCommunity: any, complex: any): void {
     this.editingComplex = { ...complex };
@@ -517,47 +548,7 @@ export class AdminPortal implements OnInit {
     this.showUpdateComplexModal = true;
   }
 
-  protected onboardedComplexes: Array<any> = [
-    {
-      complexName: 'Complex 2925 Fleurhof',
-      unitStart: 101,
-      unitEnd: 502,
-      parkingMode: 'fixed',
-      fixedParkingCount: 2,
-    },
-    {
-      complexName: 'Meridian Heights',
-      unitStart: 201,
-      unitEnd: 301,
-      parkingMode: 'per-unit',
-      unitParkingConfig: [
-        { unitNumber: 201, parkingBays: 2 },
-        { unitNumber: 202, parkingBays: 1 },
-        { unitNumber: 203, parkingBays: 3 },
-      ],
-    },
-    {
-      complexName: 'Equa Residences',
-      unitStart: 1,
-      unitEnd: 150,
-      parkingMode: 'fixed',
-      fixedParkingCount: 1,
-    },
-    {
-      complexName: 'Sunset View Estate',
-      unitStart: 301,
-      unitEnd: 420,
-      parkingMode: 'fixed',
-      fixedParkingCount: 2,
-    },
-    {
-      complexName: 'Green Park Apartments',
-      unitStart: 1,
-      unitEnd: 85,
-      parkingMode: 'fixed',
-      fixedParkingCount: 1,
-    },
-  ];
+  protected onboardedComplexes: Array<any> = [];
   // Delete confirmation modal state for complex
   protected showDeleteComplexModal = false;
   protected complexToDelete: any = null;
@@ -590,12 +581,12 @@ export class AdminPortal implements OnInit {
   protected readonly recentEvents = [];
 
   protected get isGatedCommunityFormValid(): boolean {
-    const hasName = this.gatedCommunityName.trim().length > 0;
-    const hasUnitStart = this.gatedUnitStart !== '' && this.gatedUnitStart !== null;
-    const hasUnitEnd = this.gatedUnitEnd !== '' && this.gatedUnitEnd !== null;
-    const hasPrice = this.gatedCommunityPrice !== '' && this.gatedCommunityPrice !== null && !isNaN(Number(this.gatedCommunityPrice));
-    const unitStartNum = typeof this.gatedUnitStart === 'number' ? this.gatedUnitStart : parseInt(String(this.gatedUnitStart), 10);
-    const unitEndNum = typeof this.gatedUnitEnd === 'number' ? this.gatedUnitEnd : parseInt(String(this.gatedUnitEnd), 10);
+    const hasName = this.gatedCommunityForm.gatedCommunityName.trim().length > 0;
+    const hasUnitStart = this.gatedCommunityForm.gatedUnitStart !== '' && this.gatedCommunityForm.gatedUnitStart !== null;
+    const hasUnitEnd = this.gatedCommunityForm.gatedUnitEnd !== '' && this.gatedCommunityForm.gatedUnitEnd !== null;
+    const hasPrice = this.gatedCommunityForm.gatedCommunityPrice !== '' && this.gatedCommunityForm.gatedCommunityPrice !== null && !isNaN(Number(this.gatedCommunityForm.gatedCommunityPrice));
+    const unitStartNum = typeof this.gatedCommunityForm.gatedUnitStart === 'number' ? this.gatedCommunityForm.gatedUnitStart : parseInt(String(this.gatedCommunityForm.gatedUnitStart), 10);
+    const unitEndNum = typeof this.gatedCommunityForm.gatedUnitEnd === 'number' ? this.gatedCommunityForm.gatedUnitEnd : parseInt(String(this.gatedCommunityForm.gatedUnitEnd), 10);
     const validRange = !isNaN(unitStartNum) && !isNaN(unitEndNum) && unitStartNum <= unitEndNum && hasUnitStart && hasUnitEnd;
     return hasName && validRange && hasPrice;
   }
@@ -608,10 +599,12 @@ export class AdminPortal implements OnInit {
   }
 
   protected resetGatedCommunityForm(): void {
-    this.gatedCommunityName = '';
-    this.gatedUnitStart = '';
-    this.gatedUnitEnd = '';
-    this.gatedCommunityPrice = '';
+    this.gatedCommunityForm = {
+      gatedCommunityName: '',
+      gatedUnitStart: '',
+      gatedUnitEnd: '',
+      gatedCommunityPrice: ''
+    };
     this.gatedCommunityError = '';
     this.gatedCommunitySuccess = '';
   }
@@ -620,13 +613,13 @@ export class AdminPortal implements OnInit {
     this.gatedCommunityError = '';
     this.gatedCommunitySuccess = '';
 
-    if (!this.gatedCommunityName.trim()) {
+    if (!this.gatedCommunityForm.gatedCommunityName.trim()) {
       this.gatedCommunityError = 'Gated community name is required.';
       return;
     }
 
-    const unitStart = typeof this.gatedUnitStart === 'number' ? this.gatedUnitStart : parseInt(String(this.gatedUnitStart), 10);
-    const unitEnd = typeof this.gatedUnitEnd === 'number' ? this.gatedUnitEnd : parseInt(String(this.gatedUnitEnd), 10);
+    const unitStart = typeof this.gatedCommunityForm.gatedUnitStart === 'number' ? this.gatedCommunityForm.gatedUnitStart : parseInt(String(this.gatedCommunityForm.gatedUnitStart), 10);
+    const unitEnd = typeof this.gatedCommunityForm.gatedUnitEnd === 'number' ? this.gatedCommunityForm.gatedUnitEnd : parseInt(String(this.gatedCommunityForm.gatedUnitEnd), 10);
 
     if (isNaN(unitStart) || isNaN(unitEnd)) {
       this.gatedCommunityError = 'House numbers must be valid integers.';
@@ -639,10 +632,10 @@ export class AdminPortal implements OnInit {
     }
 
     const gatedData = {
-      gatedCommunityName: this.gatedCommunityName.trim(),
+      gatedCommunityName: this.gatedCommunityForm.gatedCommunityName.trim(),
       unitStart,
       unitEnd,
-      price: this.gatedCommunityPrice,
+      price: this.gatedCommunityForm.gatedCommunityPrice,
       complexes: this.editingGatedCommunity ? this.editingGatedCommunity.complexes : [],
       securityAssignments: this.editingGatedCommunity ? this.editingGatedCommunity.securityAssignments : [],
     };
@@ -662,7 +655,7 @@ export class AdminPortal implements OnInit {
   protected openGatedComplexAssignModal(community: any): void {
     this.selectedGatedCommunity = community;
     this.showGatedComplexAssignModal = true;
-    this.gatedAssignmentComplexName = '';
+    this.gatedAssignmentForm.gatedAssignmentComplexName = '';
     this.gatedAssignmentError = '';
     this.gatedAssignmentSuccess = '';
     this.gatedCommunityFilter = '';
@@ -671,7 +664,7 @@ export class AdminPortal implements OnInit {
   protected closeGatedComplexAssignModal(): void {
     this.showGatedComplexAssignModal = false;
     this.selectedGatedCommunity = null;
-    this.gatedAssignmentComplexName = '';
+    this.gatedAssignmentForm.gatedAssignmentComplexName = '';
     this.gatedAssignmentError = '';
     this.gatedAssignmentSuccess = '';
     this.gatedCommunityFilter = '';
@@ -1305,10 +1298,133 @@ export class AdminPortal implements OnInit {
   }
 
   ngOnInit(): void {
-    this.filteredVisitorHistory = [...this.visitorHistory];
-    this.sortVisitors('entryTime');
+    this.loadSecurityCompanies();
+    this.loadComplexes();
+    this.loadGatedCommunities();
+    this.loadVisitorLogs();
+  }
+
+  private loadSecurityCompanies(): void {
+    this.dataService.get<any[]>('securityCompany').subscribe({
+      next: (companies) => {
+        this.registeredSecurityCompanies = (companies || []).map((company) => ({
+          companyName: company.name ?? '',
+          companyEmail: company.email ?? '',
+          companyTel: company.contactNumber ?? '',
+          cipcReg: company.cipcRegistrationNumber ?? '',
+          psiraNumber: company.psiraNumber ?? '',
+          assignments: (company.contract ?? []).map((contract: any) => ({
+            complexName: contract?.complex?.name ?? '',
+            contractStart: this.formatDateValue(contract?.contractStartDate),
+            contractEnd: this.formatDateValue(contract?.contractEndDate),
+          })),
+        }));
+        this.buildContractHistoryFromCompanies();
+      },
+      error: () => {
+        this.registeredSecurityCompanies = [];
+        this.contractHistory = [];
+        this.filteredContractHistory = [];
+      }
+    });
+  }
+
+  private buildContractHistoryFromCompanies(): void {
+    const today = new Date();
+    this.contractHistory = this.registeredSecurityCompanies.flatMap((company) =>
+      (company.assignments ?? []).map((assignment: any) => {
+        const endDate = assignment.contractEnd ? new Date(assignment.contractEnd) : null;
+        const status = endDate && endDate < today ? 'Ended' : 'Active';
+        return {
+          companyName: company.companyName,
+          complexName: assignment.complexName,
+          contractStartDate: assignment.contractStart,
+          contractEndDate: assignment.contractEnd,
+          status,
+          companyEmail: company.companyEmail,
+          companyTel: company.companyTel,
+          psiraNumber: company.psiraNumber,
+        };
+      })
+    );
     this.filteredContractHistory = [...this.contractHistory];
     this.sortContracts('contractEndDate');
+  }
+
+  private loadComplexes(): void {
+    this.dataService.get<any[]>('complex').subscribe({
+      next: (complexes) => {
+        this.onboardedComplexes = (complexes || []).map((complex) => ({
+          complexName: complex.name ?? '',
+          unitStart: 1,
+          unitEnd: complex.numberOfUnits ?? '',
+          parkingMode: 'fixed',
+          fixedParkingCount: '',
+          address: complex.address ?? '',
+        }));
+      },
+      error: () => {
+        this.onboardedComplexes = [];
+      }
+    });
+  }
+
+  private loadGatedCommunities(): void {
+    this.dataService.get<any[]>('gatedCommunity').subscribe({
+      next: (communities) => {
+        this.gatedCommunities = (communities || []).map((community) => ({
+          gatedCommunityName: community.name ?? '',
+          unitStart: 1,
+          unitEnd: community.numberOfHouses ?? '',
+          price: '',
+          complexes: [],
+          securityAssignments: [],
+        }));
+      },
+      error: () => {
+        this.gatedCommunities = [];
+      }
+    });
+  }
+
+  private loadVisitorLogs(): void {
+    this.dataService.get<any[]>('logs').subscribe({
+      next: (logs) => {
+        this.visitorHistory = (logs || []).map((log) => {
+          const visitor = log.visitor ?? {};
+          const tenant = visitor.user ?? {};
+          const guard = log.guard ?? {};
+          return {
+            visitorName: `${visitor.name ?? ''} ${visitor.surname ?? ''}`.trim(),
+            visitorPhone: visitor.contact ?? '',
+            unitVisited: tenant.unit ?? '',
+            tenantName: tenant.name ?? '',
+            tenantSurname: tenant.surname ?? '',
+            tenantPhone: tenant.cellNumber ?? '',
+            complexName: tenant.complex?.name ?? '',
+            entryTime: log.date ?? '',
+            securityGuard: `${guard.name ?? ''} ${guard.surname ?? ''}`.trim(),
+          };
+        });
+        this.filteredVisitorHistory = [...this.visitorHistory];
+        this.sortVisitors('entryTime');
+      },
+      error: () => {
+        this.visitorHistory = [];
+        this.filteredVisitorHistory = [];
+      }
+    });
+  }
+
+  private formatDateValue(value: unknown): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value as string);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toISOString().split('T')[0];
   }
 
   protected filterVisitors(): void {

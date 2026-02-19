@@ -176,12 +176,12 @@
       <div class="form-row">
         <div class="form-group">
           <label for="visitorName">Name</label>
-          <input id="visitorName" name="visitorName" type="text" class="form-control" placeholder="Visitor name" [(ngModel)]="visitorName" required (input)="markTouched($event)" (blur)="markTouched($event)" #visitorNameInput>
+          <input id="visitorName" name="visitorName" type="text" class="form-control" placeholder="Visitor name" [(ngModel)]="visitorBookingForm.visitorName" required (input)="markTouched($event)" (blur)="markTouched($event)" #visitorNameInput>
           <small class="error" *ngIf="visitorNameInput.classList.contains('touched') && !visitorNameInput.validity.valid">Name is required.</small>
         </div>
         <div class="form-group">
           <label for="visitorSurname">Surname</label>
-          <input id="visitorSurname" name="visitorSurname" type="text" class="form-control" placeholder="Visitor surname" [(ngModel)]="visitorSurname" required (input)="markTouched($event)" (blur)="markTouched($event)" #visitorSurnameInput>
+          <input id="visitorSurname" name="visitorSurname" type="text" class="form-control" placeholder="Visitor surname" [(ngModel)]="visitorBookingForm.visitorSurname" required (input)="markTouched($event)" (blur)="markTouched($event)" #visitorSurnameInput>
           <small class="error" *ngIf="visitorSurnameInput.classList.contains('touched') && !visitorSurnameInput.validity.valid">Surname is required.</small>
         </div>
       </div>
@@ -189,7 +189,7 @@
       <div class="form-row">
         <div class="form-group">
           <label for="visitorCell">Cellphone</label>
-          <input id="visitorCell" name="visitorCell" type="tel" class="form-control" placeholder="e.g. 0821234567" inputmode="numeric" pattern="0[0-9]{9}" maxlength="10" [(ngModel)]="visitorCell" required (input)="markTouched($event)" (blur)="markTouched($event)" #visitorCellInput>
+          <input id="visitorCell" name="visitorCell" type="tel" class="form-control" placeholder="e.g. 0821234567" inputmode="numeric" pattern="0[0-9]{9}" maxlength="10" [(ngModel)]="visitorBookingForm.visitorCell" required (input)="markTouched($event)" (blur)="markTouched($event)" #visitorCellInput>
           <small class="error" *ngIf="visitorCellInput.classList.contains('touched') && visitorCellInput.validity.valueMissing">Cellphone is required.</small>
           <small class="error" *ngIf="visitorCellInput.classList.contains('touched') && visitorCellInput.validity.patternMismatch">Must start with 0 and be 10 digits.</small>
         </div>
@@ -198,7 +198,7 @@
       <div class="form-row">
         <div class="form-group">
           <label for="visitorIdNumber">ID Number (Optional)</label>
-          <input id="visitorIdNumber" name="visitorIdNumber" type="text" class="form-control" placeholder="13-digit ID number" inputmode="numeric" maxlength="13" [(ngModel)]="visitorIdNumber" (input)="markTouched($event)" (blur)="markTouched($event)" #visitorIdNumberInput>
+          <input id="visitorIdNumber" name="visitorIdNumber" type="text" class="form-control" placeholder="13-digit ID number" inputmode="numeric" maxlength="13" [(ngModel)]="visitorBookingForm.visitorIdNumber" (input)="markTouched($event)" (blur)="markTouched($event)" #visitorIdNumberInput>
           <small>Optional. 13 digits if provided.</small>
         </div>
         <div class="form-group">
@@ -214,12 +214,12 @@
       <div class="form-row" *ngIf="isDriving">
         <div class="form-group">
           <label for="vehicleMake">Make</label>
-          <input id="vehicleMake" name="vehicleMake" type="text" class="form-control" placeholder="e.g. Toyota" [(ngModel)]="vehicleMake" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleMakeInput>
+          <input id="vehicleMake" name="vehicleMake" type="text" class="form-control" placeholder="e.g. Toyota" [(ngModel)]="visitorBookingForm.vehicleMake" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleMakeInput>
           <small class="error" *ngIf="vehicleMakeInput.classList.contains('touched') && !vehicleMakeInput.validity.valid">Make is required.</small>
         </div>
         <div class="form-group">
           <label for="vehicleModel">Model</label>
-          <input id="vehicleModel" name="vehicleModel" type="text" class="form-control" placeholder="e.g. Corolla" [(ngModel)]="vehicleModel" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleModelInput>
+          <input id="vehicleModel" name="vehicleModel" type="text" class="form-control" placeholder="e.g. Corolla" [(ngModel)]="visitorBookingForm.vehicleModel" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleModelInput>
           <small class="error" *ngIf="vehicleModelInput.classList.contains('touched') && !vehicleModelInput.validity.valid">Model is required.</small>
         </div>
       </div>
@@ -227,7 +227,7 @@
       <div class="form-row" *ngIf="isDriving">
         <div class="form-group">
           <label for="vehicleReg">Registration Number</label>
-          <input id="vehicleReg" name="vehicleReg" type="text" class="form-control" placeholder="e.g. ABC 123 GP" [(ngModel)]="vehicleReg" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleRegInput>
+          <input id="vehicleReg" name="vehicleReg" type="text" class="form-control" placeholder="e.g. ABC 123 GP" [(ngModel)]="visitorBookingForm.vehicleReg" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleRegInput>
           <small class="error" *ngIf="vehicleRegInput.classList.contains('touched') && !vehicleRegInput.validity.valid">Registration number is required.</small>
         </div>
       </div>
@@ -235,7 +235,7 @@
       <div class="form-row" *ngIf="isDriving">
         <div class="form-group">
           <label for="vehicleColor">Vehicle Colour</label>
-          <input id="vehicleColor" name="vehicleColor" type="text" class="form-control" placeholder="e.g. Silver" [(ngModel)]="vehicleColor" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleColorInput>
+          <input id="vehicleColor" name="vehicleColor" type="text" class="form-control" placeholder="e.g. Silver" [(ngModel)]="visitorBookingForm.vehicleColor" required (input)="markTouched($event)" (blur)="markTouched($event)" #vehicleColorInput>
           <small class="error" *ngIf="vehicleColorInput.classList.contains('touched') && !vehicleColorInput.validity.valid">Vehicle colour is required.</small>
         </div>
       </div>
@@ -379,7 +379,7 @@
 
       <div class="modal-actions">
         <button type="button" class="btn-secondary" (click)="closeChangePinModal()">Cancel</button>
-        <button type="button" class="btn-main" [disabled]="changePinDigits.current.join('').length !== 6 || changePinDigits.new.join('').length !== 6 || changePinDigits.confirm.join('').length !== 6 || changePinDigits.new.join('') !== changePinDigits.confirm.join('')" (click)="submitChangePinForm()">Update PIN</button>
+        <button type="button" class="btn-main" [disabled]="changePinForm['current'].join('').length !== 6 || changePinForm['new'].join('').length !== 6 || changePinForm['confirm'].join('').length !== 6 || changePinForm['new'].join('') !== changePinForm['confirm'].join('')" (click)="submitChangePinForm()">Update PIN</button>
       </div>
     </form>
   </div>
