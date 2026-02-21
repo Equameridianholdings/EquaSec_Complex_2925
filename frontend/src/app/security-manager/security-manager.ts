@@ -3,6 +3,9 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DataService } from '../services/data.service';
+import { StorageService } from '../services/storage.service';
+import { ResponseBody } from '../interfaces/ResponseBody';
+import { HttpErrorResponse } from '@angular/common/http';
 import { EmployeeFormDTO } from '../interfaces/forms/employeeFormDTO';
 import { ManagerAssignmentFormDTO } from '../interfaces/forms/managerAssignmentFormDTO';
 import { TenantFormDTO } from '../interfaces/forms/tenantFormDTO';
@@ -18,6 +21,14 @@ import { VehicleFormDTO } from '../interfaces/forms/vehicleFormDTO';
 export class SecurityManager implements OnInit {
   protected securityManagerName = 'Security Manager';
   protected securityManagerEmail = 'security@equasec.com';
+  private currentManagerEmail = '';
+  private managerSecurityCompanyId = '';
+  private managerSecurityCompanyName = '';
+  private contractedComplexNames = new Set<string>();
+  private contractedCommunityNames = new Set<string>();
+  private complexContractDates = new Map<string, { startDate: string; endDate: string }>();
+  private communityContractDates = new Map<string, { startDate: string; endDate: string }>();
+  private complexContractDisplayNames = new Map<string, string>();
   protected assignedComplexes: Array<{
     id: string;
     name: string;
@@ -64,6 +75,8 @@ export class SecurityManager implements OnInit {
     phone: string;
     position: 'Guard' | 'admin-Guard';
     assignedComplex: string;
+    assignedComplexes: string[];
+    assignedCommunities: string[];
     status: 'active' | 'inactive';
   }> = [];
   protected visitors: Array<{
@@ -106,6 +119,7 @@ export class SecurityManager implements OnInit {
       color?: string;
     }>;
     registeredDate: string;
+    locationPath: string[];
   }> = [];
 
   protected isEmployeeModalOpen = false;
@@ -116,6 +130,9 @@ export class SecurityManager implements OnInit {
   protected isDeleteTenantModalOpen = false;
   protected selectedComplex: any = null;
   protected selectedComplexEmployees: any[] = [];
+  protected selectedComplexDaysRemaining = 0;
+  protected selectedComplexContractExpiringSoon = false;
+  protected selectedComplexContractExpired = false;
   protected selectedSecurityManager: any = null;
   protected selectedEmployeeToDelete: any = null;
   protected selectedTenantToDelete: any = null;
@@ -183,46 +200,248 @@ export class SecurityManager implements OnInit {
   protected visitorStartDate = '';
   protected visitorEndDate = '';
 
-  constructor(private readonly router: Router, private readonly dataService: DataService) {}
+  protected sosAlerts: Array<{
+    id: string;
+    date: string;
+    guardName: string;
+    guardPhone: string;
+    stationType: 'complex' | 'gated' | 'unknown';
+    stationName: string;
+    complexName: string;
+    gatedCommunityName: string;
+    address: string;
+  }> = [];
+  protected sosSearchTerm = '';
+  protected sosFilterSourceType: 'all' | 'complex' | 'gated' = 'all';
+
+  private filteredEmployeesCache: any[] = [];
+  private filteredEmployeesKey = '';
+  private filteredVisitorsCache: any[] = [];
+  private filteredVisitorsKey = '';
+  private filteredTenantsCache: any[] = [];
+  private filteredTenantsKey = '';
+  private visitorCommunityComplexesCache: any[] = [];
+  private visitorCommunityComplexesKey = '';
+  private tenantCommunityComplexesFilterCache: any[] = [];
+  private tenantCommunityComplexesFilterKey = '';
+  private availableTenantResidenceTypesCache: Array<{ value: 'complex' | 'community'; label: string }> = [];
+  private availableTenantResidenceTypesKey = '';
+  private availableCommunityResidenceTypesCache: Array<'house' | 'complex'> = [];
+  private availableCommunityResidenceTypesKey = '';
+  private availableUnitsCache: string[] = [];
+  private availableUnitsKey = '';
+  private availableHousesCache: string[] = [];
+  private availableHousesKey = '';
+  private availableCommunityComplexesCache: Array<{ id: string; name: string; units: string[] }> = [];
+  private availableCommunityComplexesKey = '';
+  private availableCommunityUnitsCache: string[] = [];
+  private availableCommunityUnitsKey = '';
+
+  constructor(
+    private readonly router: Router,
+    private readonly dataService: DataService,
+    private readonly storage: StorageService,
+  ) {}
 
   ngOnInit(): void {
+    this.hydrateFromStoredUser();
     this.loadCurrentUser();
-    this.loadAssignedComplexes();
-    this.loadGatedCommunities();
-    this.loadUsers();
     this.loadVisitors();
+    this.loadSosAlerts();
+  }
+
+  private hydrateFromStoredUser(): void {
+    const rawUser =
+      this.storage?.getItem?.('current-user') ??
+      (typeof window !== 'undefined' ? window.localStorage.getItem('current-user') : null);
+    if (!rawUser) {
+      return;
+    }
+
+    try {
+      const user = JSON.parse(rawUser);
+      this.securityManagerName = `${user?.name ?? ''} ${user?.surname ?? ''}`.trim() || this.securityManagerName;
+      this.securityManagerEmail = user?.emailAddress ?? this.securityManagerEmail;
+      this.currentManagerEmail = user?.emailAddress ?? this.currentManagerEmail;
+      this.managerSecurityCompanyId = user?.securityCompany?._id ?? '';
+      this.managerSecurityCompanyName = user?.securityCompany?.name ?? '';
+      this.loadCompanyContracts();
+    } catch {
+      return;
+    }
+  }
+
+  private normalizeName(value: string | undefined | null): string {
+    return (value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  private applyCompanyContracts(company: any): void {
+    this.contractedComplexNames.clear();
+    this.contractedCommunityNames.clear();
+    this.complexContractDates.clear();
+    this.communityContractDates.clear();
+    this.complexContractDisplayNames.clear();
+
+    const contracts = company?.contract ?? [];
+    for (const contract of contracts) {
+      const complexName = this.normalizeName(contract?.complex?.name ?? contract?.complexName);
+      const communityName = this.normalizeName(contract?.gatedCommunityName);
+      const startDate = this.formatDateValue(contract?.contractStartDate ?? contract?.contractStart);
+      const endDate = this.formatDateValue(contract?.contractEndDate ?? contract?.contractEnd);
+
+      if (complexName) {
+        this.contractedComplexNames.add(complexName);
+        this.complexContractDates.set(complexName, { startDate, endDate });
+        this.complexContractDisplayNames.set(complexName, (contract?.complex?.name ?? contract?.complexName ?? '').trim());
+      }
+
+      if (communityName) {
+        this.contractedCommunityNames.add(communityName);
+        this.communityContractDates.set(communityName, { startDate, endDate });
+      }
+    }
+  }
+
+  private formatDateValue(dateValue: unknown): string {
+    if (!dateValue) {
+      return '';
+    }
+
+    const parsed = new Date(String(dateValue));
+    if (Number.isNaN(parsed.getTime())) {
+      return '';
+    }
+
+    return parsed.toISOString().split('T')[0];
+  }
+
+  private loadCompanyContracts(): void {
+    const loadFromCompanyList = (): void => {
+      this.dataService.get<any[]>('securityCompany').subscribe({
+        next: (companies) => {
+          const company = (companies ?? []).find((item) => {
+            const managerEmailMatch =
+              this.currentManagerEmail &&
+              this.normalizeName(item?.managerEmail) === this.normalizeName(this.currentManagerEmail);
+            const companyNameMatch =
+              this.managerSecurityCompanyName &&
+              this.normalizeName(item?.name) === this.normalizeName(this.managerSecurityCompanyName);
+
+            return Boolean(managerEmailMatch || companyNameMatch);
+          });
+
+          this.applyCompanyContracts(company);
+          this.loadAssignedComplexes();
+          this.loadGatedCommunities();
+          this.loadUsers();
+        },
+        error: () => {
+          this.assignedComplexes = [];
+          this.gatedCommunities = [];
+        },
+      });
+    };
+
+    if (this.managerSecurityCompanyId) {
+      this.dataService.get<any>(`securityCompany/${this.managerSecurityCompanyId}`).subscribe({
+        next: (company) => {
+          this.applyCompanyContracts(company);
+          this.loadAssignedComplexes();
+          this.loadGatedCommunities();
+          this.loadUsers();
+        },
+        error: () => {
+          loadFromCompanyList();
+        },
+      });
+      return;
+    }
+
+    if (!this.managerSecurityCompanyName && !this.currentManagerEmail) {
+      this.assignedComplexes = [];
+      this.gatedCommunities = [];
+      return;
+    }
+
+    loadFromCompanyList();
   }
 
   private loadCurrentUser(): void {
     this.dataService.get<any>('user/current').subscribe({
       next: (user) => {
         if (!user) {
+          this.assignedComplexes = [];
+          this.gatedCommunities = [];
           return;
         }
         this.securityManagerName = `${user.name ?? ''} ${user.surname ?? ''}`.trim() || this.securityManagerName;
         this.securityManagerEmail = user.emailAddress ?? this.securityManagerEmail;
+        this.currentManagerEmail = user.emailAddress ?? this.currentManagerEmail;
+        this.managerSecurityCompanyId = user.securityCompany?._id ?? '';
+        this.managerSecurityCompanyName = user.securityCompany?.name ?? '';
+        this.loadCompanyContracts();
       },
-      error: () => null,
+      error: () => {
+        this.assignedComplexes = [];
+        this.gatedCommunities = [];
+      },
     });
   }
 
   private loadAssignedComplexes(): void {
     this.dataService.get<any[]>('complex').subscribe({
       next: (complexes) => {
-        this.assignedComplexes = (complexes || []).map((complex) => ({
-          id: complex._id ?? complex.id ?? '',
-          name: complex.name ?? '',
-          location: complex.address ?? '',
-          status: 'active',
-          totalUnits: complex.numberOfUnits ?? 0,
-          employees: 0,
-          contractStartDate: '',
-          contractEndDate: '',
-          units: this.generateUnits(complex.numberOfUnits ?? 0),
-        }));
+        const mappedComplexes = (complexes || [])
+          .filter((complex) => {
+            const complexName = this.normalizeName(complex?.name);
+            const communityName = this.normalizeName(complex?.gatedCommunityName);
+            return this.contractedComplexNames.has(complexName) || this.contractedCommunityNames.has(communityName);
+          })
+          .map((complex) => {
+            const contractDates =
+              this.complexContractDates.get(this.normalizeName(complex?.name)) ??
+              this.communityContractDates.get(this.normalizeName(complex?.gatedCommunityName));
+            return {
+              id: complex._id ?? complex.id ?? '',
+              name: complex.name ?? '',
+              location: complex.address ?? '',
+              status: 'active' as 'active' | 'inactive',
+              totalUnits: complex.numberOfUnits ?? 0,
+              employees: 0,
+              contractStartDate: contractDates?.startDate ?? '',
+              contractEndDate: contractDates?.endDate ?? '',
+              units: this.generateUnits(complex.numberOfUnits ?? 0),
+            };
+          });
+
+        const existingKeys = new Set(mappedComplexes.map((complex) => this.normalizeName(complex.name)));
+        const missingFromContracts = Array.from(this.contractedComplexNames)
+          .filter((contractedName) => !existingKeys.has(contractedName))
+          .map((contractedName) => {
+            const contractDates = this.complexContractDates.get(contractedName);
+            const displayName = this.complexContractDisplayNames.get(contractedName) || contractedName;
+            return {
+              id: `contract-${contractedName}`,
+              name: displayName,
+              location: 'Assigned by contract',
+              status: 'active' as 'active' | 'inactive',
+              totalUnits: 0,
+              employees: 0,
+              contractStartDate: contractDates?.startDate ?? '',
+              contractEndDate: contractDates?.endDate ?? '',
+              units: [],
+            };
+          });
+
+        this.assignedComplexes = [...mappedComplexes, ...missingFromContracts];
+        this.refreshTenantLocationPaths();
       },
       error: () => {
         this.assignedComplexes = [];
+        this.refreshTenantLocationPaths();
       },
     });
   }
@@ -230,20 +449,35 @@ export class SecurityManager implements OnInit {
   private loadGatedCommunities(): void {
     this.dataService.get<any[]>('gatedCommunity').subscribe({
       next: (communities) => {
-        this.gatedCommunities = (communities || []).map((community) => ({
-          id: community._id ?? community.id ?? '',
-          name: community.name ?? '',
-          complexId: community.complexId ?? '',
-          status: 'active',
-          totalResidents: community.numberOfHouses ?? 0,
-          contractStartDate: '',
-          contractEndDate: '',
-          houses: this.generateHouses(community.numberOfHouses ?? 0),
-          complexesInCommunity: [],
-        }));
+        this.gatedCommunities = (communities || [])
+          .filter((community) => {
+            const communityName = this.normalizeName(community?.name);
+            const communityComplexes = Array.isArray(community?.complexes)
+              ? community.complexes.map((name: string) => this.normalizeName(name))
+              : [];
+
+            const linkedByComplex = communityComplexes.some((name: string) => this.contractedComplexNames.has(name));
+            return this.contractedCommunityNames.has(communityName) || linkedByComplex;
+          })
+          .map((community) => {
+            const contractDates = this.communityContractDates.get(this.normalizeName(community?.name));
+            return {
+              id: community._id ?? community.id ?? '',
+              name: community.name ?? '',
+              complexId: community.complexId ?? '',
+              status: 'active' as 'active' | 'inactive',
+              totalResidents: community.numberOfHouses ?? 0,
+              contractStartDate: contractDates?.startDate ?? '',
+              contractEndDate: contractDates?.endDate ?? '',
+              houses: this.generateHouses(community.numberOfHouses ?? 0),
+              complexesInCommunity: [],
+            };
+          });
+        this.refreshTenantLocationPaths();
       },
       error: () => {
         this.gatedCommunities = [];
+        this.refreshTenantLocationPaths();
       },
     });
   }
@@ -251,52 +485,217 @@ export class SecurityManager implements OnInit {
     this.dataService.get<any>('user').subscribe({
       next: (response) => {
         const users = Array.isArray(response) ? response : response?.payload ?? [];
+
+        const belongsToCurrentSecurityCompany = (user: any): boolean => {
+          const userCompanyId = user?.securityCompany?._id ? String(user.securityCompany._id) : '';
+          const userCompanyName = this.normalizeName(user?.securityCompany?.name);
+
+          const byId = this.managerSecurityCompanyId && userCompanyId === this.managerSecurityCompanyId;
+          const byName = this.managerSecurityCompanyName && userCompanyName === this.normalizeName(this.managerSecurityCompanyName);
+
+          return Boolean(byId || byName);
+        };
+
+        const hasContractAccessForCompany = (user: any): boolean => {
+          if (this.contractedComplexNames.size === 0 && this.contractedCommunityNames.size === 0) {
+            return true;
+          }
+
+          const employeeContracts = Array.isArray(user?.employeeContracts) ? user.employeeContracts : [];
+          const assignedComplexIdsInScope = new Set(this.assignedComplexes.map((complex) => String(complex.id)));
+          const assignedCommunityIdsInScope = new Set(this.gatedCommunities.map((community) => String(community.id)));
+          const assignedCommunityNamesInScope = new Set(this.gatedCommunities.map((community) => this.normalizeName(community.name)));
+
+          if (employeeContracts.length > 0) {
+            return employeeContracts.some((contract: any) => {
+              const contractCompanyId = contract?.securityCompany?._id ? String(contract.securityCompany._id) : '';
+              const contractCompanyName = this.normalizeName(contract?.securityCompany?.name);
+              const contractAssignedComplexes = Array.isArray(contract?.assignedComplexes)
+                ? contract.assignedComplexes.map((value: unknown) => String(value ?? '').trim()).filter((value: string) => value.length > 0)
+                : [];
+              const contractAssignedCommunities = Array.isArray(contract?.assignedCommunities)
+                ? contract.assignedCommunities.map((value: unknown) => String(value ?? '').trim()).filter((value: string) => value.length > 0)
+                : [];
+
+              const contractMatchesCompany =
+                (this.managerSecurityCompanyId && contractCompanyId === this.managerSecurityCompanyId) ||
+                (this.managerSecurityCompanyName && contractCompanyName === this.normalizeName(this.managerSecurityCompanyName));
+
+              if (!contractMatchesCompany) {
+                return false;
+              }
+
+              if (contractAssignedComplexes.length === 0 && contractAssignedCommunities.length === 0) {
+                return true;
+              }
+
+              const hasComplexInScope = contractAssignedComplexes.some((complexId: string) => assignedComplexIdsInScope.has(complexId));
+              const hasCommunityInScope = contractAssignedCommunities.some((community: string) => {
+                const normalized = this.normalizeName(community);
+                return assignedCommunityIdsInScope.has(community) || assignedCommunityNamesInScope.has(normalized);
+              });
+
+              return hasComplexInScope || hasCommunityInScope;
+            });
+          }
+
+          const userComplexName = this.normalizeName(user?.complex?.name);
+          if (this.contractedComplexNames.has(userComplexName)) {
+            return true;
+          }
+
+          const userComplexId = user?.complex?._id ? String(user.complex._id) : '';
+          if (userComplexId && this.assignedComplexes.some((complex) => complex.id === userComplexId)) {
+            return true;
+          }
+
+          return false;
+        };
+
+        const resolveEmployeeStatusForCompany = (user: any): 'active' | 'inactive' => {
+          const employeeContracts = Array.isArray(user?.employeeContracts) ? user.employeeContracts : [];
+          const currentContract = employeeContracts.find((contract: any) => {
+            const contractCompanyId = contract?.securityCompany?._id ? String(contract.securityCompany._id) : '';
+            const contractCompanyName = this.normalizeName(contract?.securityCompany?.name);
+            return (
+              (this.managerSecurityCompanyId && contractCompanyId === this.managerSecurityCompanyId) ||
+              (this.managerSecurityCompanyName && contractCompanyName === this.normalizeName(this.managerSecurityCompanyName))
+            );
+          });
+
+          if (currentContract?.status === 'inactive') {
+            return 'inactive';
+          }
+
+          if (currentContract?.status === 'active') {
+            return 'active';
+          }
+
+          return user?.movedOut ? 'inactive' : 'active';
+        };
+
         this.employees = users
           .filter((user: any) => this.hasRole(user, 'security'))
-          .map((user: any) => ({
-            id: user._id ?? '',
-            name: user.name ?? '',
-            surname: user.surname ?? '',
-            email: user.emailAddress ?? '',
-            phone: user.cellNumber ?? '',
-            position: this.hasRole(user, 'admin') ? 'admin-Guard' : 'Guard',
-            assignedComplex: user.complex?._id ?? '',
-            status: 'active',
-          }));
+          .filter((user: any) => belongsToCurrentSecurityCompany(user))
+          .filter((user: any) => hasContractAccessForCompany(user))
+          .map((user: any) => {
+            const assignedComplexes = Array.isArray(user?.assignedComplexes)
+              ? user.assignedComplexes.filter((value: unknown) => typeof value === 'string' && value.length > 0)
+              : (user?.complex?._id ? [String(user.complex._id)] : []);
+
+            const assignedCommunities = Array.isArray(user?.assignedCommunities)
+              ? user.assignedCommunities.filter((value: unknown) => typeof value === 'string' && value.length > 0)
+              : [];
+
+            return {
+              id: user._id ?? '',
+              name: user.name ?? '',
+              surname: user.surname ?? '',
+              email: user.emailAddress ?? '',
+              phone: user.cellNumber ?? '',
+              position: this.hasRole(user, 'admin') ? 'admin-Guard' : 'Guard',
+              assignedComplex: assignedComplexes[0] ?? '',
+              assignedComplexes,
+              assignedCommunities,
+              status: resolveEmployeeStatusForCompany(user),
+            };
+          });
 
         this.securityManagers = users
-          .filter((user: any) => this.hasRole(user, 'manager'))
-          .map((user: any) => ({
-            id: user._id ?? '',
-            name: user.name ?? '',
-            surname: user.surname ?? '',
-            email: user.emailAddress ?? '',
-            phone: user.cellNumber ?? '',
-            position: 'Security Manager',
-            profilePicture: user.profilePhoto ?? '',
-            assignedComplexes: user.complex?._id ? [user.complex._id] : [],
-            assignedCommunities: [],
-            status: 'active',
-          }));
+          .filter((user: any) => this.hasRole(user, 'security'))
+          .filter((user: any) => belongsToCurrentSecurityCompany(user))
+          .filter((user: any) => hasContractAccessForCompany(user))
+          .map((user: any) => {
+            const assignedComplexes = Array.isArray(user?.assignedComplexes)
+              ? user.assignedComplexes.filter((value: unknown) => typeof value === 'string' && value.length > 0)
+              : (user?.complex?._id ? [String(user.complex._id)] : []);
+
+            const assignedCommunities = Array.isArray(user?.assignedCommunities)
+              ? user.assignedCommunities.filter((value: unknown) => typeof value === 'string' && value.length > 0)
+              : [];
+
+            return {
+              id: user._id ?? '',
+              name: user.name ?? '',
+              surname: user.surname ?? '',
+              email: user.emailAddress ?? '',
+              phone: user.cellNumber ?? '',
+              position: this.hasRole(user, 'admin') ? 'admin-Guard' : 'Guard',
+              profilePicture: user.profilePhoto ?? '',
+              assignedComplexes,
+              assignedCommunities,
+              status: resolveEmployeeStatusForCompany(user),
+            };
+          });
 
         this.tenants = users
-          .filter((user: any) => this.hasRole(user, 'tenant') || this.hasRole(user, 'user'))
-          .map((user: any) => ({
-            id: user._id ?? '',
-            name: user.name ?? '',
-            surname: user.surname ?? '',
-            email: user.emailAddress ?? '',
-            phone: user.cellNumber ?? '',
-            idNumber: user.idNumber ?? '',
-            residenceType: user.complex?._id ? 'complex' : 'community',
-            complexId: user.complex?._id ?? '',
-            communityId: '',
-            communityResidenceType: 'house',
-            communityComplexId: '',
-            address: user.address ?? '',
-            vehicles: [],
-            registeredDate: new Date().toISOString().split('T')[0],
-          }));
+          .filter((user: any) => this.hasRole(user, 'tenant'))
+          .filter((user: any) => {
+            const userResidenceType: 'complex' | 'community' =
+              user?.residenceType === 'community' || user?.residenceType === 'complex'
+                ? user.residenceType
+                : (user?.communityId ? 'community' : 'complex');
+
+            const assignedComplexIds = new Set(this.assignedComplexes.map((complex) => String(complex.id)));
+            const assignedCommunityIds = new Set(this.gatedCommunities.map((community) => String(community.id)));
+
+            const userComplexId = String(user?.complex?._id ?? '');
+            const userCommunityId = String(user?.communityId ?? '');
+            const userCommunityComplexId = String(user?.communityComplexId ?? '');
+
+            if (userResidenceType === 'complex') {
+              return userComplexId ? assignedComplexIds.has(userComplexId) : false;
+            }
+
+            if (userCommunityId && assignedCommunityIds.has(userCommunityId)) {
+              return true;
+            }
+
+            if (userCommunityComplexId && assignedComplexIds.has(userCommunityComplexId)) {
+              return true;
+            }
+
+            return userComplexId ? assignedComplexIds.has(userComplexId) : false;
+          })
+          .map((user: any) => {
+            const mappedResidenceType: 'complex' | 'community' =
+              user?.residenceType === 'community' || user?.residenceType === 'complex'
+                ? user.residenceType
+                : (user?.communityId ? 'community' : 'complex');
+
+            const mappedCommunityResidenceType: 'house' | 'complex' =
+              user?.communityResidenceType === 'complex' ? 'complex' : 'house';
+
+            return {
+              id: user._id ?? '',
+              name: user.name ?? '',
+              surname: user.surname ?? '',
+              email: user.emailAddress ?? '',
+              phone: user.cellNumber ?? '',
+              idNumber: user.idNumber ?? '',
+              residenceType: mappedResidenceType,
+              complexId: mappedResidenceType === 'complex' ? (user.complex?._id ?? '') : '',
+              communityId: mappedResidenceType === 'community' ? (user.communityId ?? '') : '',
+              communityResidenceType: mappedResidenceType === 'community' ? mappedCommunityResidenceType : undefined,
+              communityComplexId:
+                mappedResidenceType === 'community' && mappedCommunityResidenceType === 'complex'
+                  ? (user.communityComplexId ?? user.complex?._id ?? '')
+                  : '',
+              address: user.address ?? '',
+              vehicles: Array.isArray(user.vehicles)
+                ? user.vehicles.map((vehicle: any) => ({
+                    make: vehicle?.make ?? '',
+                    model: vehicle?.model ?? '',
+                    reg: vehicle?.reg ?? '',
+                    color: vehicle?.color ?? '',
+                  }))
+                : [],
+              registeredDate: new Date().toISOString().split('T')[0],
+              locationPath: [],
+            };
+          });
+
+        this.refreshTenantLocationPaths();
       },
       error: () => {
         this.employees = [];
@@ -350,6 +749,99 @@ export class SecurityManager implements OnInit {
     });
   }
 
+  private loadSosAlerts(): void {
+    this.dataService.get<any>('sos').subscribe({
+      next: (response) => {
+        const items = Array.isArray(response) ? response : response?.payload ?? [];
+
+        this.sosAlerts = (items || [])
+          .map((item: any) => {
+            const guard = item?.guard ?? {};
+            const station = item?.station ?? {};
+            const rawType = String(station?.type ?? '').toLowerCase();
+            const stationType: 'complex' | 'gated' | 'unknown' =
+              rawType === 'complex' || rawType === 'gated'
+                ? rawType
+                : 'unknown';
+
+            return {
+              id: String(item?._id ?? ''),
+              date: String(item?.date ?? ''),
+              guardName: `${guard?.name ?? ''} ${guard?.surname ?? ''}`.trim() || 'Unknown Guard',
+              guardPhone: String(guard?.cellNumber ?? ''),
+              stationType,
+              stationName: String(station?.name ?? ''),
+              complexName: String(station?.complexName ?? ''),
+              gatedCommunityName: String(station?.gatedCommunityName ?? ''),
+              address: String(station?.complexAddress ?? ''),
+            };
+          })
+          .sort((a: { date: string }, b: { date: string }) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      },
+      error: () => {
+        this.sosAlerts = [];
+      },
+    });
+  }
+
+  protected get filteredSosAlerts(): any[] {
+    const query = this.sosSearchTerm.trim().toLowerCase();
+
+    return this.sosAlerts.filter((alert) => {
+      const matchesType = this.sosFilterSourceType === 'all' || alert.stationType === this.sosFilterSourceType;
+      if (!matchesType) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const sourceText = this.getSosSourceDisplay(alert).toLowerCase();
+      const addressText = this.getSosAddressDisplay(alert).toLowerCase();
+      return (
+        alert.guardName.toLowerCase().includes(query) ||
+        alert.guardPhone.toLowerCase().includes(query) ||
+        sourceText.includes(query) ||
+        addressText.includes(query)
+      );
+    });
+  }
+
+  protected getSosSourceDisplay(alert: any): string {
+    const complexName = String(alert?.complexName ?? '').trim();
+    const gatedCommunityName = String(alert?.gatedCommunityName ?? '').trim();
+
+    if (gatedCommunityName && complexName) {
+      return `${gatedCommunityName} - ${complexName}`;
+    }
+
+    if (alert.stationType === 'complex') {
+      return complexName || alert.stationName || 'Complex';
+    }
+
+    if (alert.stationType === 'gated') {
+      return gatedCommunityName || alert.stationName || 'Gated Community';
+    }
+
+    return complexName || gatedCommunityName || alert.stationName || 'Unknown';
+  }
+
+  protected getSosAddressDisplay(alert: any): string {
+    return alert.address || 'Address not available';
+  }
+
+  protected isSosRecent(alertDate: string): boolean {
+    const alertTime = new Date(alertDate).getTime();
+    if (Number.isNaN(alertTime)) {
+      return false;
+    }
+
+    const now = Date.now();
+    const ageMs = now - alertTime;
+    return ageMs >= 0 && ageMs <= 15 * 60 * 1000;
+  }
+
   protected openEmployeeModal(): void {
     this.isEmployeeModalOpen = true;
     this.editingEmployeeId = null;
@@ -399,10 +891,17 @@ export class SecurityManager implements OnInit {
       return;
     }
 
-    this.employees = this.employees.filter((e) => e.id !== this.selectedEmployeeToDelete.id);
-    this.employeeSuccess = 'Employee deleted successfully!';
-    setTimeout(() => (this.employeeSuccess = ''), 3000);
-    this.closeDeleteEmployeeModal();
+    this.dataService.delete<ResponseBody>(`user/security-employee/${this.selectedEmployeeToDelete.id}`).subscribe({
+      next: () => {
+        this.employees = this.employees.filter((e) => e.id !== this.selectedEmployeeToDelete.id);
+        this.employeeSuccess = 'Employee deleted successfully!';
+        setTimeout(() => (this.employeeSuccess = ''), 3000);
+        this.closeDeleteEmployeeModal();
+      },
+      error: (error) => {
+        this.employeeError = error?.error?.message || 'Unable to delete employee.';
+      },
+    });
   }
 
   protected submitEmployeeForm(): void {
@@ -411,29 +910,122 @@ export class SecurityManager implements OnInit {
       return;
     }
 
+    this.employeeForm.phone = this.employeeForm.phone.trim();
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.employeeForm.email)) {
       this.employeeError = 'Please enter a valid email address.';
       return;
     }
 
-    if (!/^\+?[\d\s\-()]{10,}$/.test(this.employeeForm.phone)) {
-      this.employeeError = 'Please enter a valid phone number.';
+    if (!/^0\d{9}$/.test(this.employeeForm.phone)) {
+      this.employeeError = 'Phone number must be 10 digits and start with 0.';
       return;
     }
 
     if (this.editingEmployeeId) {
-      const index = this.employees.findIndex((e) => e.id === this.editingEmployeeId);
-      if (index !== -1) {
-        this.employees[index] = { ...this.employeeForm };
-        this.employeeSuccess = 'Employee updated successfully!';
-      }
-    } else {
-      const newEmployee = {
-        ...this.employeeForm,
-        id: `emp-${Date.now()}`,
+      const assignedComplexId = this.employeeForm.assignedComplex || '';
+      const assignedComplexName = this.assignedComplexes.find((complex) => complex.id === assignedComplexId)?.name || '';
+      const assignedCommunityName =
+        this.gatedCommunities.find((community) => this.normalizeName(this.getComplexName(community.complexId)) === this.normalizeName(assignedComplexName))?.name || '';
+
+      const payload = {
+        name: this.employeeForm.name.trim(),
+        surname: this.employeeForm.surname.trim(),
+        emailAddress: this.employeeForm.email.trim().toLowerCase(),
+        cellNumber: this.employeeForm.phone.trim(),
+        position: this.employeeForm.position,
+        status: this.employeeForm.status,
+        assignedComplexId,
+        assignedComplexName,
+        assignedGatedCommunityName: assignedCommunityName,
       };
-      this.employees.push(newEmployee);
-      this.employeeSuccess = 'Employee added successfully!';
+
+      this.dataService.put<ResponseBody>(`user/security-employee/${this.editingEmployeeId}`, payload).subscribe({
+        next: (response) => {
+          const updatedUser = response?.payload;
+          const index = this.employees.findIndex((employee) => employee.id === this.editingEmployeeId);
+          if (index !== -1) {
+            this.employees[index] = {
+              id: updatedUser?._id ?? this.editingEmployeeId,
+              name: updatedUser?.name ?? this.employeeForm.name,
+              surname: updatedUser?.surname ?? this.employeeForm.surname,
+              email: updatedUser?.emailAddress ?? this.employeeForm.email,
+              phone: updatedUser?.cellNumber ?? this.employeeForm.phone,
+              position: this.employeeForm.position,
+              assignedComplex: updatedUser?.complex?._id ?? assignedComplexId,
+              assignedComplexes: [updatedUser?.complex?._id ?? assignedComplexId].filter((value) => Boolean(value)),
+              assignedCommunities: [],
+              status: this.employeeForm.status,
+            };
+          }
+
+          this.employeeSuccess = 'Employee updated successfully!';
+          this.employeeError = '';
+          setTimeout(() => {
+            this.closeEmployeeModal();
+          }, 1500);
+        },
+        error: (error) => {
+          this.employeeError = error?.error?.message || 'Unable to update employee.';
+        },
+      });
+      return;
+    } else {
+      const defaultComplex = this.assignedComplexes[0];
+      const assignedComplexId = this.employeeForm.assignedComplex || defaultComplex?.id || '';
+      const assignedComplexName = this.assignedComplexes.find((complex) => complex.id === assignedComplexId)?.name || '';
+      const assignedCommunityName =
+        this.gatedCommunities.find((community) => this.normalizeName(this.getComplexName(community.complexId)) === this.normalizeName(assignedComplexName))?.name || '';
+
+      const payload = {
+        name: this.employeeForm.name.trim(),
+        surname: this.employeeForm.surname.trim(),
+        emailAddress: this.employeeForm.email.trim().toLowerCase(),
+        cellNumber: this.employeeForm.phone.trim(),
+        position: this.employeeForm.position,
+        status: this.employeeForm.status,
+        assignedComplexId,
+        assignedComplexName,
+        assignedGatedCommunityName: assignedCommunityName,
+        contractStartDate: new Date().toISOString().split('T')[0],
+      };
+
+      this.dataService.post<ResponseBody>('user/security-employee', payload).subscribe({
+        next: (response) => {
+          const createdUser = response?.payload?.user;
+          if (!createdUser) {
+            this.employeeError = 'Unable to add employee.';
+            return;
+          }
+
+          const newEmployee = {
+            id: createdUser._id ?? `emp-${Date.now()}`,
+            name: createdUser.name ?? this.employeeForm.name,
+            surname: createdUser.surname ?? this.employeeForm.surname,
+            email: createdUser.emailAddress ?? this.employeeForm.email,
+            phone: createdUser.cellNumber ?? this.employeeForm.phone,
+            position: this.employeeForm.position,
+            assignedComplex: createdUser.complex?._id ?? assignedComplexId,
+            assignedComplexes: [createdUser.complex?._id ?? assignedComplexId].filter((value) => Boolean(value)),
+            assignedCommunities: [],
+            status: this.employeeForm.status,
+          };
+
+          this.employees.push(newEmployee);
+          const temporaryPin = response?.payload?.temporaryPin;
+          this.employeeSuccess = temporaryPin
+            ? `Employee added successfully! Temporary PIN: ${temporaryPin}`
+            : 'Employee added successfully!';
+          this.employeeError = '';
+          setTimeout(() => {
+            this.closeEmployeeModal();
+          }, 1500);
+        },
+        error: (error) => {
+          this.employeeError = error?.error?.message || 'Unable to add employee.';
+        },
+      });
+      return;
     }
 
     this.employeeError = '';
@@ -443,7 +1035,38 @@ export class SecurityManager implements OnInit {
   }
   protected openComplexDetails(complex: any): void {
     this.selectedComplex = complex;
-    this.selectedComplexEmployees = this.employees.filter((e) => e.assignedComplex === complex.id);
+    this.selectedComplexEmployees = this.employees.filter((employee) => {
+      const assignedComplexes = Array.isArray(employee.assignedComplexes) ? employee.assignedComplexes : [];
+      return assignedComplexes.includes(complex.id) || employee.assignedComplex === complex.id;
+    });
+    this.updateSelectedComplexContractState(complex?.contractEndDate);
+    this.isComplexDetailModalOpen = true;
+  }
+
+  protected openGatedCommunityDetails(community: any): void {
+    this.selectedComplex = {
+      id: community.id,
+      name: community.name,
+      location: this.getComplexName(community.complexId),
+      status: community.status,
+      totalUnits: community.totalResidents,
+      contractStartDate: community.contractStartDate,
+      contractEndDate: community.contractEndDate,
+    };
+    this.selectedComplexEmployees = this.employees.filter((employee) => {
+      const assignedCommunities = Array.isArray(employee.assignedCommunities) ? employee.assignedCommunities : [];
+      const assignedComplexes = Array.isArray(employee.assignedComplexes) ? employee.assignedComplexes : [];
+      const communityComplexId = String(community?.complexId ?? '').trim();
+
+      return (
+        assignedCommunities.includes(community.id) ||
+        (communityComplexId.length > 0 && (
+          assignedComplexes.includes(communityComplexId) ||
+          employee.assignedComplex === communityComplexId
+        ))
+      );
+    });
+    this.updateSelectedComplexContractState(community?.contractEndDate);
     this.isComplexDetailModalOpen = true;
   }
 
@@ -451,6 +1074,15 @@ export class SecurityManager implements OnInit {
     this.isComplexDetailModalOpen = false;
     this.selectedComplex = null;
     this.selectedComplexEmployees = [];
+    this.selectedComplexDaysRemaining = 0;
+    this.selectedComplexContractExpiringSoon = false;
+    this.selectedComplexContractExpired = false;
+  }
+
+  private updateSelectedComplexContractState(endDate: string): void {
+    this.selectedComplexDaysRemaining = this.getContractDaysRemaining(endDate);
+    this.selectedComplexContractExpiringSoon = this.selectedComplexDaysRemaining <= 90 && this.selectedComplexDaysRemaining > 0;
+    this.selectedComplexContractExpired = this.selectedComplexDaysRemaining < 0;
   }
 
   protected openAssignmentModal(securityManager: any): void {
@@ -495,14 +1127,41 @@ export class SecurityManager implements OnInit {
 
   protected submitAssignmentForm(): void {
     const manager = this.securityManagers.find((sm) => sm.id === this.assignmentForm.securityManagerId);
-    if (manager) {
-      manager.assignedComplexes = [...this.assignmentForm.assignedComplexes];
-      manager.assignedCommunities = [...this.assignmentForm.assignedCommunities];
-      this.assignmentSuccess = 'Assignment updated successfully!';
-      setTimeout(() => {
-        this.closeAssignmentModal();
-      }, 1500);
+    if (!manager) {
+      this.assignmentError = 'Selected guard was not found.';
+      return;
     }
+
+    const payload = {
+      assignedComplexes: [...this.assignmentForm.assignedComplexes],
+      assignedCommunities: [...this.assignmentForm.assignedCommunities],
+    };
+
+    this.dataService.put<ResponseBody>(`user/security-assignment/${manager.id}`, payload).subscribe({
+      next: () => {
+        manager.assignedComplexes = [...payload.assignedComplexes];
+        manager.assignedCommunities = [...payload.assignedCommunities];
+
+        const employeeIndex = this.employees.findIndex((employee) => employee.id === manager.id);
+        if (employeeIndex > -1) {
+          this.employees[employeeIndex] = {
+            ...this.employees[employeeIndex],
+            assignedComplexes: [...payload.assignedComplexes],
+            assignedCommunities: [...payload.assignedCommunities],
+            assignedComplex: payload.assignedComplexes[0] ?? '',
+          };
+        }
+
+        this.assignmentSuccess = 'Assignment updated successfully!';
+        this.assignmentError = '';
+        setTimeout(() => {
+          this.closeAssignmentModal();
+        }, 1500);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.assignmentError = error?.error?.message || 'Unable to save assignment.';
+      },
+    });
   }
 
   protected getAssignedComplexNames(complexIds: string[]): string {
@@ -564,7 +1223,12 @@ export class SecurityManager implements OnInit {
   }
 
   protected get filteredEmployees(): any[] {
-    return this.employees.filter((emp) => {
+    const key = `${this.searchTerm}|${this.filterStatus}|${this.employees.length}`;
+    if (this.filteredEmployeesKey === key) {
+      return this.filteredEmployeesCache;
+    }
+
+    this.filteredEmployeesCache = this.employees.filter((emp) => {
       const matchesSearch =
         emp.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
         emp.surname.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
@@ -575,10 +1239,18 @@ export class SecurityManager implements OnInit {
 
       return matchesSearch && matchesStatus;
     });
+
+    this.filteredEmployeesKey = key;
+    return this.filteredEmployeesCache;
   }
 
   protected get filteredVisitors(): any[] {
-    return this.visitors.filter((visitor) => {
+    const key = `${this.visitorStartDate}|${this.visitorEndDate}|${this.visitorFilterResidenceType}|${this.visitorFilterComplexId}|${this.visitorFilterCommunityId}|${this.visitorFilterCommunityResidenceType}|${this.visitorFilterCommunityComplexId}|${this.visitors.length}`;
+    if (this.filteredVisitorsKey === key) {
+      return this.filteredVisitorsCache;
+    }
+
+    this.filteredVisitorsCache = this.visitors.filter((visitor) => {
       // Date filtering
       if (this.visitorStartDate) {
         const startDate = new Date(this.visitorStartDate);
@@ -634,6 +1306,9 @@ export class SecurityManager implements OnInit {
 
       return true;
     });
+
+    this.filteredVisitorsKey = key;
+    return this.filteredVisitorsCache;
   }
 
   protected onVisitorFilterResidenceTypeChange(): void {
@@ -653,9 +1328,20 @@ export class SecurityManager implements OnInit {
   }
 
   protected get visitorFilterAvailableCommunityComplexes(): any[] {
-    if (!this.visitorFilterCommunityId) return [];
+    const key = `${this.visitorFilterCommunityId}|${this.gatedCommunities.length}`;
+    if (this.visitorCommunityComplexesKey === key) {
+      return this.visitorCommunityComplexesCache;
+    }
+
+    if (!this.visitorFilterCommunityId) {
+      this.visitorCommunityComplexesCache = [];
+      this.visitorCommunityComplexesKey = key;
+      return this.visitorCommunityComplexesCache;
+    }
     const community = this.gatedCommunities.find(gc => gc.id === this.visitorFilterCommunityId);
-    return community?.complexesInCommunity || [];
+    this.visitorCommunityComplexesCache = community?.complexesInCommunity || [];
+    this.visitorCommunityComplexesKey = key;
+    return this.visitorCommunityComplexesCache;
   }
 
   protected getComplexName(complexId: string): string {
@@ -669,7 +1355,7 @@ export class SecurityManager implements OnInit {
     return this.gatedCommunities.find((gc) => gc.id === communityId)?.name || 'Unknown';
   }
 
-  protected getTenantLocationPath(tenant: any): string[] {
+  private buildTenantLocationPath(tenant: any): string[] {
     const path: string[] = [];
 
     if (tenant.residenceType === 'complex') {
@@ -697,6 +1383,13 @@ export class SecurityManager implements OnInit {
     }
 
     return path;
+  }
+
+  private refreshTenantLocationPaths(): void {
+    this.tenants = this.tenants.map((tenant: any) => ({
+      ...tenant,
+      locationPath: this.buildTenantLocationPath(tenant),
+    }));
   }
 
   protected get activeGuardsCount(): number {
@@ -770,7 +1463,10 @@ export class SecurityManager implements OnInit {
         ],
         registeredDate: '2024-04-05',
       },
-    ];
+    ].map((tenant: any) => ({
+      ...tenant,
+      locationPath: this.buildTenantLocationPath(tenant),
+    }));
   }
 
   protected openTenantModal(): void {
@@ -811,6 +1507,19 @@ export class SecurityManager implements OnInit {
       return;
     }
 
+    this.tenantForm.phone = this.tenantForm.phone.trim();
+
+    if (!/^0\d{9}$/.test(this.tenantForm.phone)) {
+      this.tenantError = 'Phone number must be 10 digits and start with 0.';
+      return;
+    }
+
+    const allowedResidenceTypes = this.availableTenantResidenceTypes.map((type) => type.value);
+    if (!allowedResidenceTypes.includes(this.tenantForm.residenceType)) {
+      this.tenantError = 'Selected residence type is not available for your assigned sites.';
+      return;
+    }
+
     if (this.tenantForm.residenceType === 'complex' && !this.tenantForm.complexId) {
       this.tenantError = 'Please select a complex.';
       return;
@@ -823,6 +1532,11 @@ export class SecurityManager implements OnInit {
 
     if (this.tenantForm.residenceType === 'community' && this.tenantForm.communityResidenceType === 'complex' && !this.tenantForm.communityComplexId) {
       this.tenantError = 'Please select a complex within the gated community.';
+      return;
+    }
+
+    if (this.tenantForm.residenceType === 'community' && !this.availableCommunityResidenceTypes.includes(this.tenantForm.communityResidenceType)) {
+      this.tenantError = 'Selected community residence type is not available.';
       return;
     }
 
@@ -845,15 +1559,89 @@ export class SecurityManager implements OnInit {
         : new Date().toISOString().split('T')[0],
     };
 
+    const normalizedTenantEmail = tenantData.email.trim().toLowerCase();
+
+    const selectedComplexForTenant =
+      tenantData.residenceType === 'complex'
+        ? this.assignedComplexes.find((complex) => complex.id === tenantData.complexId)
+        : this.availableCommunityComplexes.find((complex) => complex.id === tenantData.communityComplexId);
+
+    const payload = {
+      name: tenantData.name,
+      surname: tenantData.surname,
+      emailAddress: normalizedTenantEmail,
+      cellNumber: tenantData.phone,
+      idNumber: tenantData.idNumber,
+      address: tenantData.address,
+      residenceType: tenantData.residenceType,
+      complexId: tenantData.residenceType === 'complex' ? tenantData.complexId : tenantData.communityComplexId,
+      complexName: selectedComplexForTenant?.name ?? '',
+      communityId: tenantData.communityId,
+      communityResidenceType: tenantData.communityResidenceType,
+      communityComplexId: tenantData.communityComplexId,
+      vehicles: tenantData.vehicles,
+    };
+
     if (this.editingTenantId) {
-      const index = this.tenants.findIndex((t: any) => t.id === this.editingTenantId);
-      if (index > -1) {
-        this.tenants[index] = tenantData;
-      }
-      this.tenantSuccess = 'Tenant updated successfully!';
+      this.dataService.put<ResponseBody>(`user/tenant/${this.editingTenantId}`, payload).subscribe({
+        next: (response: ResponseBody) => {
+          const updatedUser = response?.payload?.user;
+          const updatedTenant = {
+            ...tenantData,
+            id: updatedUser?._id ?? this.editingTenantId,
+            email: updatedUser?.emailAddress ?? tenantData.email,
+            phone: updatedUser?.cellNumber ?? tenantData.phone,
+            locationPath: this.buildTenantLocationPath(tenantData),
+          };
+
+          const index = this.tenants.findIndex((t: any) => t.id === this.editingTenantId);
+          if (index > -1) {
+            this.tenants[index] = updatedTenant;
+          }
+
+          this.tenantSuccess = 'Tenant updated successfully!';
+          setTimeout(() => {
+            this.closeTenantModal();
+          }, 1500);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.tenantError = error?.error?.message || 'Unable to update tenant.';
+        },
+      });
+      return;
     } else {
-      this.tenants.push(tenantData);
-      this.tenantSuccess = 'Tenant registered successfully!';
+      const existingTenant = this.tenants.find((tenant: any) => tenant.email?.trim().toLowerCase() === normalizedTenantEmail);
+      if (existingTenant) {
+        this.tenantError = 'A tenant with this email already exists. Open Edit to update the tenant.';
+        return;
+      }
+
+      this.dataService.post<ResponseBody>('user/tenant', payload).subscribe({
+        next: (response) => {
+          const createdUser = response?.payload?.user;
+          const mappedTenant = {
+            ...tenantData,
+            id: createdUser?._id ?? tenantData.id,
+            email: createdUser?.emailAddress ?? tenantData.email,
+            phone: createdUser?.cellNumber ?? tenantData.phone,
+            locationPath: this.buildTenantLocationPath(tenantData),
+          };
+
+          this.tenants.push(mappedTenant);
+          const temporaryPin = response?.payload?.temporaryPin;
+          this.tenantSuccess = temporaryPin
+            ? `Tenant registered successfully! Temporary PIN: ${temporaryPin}`
+            : 'Tenant registered successfully!';
+
+          setTimeout(() => {
+            this.closeTenantModal();
+          }, 1500);
+        },
+        error: (error) => {
+          this.tenantError = error?.error?.message || 'Unable to register tenant.';
+        },
+      });
+      return;
     }
 
     setTimeout(() => {
@@ -873,8 +1661,17 @@ export class SecurityManager implements OnInit {
 
   protected confirmDeleteTenant(): void {
     if (this.selectedTenantToDelete) {
-      this.tenants = this.tenants.filter((t: any) => t.id !== this.selectedTenantToDelete.id);
-      this.closeDeleteTenantModal();
+      const tenantId = this.selectedTenantToDelete.id;
+      this.dataService.delete<ResponseBody>(`user/tenant/${tenantId}`).subscribe({
+        next: () => {
+          this.tenants = this.tenants.filter((t: any) => t.id !== tenantId);
+          this.closeDeleteTenantModal();
+        },
+        error: (error) => {
+          this.tenantError = error?.error?.message || 'Unable to delete tenant.';
+          this.closeDeleteTenantModal();
+        },
+      });
     }
   }
 
@@ -914,6 +1711,11 @@ export class SecurityManager implements OnInit {
   }
 
   protected onResidenceTypeChange(): void {
+    const availableTypes = this.availableTenantResidenceTypes.map((type) => type.value);
+    if (!availableTypes.includes(this.tenantForm.residenceType)) {
+      this.tenantForm.residenceType = availableTypes[0] as 'complex' | 'community';
+    }
+
     // Clear residence fields when switching type
     this.tenantForm.complexId = '';
     this.tenantForm.communityId = '';
@@ -927,7 +1729,11 @@ export class SecurityManager implements OnInit {
 
   protected onCommunityChange(): void {
     // Clear all community-related fields when community changes
-    this.tenantForm.communityResidenceType = 'house';
+    const availableTypes = this.availableCommunityResidenceTypes;
+    this.tenantForm.communityResidenceType =
+      availableTypes.includes('house')
+        ? 'house'
+        : (availableTypes[0] ?? 'house');
     this.tenantForm.communityComplexId = '';
     this.tenantForm.address = '';
   }
@@ -944,6 +1750,11 @@ export class SecurityManager implements OnInit {
   }
 
   private resetTenantForm(): void {
+    const defaultResidenceType: 'complex' | 'community' =
+      this.assignedComplexes.length > 0
+        ? 'complex'
+        : (this.gatedCommunities.length > 0 ? 'community' : 'complex');
+
     this.tenantForm = {
       id: '',
       name: '',
@@ -951,7 +1762,7 @@ export class SecurityManager implements OnInit {
       email: '',
       phone: '',
       idNumber: '',
-      residenceType: 'complex',
+      residenceType: defaultResidenceType,
       complexId: '',
       communityId: '',
       communityResidenceType: 'house',
@@ -968,6 +1779,59 @@ export class SecurityManager implements OnInit {
     this.editingTenantId = null;
     this.tenantError = '';
     this.tenantSuccess = '';
+  }
+
+  protected get availableTenantResidenceTypes(): Array<{ value: 'complex' | 'community'; label: string }> {
+    const key = `${this.assignedComplexes.length}|${this.gatedCommunities.length}`;
+    if (this.availableTenantResidenceTypesKey === key) {
+      return this.availableTenantResidenceTypesCache;
+    }
+
+    const types: Array<{ value: 'complex' | 'community'; label: string }> = [];
+
+    if (this.assignedComplexes.length > 0) {
+      types.push({ value: 'complex', label: 'Complex/Apartment' });
+    }
+
+    if (this.gatedCommunities.length > 0) {
+      types.push({ value: 'community', label: 'Gated Community' });
+    }
+
+    this.availableTenantResidenceTypesCache = types;
+    this.availableTenantResidenceTypesKey = key;
+    return this.availableTenantResidenceTypesCache;
+  }
+
+  protected get availableCommunityResidenceTypes(): Array<'house' | 'complex'> {
+    const key = `${this.tenantForm.communityId}|${this.gatedCommunities.length}`;
+    if (this.availableCommunityResidenceTypesKey === key) {
+      return this.availableCommunityResidenceTypesCache;
+    }
+
+    if (!this.tenantForm.communityId) {
+      this.availableCommunityResidenceTypesCache = ['house', 'complex'];
+      this.availableCommunityResidenceTypesKey = key;
+      return this.availableCommunityResidenceTypesCache;
+    }
+
+    const community = this.gatedCommunities.find((gc: any) => gc.id === this.tenantForm.communityId);
+    if (!community) {
+      this.availableCommunityResidenceTypesCache = ['house', 'complex'];
+      this.availableCommunityResidenceTypesKey = key;
+      return this.availableCommunityResidenceTypesCache;
+    }
+
+    const types: Array<'house' | 'complex'> = [];
+    if ((community.houses?.length ?? 0) > 0) {
+      types.push('house');
+    }
+    if ((community.complexesInCommunity?.length ?? 0) > 0) {
+      types.push('complex');
+    }
+
+    this.availableCommunityResidenceTypesCache = types.length > 0 ? types : ['house'];
+    this.availableCommunityResidenceTypesKey = key;
+    return this.availableCommunityResidenceTypesCache;
   }
 
   private generateUnits(count: number): string[] {
@@ -987,40 +1851,81 @@ export class SecurityManager implements OnInit {
   }
 
   protected get availableUnits(): string[] {
+    const key = `${this.tenantForm.complexId}|${this.assignedComplexes.length}`;
+    if (this.availableUnitsKey === key) {
+      return this.availableUnitsCache;
+    }
+
     if (!this.tenantForm.complexId) {
-      return [];
+      this.availableUnitsCache = [];
+      this.availableUnitsKey = key;
+      return this.availableUnitsCache;
     }
     const complex = this.assignedComplexes.find((c: any) => c.id === this.tenantForm.complexId);
-    return complex?.units || [];
+    this.availableUnitsCache = complex?.units || [];
+    this.availableUnitsKey = key;
+    return this.availableUnitsCache;
   }
 
   protected get availableHouses(): string[] {
+    const key = `${this.tenantForm.communityId}|${this.gatedCommunities.length}`;
+    if (this.availableHousesKey === key) {
+      return this.availableHousesCache;
+    }
+
     if (!this.tenantForm.communityId) {
-      return [];
+      this.availableHousesCache = [];
+      this.availableHousesKey = key;
+      return this.availableHousesCache;
     }
     const community = this.gatedCommunities.find((gc: any) => gc.id === this.tenantForm.communityId);
-    return community?.houses || [];
+    this.availableHousesCache = community?.houses || [];
+    this.availableHousesKey = key;
+    return this.availableHousesCache;
   }
 
   protected get availableCommunityComplexes(): Array<{ id: string; name: string; units: string[] }> {
+    const key = `${this.tenantForm.communityId}|${this.gatedCommunities.length}`;
+    if (this.availableCommunityComplexesKey === key) {
+      return this.availableCommunityComplexesCache;
+    }
+
     if (!this.tenantForm.communityId) {
-      return [];
+      this.availableCommunityComplexesCache = [];
+      this.availableCommunityComplexesKey = key;
+      return this.availableCommunityComplexesCache;
     }
     const community = this.gatedCommunities.find((gc: any) => gc.id === this.tenantForm.communityId);
-    return community?.complexesInCommunity || [];
+    this.availableCommunityComplexesCache = community?.complexesInCommunity || [];
+    this.availableCommunityComplexesKey = key;
+    return this.availableCommunityComplexesCache;
   }
 
   protected get availableCommunityUnits(): string[] {
+    const key = `${this.tenantForm.communityId}|${this.tenantForm.communityComplexId}|${this.gatedCommunities.length}`;
+    if (this.availableCommunityUnitsKey === key) {
+      return this.availableCommunityUnitsCache;
+    }
+
     if (!this.tenantForm.communityComplexId) {
-      return [];
+      this.availableCommunityUnitsCache = [];
+      this.availableCommunityUnitsKey = key;
+      return this.availableCommunityUnitsCache;
     }
     const community = this.gatedCommunities.find((gc: any) => gc.id === this.tenantForm.communityId);
     const complex = community?.complexesInCommunity?.find((c: any) => c.id === this.tenantForm.communityComplexId);
-    return complex?.units || [];
+    this.availableCommunityUnitsCache = complex?.units || [];
+    this.availableCommunityUnitsKey = key;
+    return this.availableCommunityUnitsCache;
   }
 
   protected get filteredTenants(): any[] {
-    return this.tenants.filter((tenant: any) => {
+    const key = `${this.tenantSearchTerm}|${this.tenantFilterResidenceType}|${this.tenantFilterComplexId}|${this.tenantFilterCommunityId}|${this.tenantFilterCommunityResidenceType}|${this.tenantFilterCommunityComplexId}|${this.tenants.length}`;
+    if (this.filteredTenantsKey === key) {
+      return this.filteredTenantsCache;
+    }
+
+    this.filteredTenantsCache = this.tenants.filter((tenant: any) => {
       const matchesSearch =
         tenant.name.toLowerCase().includes(this.tenantSearchTerm.toLowerCase()) ||
         tenant.surname.toLowerCase().includes(this.tenantSearchTerm.toLowerCase()) ||
@@ -1064,6 +1969,9 @@ export class SecurityManager implements OnInit {
 
       return matchesSearch;
     });
+
+    this.filteredTenantsKey = key;
+    return this.filteredTenantsCache;
   }
 
   protected onFilterResidenceTypeChange(): void {
@@ -1083,9 +1991,20 @@ export class SecurityManager implements OnInit {
   }
 
   protected get filterAvailableCommunityComplexes(): any[] {
-    if (!this.tenantFilterCommunityId) return [];
+    const key = `${this.tenantFilterCommunityId}|${this.gatedCommunities.length}`;
+    if (this.tenantCommunityComplexesFilterKey === key) {
+      return this.tenantCommunityComplexesFilterCache;
+    }
+
+    if (!this.tenantFilterCommunityId) {
+      this.tenantCommunityComplexesFilterCache = [];
+      this.tenantCommunityComplexesFilterKey = key;
+      return this.tenantCommunityComplexesFilterCache;
+    }
     const community = this.gatedCommunities.find(gc => gc.id === this.tenantFilterCommunityId);
-    return community?.complexesInCommunity || [];
+    this.tenantCommunityComplexesFilterCache = community?.complexesInCommunity || [];
+    this.tenantCommunityComplexesFilterKey = key;
+    return this.tenantCommunityComplexesFilterCache;
   }
 
   protected logout(): void {

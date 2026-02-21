@@ -2,8 +2,14 @@ import VerifyToken from "#utils/verifyToken.js";
 import { NextFunction, Request, Response } from "express";
 
 const AuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
-    const token = req.headers.authorization;
+    const authHeader = req.headers.authorization;
 
+    if (!authHeader) {
+        res.status(401).json({ message: "Access-Denied!"})
+        return;
+    }
+
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : authHeader.trim();
     if (!token) {
         res.status(401).json({ message: "Access-Denied!"})
         return;
@@ -13,8 +19,9 @@ const AuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
         const decoded = VerifyToken(token);
         
         if (decoded) {
-            res.set("role", decoded.role);
-            res.set("id", decoded.id);
+            const authReq = req as Request & { userEmail?: string; userRoles?: string[] };
+            authReq.userEmail = decoded.email;
+            authReq.userRoles = Array.isArray(decoded.role) ? decoded.role : [decoded.role];
         } else {
             res.status(400).json({ message: "Invalid Token!"});
             return;

@@ -1,9 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DataService } from '../services/data.service';
-import { loginDTO } from '../interfaces/userDTO';
 import { ResponseBody } from '../interfaces/ResponseBody';
 import { StorageService } from '../services/storage.service';
 import { LoginFormDTO } from '../interfaces/forms/loginFormDTO';
@@ -16,6 +15,7 @@ import { LoginFormDTO } from '../interfaces/forms/loginFormDTO';
   styleUrl: './login.css',
 })
 export class Login {
+  private readonly stationStorageKey = 'equasec.guard.station';
   protected loginForm: LoginFormDTO = {
     email: '',
     pinDigits: Array.from({ length: 6 }, () => '')
@@ -88,31 +88,129 @@ export class Login {
     return this.loginForm.email.trim().length > 0 && pin.length === 6;
   }
 
-  submitForm(email: string, pin: string) {
+  private normalizeStationId(value: unknown): string {
+    if (!value) {
+      return '';
+    }
+
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (typeof value === 'object') {
+      const maybeId = value as { $oid?: unknown; _id?: unknown; toHexString?: () => string; toString?: () => string };
+      if (typeof maybeId.toHexString === 'function') {
+        return maybeId.toHexString();
+      }
+
+      if (maybeId.$oid) {
+        return String(maybeId.$oid);
+      }
+
+      if (maybeId._id) {
+        return this.normalizeStationId(maybeId._id);
+      }
+
+      if (typeof maybeId.toString === 'function') {
+        const asString = maybeId.toString();
+        if (asString && asString !== '[object Object]') {
+          return asString;
+        }
+      }
+    }
+
+    return '';
+  }
+
+  private storeStationFromActiveShift(activeShift: unknown): void {
+    const station = (activeShift as { station?: { type?: unknown; gatedCommunityId?: unknown; complexId?: unknown } } | null)?.station;
+    const stationType = String(station?.type ?? '');
+
+    if (stationType !== 'gated' && stationType !== 'complex') {
+      this.storage.removeItem(this.stationStorageKey);
+      return;
+    }
+
+    const selectedGatedCommunity = this.normalizeStationId(station?.gatedCommunityId);
+    const selectedComplex = this.normalizeStationId(station?.complexId);
+
+    if (stationType === 'gated' && !selectedGatedCommunity) {
+      this.storage.removeItem(this.stationStorageKey);
+      return;
+    }
+
+    if (stationType === 'complex' && !selectedComplex) {
+      this.storage.removeItem(this.stationStorageKey);
+      return;
+    }
+
+    this.storage.setItem(
+      this.stationStorageKey,
+      JSON.stringify({
+        stationType,
+        selectedGatedCommunity,
+        selectedComplex,
+      })
+    );
+  }
+
+  submitForm() {
     this.service
       .post<ResponseBody>('user/login', { emailAddress: this.loginForm.email, password: this.getPinValue().replaceAll(',', '') })
       .subscribe({
         next: (res) => {
           this.storage.setItem("bearer-token", res.payload.token);
-          switch (res.payload.type.includes('admin')) {
-            case res.payload.type.includes('admin'):
-              this.router.navigate(['/admin-portal']);
-              break;
+          if (res?.payload?.user) {
+            this.storage.setItem("current-user", JSON.stringify(res.payload.user));
+          }
+          const userType = res?.payload?.type;
+          const hasRole = (role: string): boolean => {
+            const normalizedRole = role.toLowerCase();
+            if (Array.isArray(userType)) {
+              return userType.some((value) => String(value).toLowerCase() === normalizedRole);
+            }
 
-            case res.payload.type.includes('manager'):
-              this.router.navigate(['/security-manager']);
-              break;
+            if (typeof userType === 'string') {
+              return userType.toLowerCase().includes(normalizedRole);
+            }
 
-            case res.payload.type.includes('security'):
-              this.router.navigate(['/gaurd-portal']);
-              break;
+            return false;
+          };
 
-            case res.payload.type.includes('tenant'):
-              this.router.navigate(['/dashboard']);
-              break;
+          const isManager = hasRole('manager');
+          const isAdmin = hasRole('admin');
+          const isSecurity = hasRole('security');
+          const isGuard = hasRole('guard');
+          const isTenant = hasRole('tenant');
+          const isAdminOnly = isAdmin && !isManager && !isSecurity && !isGuard && !isTenant;
 
-            default:
-              break;
+          if (isManager) {
+            this.router.navigate(['/security-manager']);
+            return;
+          }
+
+          if (isAdminOnly) {
+            this.router.navigate(['/admin-portal']);
+            return;
+          }
+
+          if (isGuard || isSecurity) {
+            this.service.get<{ payload?: unknown }>('guardHistory/active').subscribe({
+              next: (activeShiftResponse) => {
+                this.storeStationFromActiveShift(activeShiftResponse?.payload ?? null);
+                this.router.navigate(['/guard-portal']);
+              },
+              error: () => {
+                this.storage.removeItem(this.stationStorageKey);
+                this.router.navigate(['/guard-portal']);
+              },
+            });
+            return;
+          }
+
+          if (isTenant) {
+            this.router.navigate(['/dashboard']);
+            return;
           }
         },
         error: (err) => {

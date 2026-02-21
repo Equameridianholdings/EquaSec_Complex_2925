@@ -1,6 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ElementRef, ViewChild, Inject, NgZone, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { isPlatformBrowser } from '@angular/common';
+import { PLATFORM_ID } from '@angular/core';
 import { SecurityCompanyFormDTO } from '../interfaces/forms/securityCompanyFormDTO';
 import { ComplexOnboardingFormDTO } from '../interfaces/forms/complexOnboardingFormDTO';
 import { GatedCommunityFormDTO } from '../interfaces/forms/gatedCommunityFormDTO';
@@ -8,71 +10,123 @@ import { AssignmentFormDTO } from '../interfaces/forms/assignmentFormDTO';
 import { GatedAssignmentFormDTO } from '../interfaces/forms/gatedAssignmentFormDTO';
 import { AdminPortalFiltersFormDTO } from '../interfaces/forms/adminPortalFiltersFormDTO';
 import { DataService } from '../services/data.service';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-admin-portal',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './admin-portal.html',
   styleUrl: './admin-portal.css',
 })
-export class AdminPortal implements OnInit {
-  constructor(private readonly dataService: DataService) {}
+export class AdminPortal implements OnInit, AfterViewInit {
+  constructor(
+    private readonly dataService: DataService,
+    private readonly ngZone: NgZone,
+    @Inject(PLATFORM_ID) private readonly platformId: object
+  ) {}
+  @ViewChild('complexAddressInput') protected complexAddressInput?: ElementRef<HTMLElement>;
+  private addressAutocomplete: any = null;
+  private addressAutocompleteInitialized = false;
+  private addressAutocompleteElement: HTMLElement | null = null;
   // State for updating a security company
   protected showUpdateSecurityModal = false;
   protected editingSecurityCompany: any = null;
+  protected updateSecurityError = '';
 
   openUpdateSecurityModal(company: any): void {
     this.editingSecurityCompany = { ...company };
     this.showUpdateSecurityModal = true;
+    this.updateSecurityError = '';
   }
 
   closeUpdateSecurityModal(): void {
     this.showUpdateSecurityModal = false;
     this.editingSecurityCompany = null;
+    this.updateSecurityError = '';
   }
 
   submitUpdateSecurity(): void {
     if (!this.editingSecurityCompany) return;
-    const idx = this.registeredSecurityCompanies.findIndex((c: any) => c.companyName === this.editingSecurityCompany.companyName);
-    if (idx > -1) {
-      this.registeredSecurityCompanies[idx] = { ...this.editingSecurityCompany };
+    this.updateSecurityError = '';
+
+    const payload = {
+      name: this.editingSecurityCompany.companyName?.trim(),
+      email: this.editingSecurityCompany.companyEmail?.trim(),
+      contactNumber: this.editingSecurityCompany.companyTel?.trim(),
+      cipcRegistrationNumber: this.editingSecurityCompany.cipcReg?.trim(),
+      psiraNumber: this.editingSecurityCompany.psiraNumber?.trim(),
+      sosOptin: Boolean(this.editingSecurityCompany.sosOptin),
+    };
+
+    const companyId = this.editingSecurityCompany.companyId;
+    if (!companyId) {
+      const idx = this.registeredSecurityCompanies.findIndex((c: any) => c.companyName === this.editingSecurityCompany.companyName);
+      if (idx > -1) {
+        this.registeredSecurityCompanies[idx] = { ...this.editingSecurityCompany };
+      }
+      this.closeUpdateSecurityModal();
+      return;
     }
-    this.closeUpdateSecurityModal();
+
+    this.dataService.put(`securityCompany/${companyId}`, payload).subscribe({
+      next: () => {
+        const idx = this.registeredSecurityCompanies.findIndex((c: any) => c.companyId === companyId);
+        if (idx > -1) {
+          this.registeredSecurityCompanies[idx] = { ...this.registeredSecurityCompanies[idx], ...this.editingSecurityCompany };
+        }
+        this.closeUpdateSecurityModal();
+          this.triggerToast(`Security company "${this.editingSecurityCompany?.companyName}" updated successfully.`);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1200);
+      },
+      error: (err) => {
+        const apiMessage = err?.error?.message;
+        this.updateSecurityError = apiMessage || 'Unable to update security company.';
+      }
+    });
   }
           /**
            * Delete a complex from onboardedComplexes.
            */
           deleteComplex(complex: any): void {
-            const idx = this.onboardedComplexes.indexOf(complex);
-            if (idx > -1) {
-              this.onboardedComplexes.splice(idx, 1);
+            if (!complex?.complexId) {
+              return;
             }
-            // Also remove from any gated community complexes array if present
-            for (const gc of this.gatedCommunities) {
-              if (Array.isArray(gc.complexes)) {
-                const cIdx = gc.complexes.indexOf(complex.complexName);
-                if (cIdx > -1) {
-                  gc.complexes.splice(cIdx, 1);
-                }
+            this.dataService.delete(`complex/${complex.complexId}`).subscribe({
+              next: () => {
+                this.onboardedComplexes = this.onboardedComplexes.filter(
+                  (item: any) => item.complexId !== complex.complexId
+                );
+                this.registeredSecurityCompanies = this.registeredSecurityCompanies.map((company: any) => {
+                  if (!company.assignments) {
+                    return company;
+                  }
+                  return {
+                    ...company,
+                    assignments: company.assignments.filter(
+                      (assignment: any) => assignment.complexName !== complex.complexName
+                    ),
+                  };
+                });
+                this.buildContractHistoryFromCompanies();
+                this.triggerToast(`Complex "${complex.complexName}" removed successfully.`);
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1200);
+              },
+              error: () => {
+                this.updateComplexError = 'Unable to delete complex.';
               }
-            }
+            });
           }
         // Get the gated community name for a given complex, or null if not assigned
         getGatedCommunityForComplex(complexName: string): string | null {
-          for (const gc of this.gatedCommunities) {
-            if (Array.isArray(gc.complexes)) {
-              // If complexes are objects (new structure)
-              if (gc.complexes.some((c: any) => c.complexName === complexName)) {
-                return gc.gatedCommunityName;
-              }
-              // If complexes are strings (legacy structure)
-              if (gc.complexes.includes(complexName)) {
-                return gc.gatedCommunityName;
-              }
-            }
-          }
-          return null;
+          const complex = (this.onboardedComplexes || []).find((item: any) => item.complexName === complexName);
+          const communityName = String(complex?.gatedCommunityName ?? '').trim();
+          return communityName.length > 0 ? communityName : null;
         }
       // Check if a complex in a gated community is assigned to a security company
       isGatedComplexAssigned(complex: any): boolean {
@@ -92,10 +146,12 @@ export class AdminPortal implements OnInit {
       this.showGatedCommunityModal = true;
       if (community) {
         this.editingGatedCommunity = community;
+        const derivedHouses = typeof community.numberOfHouses === 'number'
+          ? community.numberOfHouses
+          : (Number(community.unitEnd) - Number(community.unitStart) + 1);
         this.gatedCommunityForm = {
           gatedCommunityName: community.gatedCommunityName,
-          gatedUnitStart: community.unitStart,
-          gatedUnitEnd: community.unitEnd,
+          numberOfHouses: Number.isFinite(derivedHouses) && derivedHouses > 0 ? derivedHouses : '',
           gatedCommunityPrice: community.price
         };
         this.gatedCommunityError = '';
@@ -110,10 +166,38 @@ export class AdminPortal implements OnInit {
      * Delete a gated community from the list.
      */
     deleteGatedCommunity(community: any): void {
-      const idx = this.gatedCommunities.indexOf(community);
-      if (idx > -1) {
-        this.gatedCommunities.splice(idx, 1);
+      if (!community?.gatedCommunityId) {
+        return;
       }
+      this.dataService.delete(`gatedCommunity/${community.gatedCommunityId}`).subscribe({
+        next: () => {
+          this.gatedCommunities = this.gatedCommunities.filter(
+            (gc: any) => gc.gatedCommunityId !== community.gatedCommunityId
+          );
+          this.onboardedComplexes = this.onboardedComplexes.filter(
+            (complex: any) => complex.gatedCommunityName !== community.gatedCommunityName
+          );
+          this.registeredSecurityCompanies = this.registeredSecurityCompanies.map((company: any) => {
+            if (!company.assignments) {
+              return company;
+            }
+            return {
+              ...company,
+              assignments: company.assignments.filter(
+                (assignment: any) => assignment.gatedCommunityName !== community.gatedCommunityName
+              ),
+            };
+          });
+          this.buildContractHistoryFromCompanies();
+          this.triggerToast(`Gated community "${community.gatedCommunityName}" removed successfully.`);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1200);
+        },
+        error: () => {
+          this.gatedCommunityError = 'Unable to delete gated community.';
+        }
+      });
     }
   public adminEmail: string = 'kkpartners@equameridian.com';
   public editingGatedCommunity: any = null;
@@ -127,7 +211,9 @@ export class AdminPortal implements OnInit {
 
   // Helper: Get all complexes assigned to any gated community
   get complexesInGatedCommunities(): string[] {
-    return (this.gatedCommunities || []).flatMap((gc: any) => gc.complexes || []);
+    return (this.onboardedComplexes || [])
+      .filter((complex: any) => String(complex?.gatedCommunityName ?? '').trim().length > 0)
+      .map((complex: any) => complex.complexName);
   }
 
   // Helper: Get complexes not in any gated community
@@ -139,6 +225,46 @@ export class AdminPortal implements OnInit {
   // Helper: Get complex object by name
   getComplexByName(name: string): any {
     return (this.onboardedComplexes || []).find((c: any) => c.complexName === name);
+  }
+
+  getComplexesForCommunity(gatedCommunityName: string): Array<any> {
+    const normalized = String(gatedCommunityName ?? '').trim().toLowerCase();
+    if (!normalized) {
+      return [];
+    }
+    return (this.onboardedComplexes || []).filter((complex: any) =>
+      String(complex?.gatedCommunityName ?? '').trim().toLowerCase() === normalized
+    );
+  }
+
+  getCommunityHouseCount(community: any): number {
+    const explicitCount = Number(community?.numberOfHouses);
+    if (Number.isFinite(explicitCount) && explicitCount > 0) {
+      return explicitCount;
+    }
+
+    const start = Number(community?.unitStart);
+    const end = Number(community?.unitEnd);
+    if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
+      return end - start + 1;
+    }
+
+    return 0;
+  }
+
+  getBlockUnitCount(block: any): number {
+    const explicitCount = Number(block?.numberOfUnits);
+    if (Number.isFinite(explicitCount) && explicitCount > 0) {
+      return explicitCount;
+    }
+
+    const start = Number(block?.unitStart);
+    const end = Number(block?.unitEnd);
+    if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
+      return end - start + 1;
+    }
+
+    return 0;
   }
 
   assignSecurity() {
@@ -165,63 +291,436 @@ export class AdminPortal implements OnInit {
   }
   closeAddSecurityModal() {
     this.showAddSecurityModal = false;
-    this.newSecurityCompany = { companyName: '', companyEmail: '', companyTel: '', cipcReg: '', psiraNumber: '', assignments: [] };
+    this.addSecurityError = '';
+    this.newSecurityCompany = {
+      companyName: '',
+      companyEmail: '',
+      companyTel: '',
+      cipcReg: '',
+      psiraNumber: '',
+      sosOptin: false,
+      assignments: [],
+    };
   }
 
   closeRemoveSecurityModal() {
     this.showRemoveSecurityModal = false;
     this.removeCompanyName = '';
+    this.removeSecurityError = '';
   }
 
   // Form state for add/remove
-  protected newSecurityCompany: SecurityCompanyFormDTO = { companyName: '', companyEmail: '', companyTel: '', cipcReg: '', psiraNumber: '' };
+  protected newSecurityCompany: SecurityCompanyFormDTO = {
+    companyName: '',
+    companyEmail: '',
+    companyTel: '',
+    cipcReg: '',
+    psiraNumber: '',
+    sosOptin: false,
+  };
+  protected addSecurityError = '';
+  protected removeSecurityError = '';
+  protected toastMessage = '';
+  protected showToast = false;
   protected removeCompanyName: string = '';
 
   // Add Security Company handler
   addSecurityCompany() {
-    if (!this.newSecurityCompany.companyName || !this.newSecurityCompany.companyEmail || !this.newSecurityCompany.companyTel || !this.newSecurityCompany.cipcReg || !this.newSecurityCompany.psiraNumber) return;
-    this.registeredSecurityCompanies.push({ ...this.newSecurityCompany, assignments: [] });
-    this.closeAddSecurityModal();
+    this.addSecurityError = '';
+    const form = this.newSecurityCompany;
+    if (!form.companyName || !form.companyEmail || !form.companyTel || !form.cipcReg || !form.psiraNumber) return;
+
+    const payload = {
+      name: form.companyName.trim(),
+      email: form.companyEmail.trim(),
+      contactNumber: form.companyTel.trim(),
+      cipcRegistrationNumber: form.cipcReg.trim(),
+      psiraNumber: form.psiraNumber.trim(),
+      sosOptin: Boolean(form.sosOptin),
+    };
+
+    this.dataService.post('securityCompany', payload).subscribe({
+      next: () => {
+        this.closeAddSecurityModal();
+        this.loadSecurityCompanies();
+        this.triggerToast(`Security company "${form.companyName}" added successfully.`);
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      },
+      error: (err) => {
+        const apiMessage = err?.error?.message;
+        const detail = err?.error?.error;
+        this.addSecurityError = detail || apiMessage || 'Unable to add security company.';
+      },
+    });
+  }
+
+  private triggerToast(message: string): void {
+    this.toastMessage = message;
+    this.showToast = true;
+    setTimeout(() => {
+      this.showToast = false;
+    }, 1000);
+  }
+
+  private async ensureGoogleMapsLoaded(): Promise<void> {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+    const windowAny = window as any;
+    const existing = windowAny?.google?.maps?.places;
+    if (existing) {
+      return;
+    }
+    if (windowAny.__gmapsLoadingPromise) {
+      await windowAny.__gmapsLoadingPromise;
+      return;
+    }
+    const apiKey = environment.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.warn('[maps] GOOGLE_MAPS_API_KEY is missing. Address autocomplete disabled.');
+      return;
+    }
+    windowAny.__gmapsLoadingPromise = new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Google Maps script'));
+      document.head.appendChild(script);
+    });
+    await windowAny.__gmapsLoadingPromise;
+  }
+
+  private async setupAddressAutocomplete(): Promise<void> {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+    if (!this.complexAddressInput?.nativeElement) {
+      return;
+    }
+    const currentElement = this.complexAddressInput.nativeElement;
+    if (this.addressAutocompleteInitialized && this.addressAutocompleteElement === currentElement) {
+      return;
+    }
+
+    await this.ensureGoogleMapsLoaded();
+    const googleMaps = (window as any)?.google?.maps;
+    if (!googleMaps?.places) {
+      return;
+    }
+    const element = currentElement as any;
+    const tagName = element?.tagName?.toLowerCase?.() ?? '';
+
+    const applyAddressValue = (value: string): void => {
+      const normalized = (value || '').trim();
+      if (!normalized) {
+        return;
+      }
+      console.log('[onboarding][address] applyAddressValue', {
+        rawValue: value,
+        normalized,
+      });
+      this.ngZone.run(() => {
+        this.complexAddress = normalized;
+      });
+    };
+
+    const resolvePlaceText = async (event: any): Promise<string> => {
+      let place = event?.place ?? event?.detail?.place;
+      if (!place && event?.detail?.placePrediction?.toPlace) {
+        place = event.detail.placePrediction.toPlace();
+      }
+
+      if (place?.fetchFields) {
+        await place.fetchFields({ fields: ['formattedAddress', 'displayName', 'name'] });
+      }
+
+      return (
+        place?.formattedAddress ||
+        place?.formatted_address ||
+        place?.displayName ||
+        place?.name ||
+        event?.target?.value ||
+        event?.detail?.value ||
+        ''
+      );
+    };
+
+    if (tagName === 'gmp-place-autocomplete') {
+      const onPlaceSelected = async (event: any) => {
+        const formatted = await resolvePlaceText(event);
+        console.log('[onboarding][address] place selected (gmp)', {
+          eventType: event?.type,
+          formatted,
+          eventValue: event?.target?.value ?? event?.detail?.value ?? null,
+        });
+        applyAddressValue(formatted);
+      };
+      element.addEventListener('gmp-placeselect', onPlaceSelected);
+      element.addEventListener('gmp-select', onPlaceSelected);
+      element.addEventListener('gmpx-placechange', onPlaceSelected);
+      element.addEventListener('input', () => {
+        const rawValue = element?.value ?? element?.inputValue ?? '';
+        console.log('[onboarding][address] input event (gmp)', {
+          rawValue,
+        });
+        applyAddressValue(rawValue);
+      });
+      this.addressAutocompleteInitialized = true;
+      this.addressAutocompleteElement = currentElement;
+      return;
+    }
+
+    this.addressAutocomplete = new googleMaps.places.Autocomplete(element, {
+      types: ['address'],
+    });
+    this.addressAutocomplete.addListener('place_changed', () => {
+      const place = this.addressAutocomplete.getPlace();
+      const formatted = place?.formatted_address || place?.name;
+      console.log('[onboarding][address] place_changed (legacy)', {
+        formatted,
+      });
+      applyAddressValue(formatted || '');
+    });
+    this.addressAutocompleteInitialized = true;
+    this.addressAutocompleteElement = currentElement;
   }
 
   // Remove Security Company handler
   removeSecurityCompany() {
     if (!this.removeCompanyName) return;
-    this.registeredSecurityCompanies = this.registeredSecurityCompanies.filter(c => c.companyName !== this.removeCompanyName);
-    this.closeRemoveSecurityModal();
+    this.removeSecurityError = '';
+    const company = this.registeredSecurityCompanies.find(
+      (c: any) => c.companyName === this.removeCompanyName
+    );
+    if (!company?.companyId) {
+      this.removeSecurityError = 'Unable to locate the selected company.';
+      return;
+    }
+    this.dataService.delete(`securityCompany/${company.companyId}`).subscribe({
+      next: () => {
+        this.registeredSecurityCompanies = this.registeredSecurityCompanies.filter(
+          (c: any) => c.companyId !== company.companyId
+        );
+        this.closeRemoveSecurityModal();
+        this.triggerToast(`Security company "${company.companyName}" removed successfully.`);
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      },
+      error: (err) => {
+        const apiMessage = err?.error?.message;
+        this.removeSecurityError = apiMessage || 'Unable to remove security company.';
+      }
+    });
   }
   protected showOnboardingModal = false;
   protected showUpdateComplexModal = false;
   protected editingComplex: any = null;
+  protected updateComplexError = '';
 
   openUpdateComplexModal(complex: any): void {
     this.editingComplex = { ...complex };
+    if (this.editingComplex.parkingMode === 'fixed') {
+      const isUnlimited = this.editingComplex['fixedParkingCount'] === 'unlimited';
+      this.editingComplex.parkingIsUnlimited = Boolean(isUnlimited || this.editingComplex.parkingIsUnlimited);
+      if (isUnlimited) {
+        this.editingComplex['fixedParkingCount'] = '';
+      }
+    }
+    if (!Array.isArray(this.editingComplex.blocks)) {
+      this.editingComplex.blocks = [];
+    }
     this.showUpdateComplexModal = true;
+    this.updateComplexError = '';
   }
 
   closeUpdateComplexModal(): void {
     this.showUpdateComplexModal = false;
     this.editingComplex = null;
+    this.updateComplexError = '';
+  }
+
+  protected addUpdateBlock(): void {
+    if (!this.editingComplex) {
+      return;
+    }
+    if (!Array.isArray(this.editingComplex.blocks)) {
+      this.editingComplex.blocks = [];
+    }
+    const nextName = this.getNextUpdateBlockName(this.editingComplex.blocks);
+    this.editingComplex.blocks.push({ name: nextName, unitStart: '', unitEnd: '' });
+  }
+
+  protected removeUpdateBlock(index: number): void {
+    if (!this.editingComplex?.blocks) {
+      return;
+    }
+    this.editingComplex.blocks.splice(index, 1);
+  }
+
+  private getNextUpdateBlockName(blocks: Array<{ name?: string }>): string {
+    const index = blocks.length;
+    if (index < 26) {
+      return `Block ${String.fromCharCode(65 + index)}`;
+    }
+    return `Block ${index + 1}`;
   }
 
   submitUpdateComplex(): void {
     if (!this.editingComplex) return;
-    const idx = this.onboardedComplexes.findIndex((c: any) => c.complexName === this.editingComplex.complexName);
-    if (idx > -1) {
-      this.onboardedComplexes[idx] = { ...this.editingComplex };
+    this.updateComplexError = '';
+
+    const hasBlocks = Array.isArray(this.editingComplex.blocks) && this.editingComplex.blocks.length > 0;
+    let unitStart = 0;
+    let unitEnd = 0;
+    let numberOfUnits = 0;
+    let normalizedBlocks: Array<{ name: string; unitStart: number; unitEnd: number }> = [];
+    if (hasBlocks) {
+      normalizedBlocks = this.editingComplex.blocks.map((block: any) => ({
+        name: String(block?.name ?? '').trim(),
+        unitStart: typeof block?.unitStart === 'number' ? block.unitStart : parseInt(String(block?.unitStart), 10),
+        unitEnd: typeof block?.unitEnd === 'number' ? block.unitEnd : parseInt(String(block?.unitEnd), 10),
+      }));
+      for (const block of normalizedBlocks) {
+        if (!block.name) {
+          this.updateComplexError = 'Block name is required.';
+          return;
+        }
+        if (Number.isNaN(block.unitStart) || Number.isNaN(block.unitEnd) || block.unitStart > block.unitEnd) {
+          this.updateComplexError = 'Block unit range must be valid.';
+          return;
+        }
+      }
+      const starts = normalizedBlocks.map((block) => block.unitStart);
+      const ends = normalizedBlocks.map((block) => block.unitEnd);
+      unitStart = Math.min(...starts);
+      unitEnd = Math.max(...ends);
+      numberOfUnits = normalizedBlocks.reduce((total, block) => total + (block.unitEnd - block.unitStart + 1), 0);
+    } else {
+      unitStart = typeof this.editingComplex.unitStart === 'number'
+        ? this.editingComplex.unitStart
+        : parseInt(String(this.editingComplex.unitStart), 10);
+      unitEnd = typeof this.editingComplex.unitEnd === 'number'
+        ? this.editingComplex.unitEnd
+        : parseInt(String(this.editingComplex.unitEnd), 10);
+      if (Number.isNaN(unitStart) || Number.isNaN(unitEnd) || unitStart > unitEnd) {
+        this.updateComplexError = 'Unit range must be valid.';
+        return;
+      }
+      numberOfUnits = unitEnd - unitStart + 1;
     }
-    this.closeUpdateComplexModal();
+
+    const priceValue = typeof this.editingComplex.price === 'number'
+      ? this.editingComplex.price
+      : parseFloat(String(this.editingComplex.price));
+    if (Number.isNaN(priceValue) || priceValue < 0) {
+      this.updateComplexError = 'Price must be a valid non-negative number.';
+      return;
+    }
+
+    const isFixedMode = this.editingComplex.parkingMode === 'fixed';
+    const fixedParkingRaw = this.editingComplex['fixedParkingCount'];
+    const isUnlimited = Boolean(this.editingComplex.parkingIsUnlimited || fixedParkingRaw === 'unlimited');
+    const fixedParkingCount = isUnlimited
+      ? null
+      : (typeof fixedParkingRaw === 'number'
+        ? fixedParkingRaw
+        : parseInt(String(fixedParkingRaw), 10));
+    if (isFixedMode && !isUnlimited && (fixedParkingCount === null || Number.isNaN(fixedParkingCount) || fixedParkingCount < 0)) {
+      this.updateComplexError = 'Fixed parking count must be a valid non-negative number.';
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      name: this.editingComplex.complexName?.trim(),
+      unitStart,
+      unitEnd,
+      numberOfUnits,
+      price: priceValue,
+      parkingMode: isFixedMode ? 'fixed' : 'per-unit',
+      parkingIsUnlimited: Boolean(isFixedMode && isUnlimited),
+    };
+
+    if (hasBlocks) {
+      payload['blocks'] = normalizedBlocks;
+    } else if (Array.isArray(this.editingComplex.blocks) && this.editingComplex.blocks.length === 0) {
+      payload['blocks'] = [];
+    }
+
+    if (isFixedMode && !isUnlimited) {
+      payload['fixedParkingCount'] = fixedParkingCount;
+    }
+    if (!isFixedMode) {
+      payload['unitParkingConfig'] = this.editingComplex.unitParkingConfig ?? [];
+    }
+
+    const complexId = this.editingComplex.complexId;
+    if (!complexId) {
+      this.updateComplexError = 'Unable to locate the complex record.';
+      return;
+    }
+
+    this.dataService.put(`complex/${complexId}`, payload).subscribe({
+      next: () => {
+        const idx = this.onboardedComplexes.findIndex((c: any) => c.complexId === complexId);
+        if (idx > -1) {
+          this.onboardedComplexes[idx] = {
+            ...this.onboardedComplexes[idx],
+            ...this.editingComplex,
+            unitStart,
+            unitEnd,
+            numberOfUnits,
+            price: priceValue,
+          };
+        }
+        this.closeUpdateComplexModal();
+        this.triggerToast(`Complex "${this.editingComplex?.complexName}" updated successfully.`);
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      },
+      error: (err) => {
+        const apiMessage = err?.error?.message;
+        this.updateComplexError = apiMessage || 'Unable to update complex.';
+      }
+    });
   }
   protected showUnitConfigStep = false;
   protected complexOnboardingForm: ComplexOnboardingFormDTO = {
+    address: '',
     complexName: '',
-    unitStart: '',
-    unitEnd: '',
+    hasBlocks: false,
+    blocks: [],
+    numberOfUnits: '',
     parkingMode: 'fixed',
     fixedParkingCount: '',
     parkingIsUnlimited: false,
     selectedGatedCommunityForOnboarding: ''
   };
+  protected get complexAddress(): string {
+    return this.complexOnboardingForm.address;
+  }
+
+  protected set complexAddress(value: string) {
+    this.complexOnboardingForm.address = value;
+  }
+
+  protected get hasBlocks(): boolean {
+    return this.complexOnboardingForm.hasBlocks;
+  }
+
+  protected set hasBlocks(value: boolean) {
+    this.complexOnboardingForm.hasBlocks = value;
+    this.syncBlocksState();
+  }
+
+  protected get blocks(): Array<{ name: string; numberOfUnits: number | string; unitStart?: number | string; unitEnd?: number | string }> {
+    return this.complexOnboardingForm.blocks;
+  }
   protected get complexName(): string {
     return this.complexOnboardingForm.complexName;
   }
@@ -230,20 +729,12 @@ export class AdminPortal implements OnInit {
     this.complexOnboardingForm.complexName = value;
   }
 
-  protected get unitStart(): number | string {
-    return this.complexOnboardingForm.unitStart;
+  protected get numberOfUnits(): number | string {
+    return this.complexOnboardingForm.numberOfUnits;
   }
 
-  protected set unitStart(value: number | string) {
-    this.complexOnboardingForm.unitStart = value;
-  }
-
-  protected get unitEnd(): number | string {
-    return this.complexOnboardingForm.unitEnd;
-  }
-
-  protected set unitEnd(value: number | string) {
-    this.complexOnboardingForm.unitEnd = value;
+  protected set numberOfUnits(value: number | string) {
+    this.complexOnboardingForm.numberOfUnits = value;
   }
 
   protected get parkingMode(): 'fixed' | 'per-unit' {
@@ -280,8 +771,7 @@ export class AdminPortal implements OnInit {
   protected showGatedCommunityModal = false;
   protected gatedCommunityForm: GatedCommunityFormDTO = {
     gatedCommunityName: '',
-    gatedUnitStart: '',
-    gatedUnitEnd: '',
+    numberOfHouses: '',
     gatedCommunityPrice: ''
   };
   protected get gatedCommunityName(): string {
@@ -292,20 +782,12 @@ export class AdminPortal implements OnInit {
     this.gatedCommunityForm.gatedCommunityName = value;
   }
 
-  protected get gatedUnitStart(): number | string {
-    return this.gatedCommunityForm.gatedUnitStart;
+  protected get numberOfHouses(): number | string {
+    return this.gatedCommunityForm.numberOfHouses;
   }
 
-  protected set gatedUnitStart(value: number | string) {
-    this.gatedCommunityForm.gatedUnitStart = value;
-  }
-
-  protected get gatedUnitEnd(): number | string {
-    return this.gatedCommunityForm.gatedUnitEnd;
-  }
-
-  protected set gatedUnitEnd(value: number | string) {
-    this.gatedCommunityForm.gatedUnitEnd = value;
+  protected set numberOfHouses(value: number | string) {
+    this.gatedCommunityForm.numberOfHouses = value;
   }
 
   protected get gatedCommunityPrice(): number | string {
@@ -582,13 +1064,13 @@ export class AdminPortal implements OnInit {
 
   protected get isGatedCommunityFormValid(): boolean {
     const hasName = this.gatedCommunityForm.gatedCommunityName.trim().length > 0;
-    const hasUnitStart = this.gatedCommunityForm.gatedUnitStart !== '' && this.gatedCommunityForm.gatedUnitStart !== null;
-    const hasUnitEnd = this.gatedCommunityForm.gatedUnitEnd !== '' && this.gatedCommunityForm.gatedUnitEnd !== null;
+    const hasNumberOfHouses = this.gatedCommunityForm.numberOfHouses !== '' && this.gatedCommunityForm.numberOfHouses !== null;
     const hasPrice = this.gatedCommunityForm.gatedCommunityPrice !== '' && this.gatedCommunityForm.gatedCommunityPrice !== null && !isNaN(Number(this.gatedCommunityForm.gatedCommunityPrice));
-    const unitStartNum = typeof this.gatedCommunityForm.gatedUnitStart === 'number' ? this.gatedCommunityForm.gatedUnitStart : parseInt(String(this.gatedCommunityForm.gatedUnitStart), 10);
-    const unitEndNum = typeof this.gatedCommunityForm.gatedUnitEnd === 'number' ? this.gatedCommunityForm.gatedUnitEnd : parseInt(String(this.gatedCommunityForm.gatedUnitEnd), 10);
-    const validRange = !isNaN(unitStartNum) && !isNaN(unitEndNum) && unitStartNum <= unitEndNum && hasUnitStart && hasUnitEnd;
-    return hasName && validRange && hasPrice;
+    const numberOfHouses = typeof this.gatedCommunityForm.numberOfHouses === 'number'
+      ? this.gatedCommunityForm.numberOfHouses
+      : parseInt(String(this.gatedCommunityForm.numberOfHouses), 10);
+    const validCount = Number.isFinite(numberOfHouses) && numberOfHouses > 0 && hasNumberOfHouses;
+    return hasName && validCount && hasPrice;
   }
 
 
@@ -601,8 +1083,7 @@ export class AdminPortal implements OnInit {
   protected resetGatedCommunityForm(): void {
     this.gatedCommunityForm = {
       gatedCommunityName: '',
-      gatedUnitStart: '',
-      gatedUnitEnd: '',
+      numberOfHouses: '',
       gatedCommunityPrice: ''
     };
     this.gatedCommunityError = '';
@@ -618,38 +1099,92 @@ export class AdminPortal implements OnInit {
       return;
     }
 
-    const unitStart = typeof this.gatedCommunityForm.gatedUnitStart === 'number' ? this.gatedCommunityForm.gatedUnitStart : parseInt(String(this.gatedCommunityForm.gatedUnitStart), 10);
-    const unitEnd = typeof this.gatedCommunityForm.gatedUnitEnd === 'number' ? this.gatedCommunityForm.gatedUnitEnd : parseInt(String(this.gatedCommunityForm.gatedUnitEnd), 10);
+    const numberOfHouses = typeof this.gatedCommunityForm.numberOfHouses === 'number'
+      ? this.gatedCommunityForm.numberOfHouses
+      : parseInt(String(this.gatedCommunityForm.numberOfHouses), 10);
 
-    if (isNaN(unitStart) || isNaN(unitEnd)) {
-      this.gatedCommunityError = 'House numbers must be valid integers.';
+    if (!Number.isFinite(numberOfHouses) || numberOfHouses <= 0) {
+      this.gatedCommunityError = 'Number of houses must be a valid positive number.';
       return;
     }
 
-    if (unitStart > unitEnd) {
-      this.gatedCommunityError = 'Start house number must be less than or equal to end house number.';
+    const priceValue = typeof this.gatedCommunityForm.gatedCommunityPrice === 'number'
+      ? this.gatedCommunityForm.gatedCommunityPrice
+      : parseFloat(String(this.gatedCommunityForm.gatedCommunityPrice));
+    if (Number.isNaN(priceValue) || priceValue < 0) {
+      this.gatedCommunityError = 'Price must be a valid non-negative number.';
       return;
     }
+
+    const unitStart = 1;
+    const unitEnd = numberOfHouses;
 
     const gatedData = {
+      gatedCommunityId: this.editingGatedCommunity?.gatedCommunityId ?? '',
       gatedCommunityName: this.gatedCommunityForm.gatedCommunityName.trim(),
+      numberOfHouses,
       unitStart,
       unitEnd,
-      price: this.gatedCommunityForm.gatedCommunityPrice,
-      complexes: this.editingGatedCommunity ? this.editingGatedCommunity.complexes : [],
+      price: priceValue,
       securityAssignments: this.editingGatedCommunity ? this.editingGatedCommunity.securityAssignments : [],
     };
 
+    const existingName = String(this.editingGatedCommunity?.gatedCommunityName ?? '').trim();
+    const nextName = gatedData.gatedCommunityName;
+    const associatedComplexes = this.onboardedComplexes.filter((complex: any) => {
+      const linkedName = String(complex?.gatedCommunityName ?? '').trim();
+      return linkedName.length > 0 && linkedName === (existingName || nextName);
+    });
+
+    const payload = {
+      name: gatedData.gatedCommunityName,
+      numberOfComplexes: associatedComplexes.length,
+      numberOfHouses,
+      unitStart,
+      unitEnd,
+      price: priceValue,
+    };
+
     if (this.editingGatedCommunity) {
-      Object.assign(this.editingGatedCommunity, gatedData);
-      this.gatedCommunitySuccess = `Gated community "${gatedData.gatedCommunityName}" has been updated successfully!`;
+      this.dataService.put(`gatedCommunity/${gatedData.gatedCommunityId}`, payload).subscribe({
+        next: () => {
+          Object.assign(this.editingGatedCommunity, gatedData);
+          this.gatedCommunitySuccess = `Gated community "${gatedData.gatedCommunityName}" has been updated successfully!`;
+          setTimeout(() => {
+            this.closeGatedCommunityModal();
+          }, 1500);
+          this.triggerToast(`Gated community "${gatedData.gatedCommunityName}" updated successfully.`);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1200);
+        },
+        error: (err) => {
+          const apiMessage = err?.error?.message;
+          const fallback = 'Unable to update gated community.';
+          this.gatedCommunityError = apiMessage || fallback;
+        }
+      });
     } else {
-      this.gatedCommunities.push(gatedData);
-      this.gatedCommunitySuccess = `Gated community "${gatedData.gatedCommunityName}" has been added successfully!`;
+      this.dataService.post('gatedCommunity', payload).subscribe({
+        next: (response: any) => {
+          gatedData.gatedCommunityId = response?.payload?._id ?? '';
+          this.gatedCommunities.push(gatedData);
+          this.gatedCommunitySuccess = `Gated community "${gatedData.gatedCommunityName}" has been added successfully!`;
+          setTimeout(() => {
+            this.closeGatedCommunityModal();
+          }, 1500);
+          this.triggerToast(`Gated community "${gatedData.gatedCommunityName}" added successfully.`);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1200);
+        },
+        error: (err) => {
+          const apiMessage = err?.error?.message;
+          const fallback = 'Unable to add gated community.';
+          this.gatedCommunityError = apiMessage || fallback;
+        }
+      });
     }
-    setTimeout(() => {
-      this.closeGatedCommunityModal();
-    }, 2000);
   }
 
   protected openGatedComplexAssignModal(community: any): void {
@@ -693,25 +1228,36 @@ export class AdminPortal implements OnInit {
     }
 
     if (this.selectedGatedCommunity) {
-      const existingComplex = this.selectedGatedCommunity.complexes?.find(
-        (c: any) => c === this.gatedAssignmentComplexName
+      const existingComplex = this.onboardedComplexes.find(
+        (c: any) => c.complexName === this.gatedAssignmentComplexName
       );
 
-      if (existingComplex) {
+      if (!existingComplex?.complexId) {
+        this.gatedAssignmentError = 'Selected complex could not be found.';
+        return;
+      }
+
+      const existingLinkedCommunity = String(existingComplex.gatedCommunityName ?? '').trim();
+      const targetCommunity = String(this.selectedGatedCommunity.gatedCommunityName ?? '').trim();
+
+      if (existingLinkedCommunity && existingLinkedCommunity === targetCommunity) {
         this.gatedAssignmentError = 'This complex is already assigned to this gated community.';
         return;
       }
 
-      if (!this.selectedGatedCommunity.complexes) {
-        this.selectedGatedCommunity.complexes = [];
-      }
-
-      this.selectedGatedCommunity.complexes.push(this.gatedAssignmentComplexName);
-      this.gatedAssignmentSuccess = `${this.gatedAssignmentComplexName} has been assigned to ${this.selectedGatedCommunity.gatedCommunityName}!`;
-
-      setTimeout(() => {
-        this.closeGatedComplexAssignModal();
-      }, 2000);
+      this.dataService.put(`complex/${existingComplex.complexId}`, { gatedCommunityName: targetCommunity }).subscribe({
+        next: () => {
+          existingComplex.gatedCommunityName = targetCommunity;
+          this.gatedAssignmentSuccess = `${this.gatedAssignmentComplexName} has been assigned to ${this.selectedGatedCommunity.gatedCommunityName}!`;
+          setTimeout(() => {
+            this.closeGatedComplexAssignModal();
+          }, 2000);
+        },
+        error: (err) => {
+          const apiMessage = err?.error?.message;
+          this.gatedAssignmentError = apiMessage || 'Unable to assign complex to gated community.';
+        }
+      });
     }
   }
 
@@ -768,6 +1314,28 @@ export class AdminPortal implements OnInit {
         this.selectedGatedCommunity.securityAssignments = [];
       }
 
+      const targetCompany = this.registeredSecurityCompanies.find(
+        (company) => company.companyName === this.gatedAssignmentCompanyName
+      );
+      if (targetCompany) {
+        if (!targetCompany.assignments) {
+          targetCompany.assignments = [];
+        }
+        const existingContract = targetCompany.assignments.find(
+          (assignment: any) => assignment.gatedCommunityName === this.selectedGatedCommunity.gatedCommunityName
+        );
+        if (existingContract) {
+          this.gatedAssignmentError = 'This security company is already assigned to this gated community.';
+          return;
+        }
+        targetCompany.assignments.push({
+          gatedCommunityName: this.selectedGatedCommunity.gatedCommunityName,
+          contractStart: this.gatedSecurityContractStart,
+          contractEnd: this.gatedSecurityContractEnd,
+        });
+        this.persistCompanyAssignments(targetCompany);
+      }
+
       this.selectedGatedCommunity.securityAssignments.push({
         companyName: this.gatedAssignmentCompanyName,
         contractStart: this.gatedSecurityContractStart,
@@ -786,6 +1354,18 @@ export class AdminPortal implements OnInit {
     if (index > -1) {
       community.securityAssignments.splice(index, 1);
     }
+    const targetCompany = this.registeredSecurityCompanies.find(
+      (company) => company.companyName === security.companyName
+    );
+    if (targetCompany?.assignments) {
+      const assignmentIndex = targetCompany.assignments.findIndex(
+        (assignment: any) => assignment.gatedCommunityName === community.gatedCommunityName
+      );
+      if (assignmentIndex > -1) {
+        targetCompany.assignments.splice(assignmentIndex, 1);
+        this.persistCompanyAssignments(targetCompany);
+      }
+    }
     console.log('Security company unassigned from gated community:', security.companyName, community.gatedCommunityName);
     this.gatedAssignmentSuccess = `${security.companyName} has been unassigned from ${community.gatedCommunityName}!`;
     setTimeout(() => {
@@ -795,24 +1375,37 @@ export class AdminPortal implements OnInit {
 
   protected get isOnboardingFormValid(): boolean {
     const hasComplexName = this.complexName.trim().length > 0;
-    const hasUnitStart = this.unitStart !== '' && this.unitStart !== null;
-    const hasUnitEnd = this.unitEnd !== '' && this.unitEnd !== null;
-    const unitStartNum = typeof this.unitStart === 'number' ? this.unitStart : parseInt(String(this.unitStart), 10);
-    const unitEndNum = typeof this.unitEnd === 'number' ? this.unitEnd : parseInt(String(this.unitEnd), 10);
-    const validRange = !isNaN(unitStartNum) && !isNaN(unitEndNum) && unitStartNum <= unitEndNum && hasUnitStart && hasUnitEnd;
+    const hasAddress = this.complexAddress.trim().length > 0;
+    let priceValue: number | null = null;
+    if (this.selectedGatedCommunityForOnboarding) {
+      const gatedPrice = this.getGatedCommunityPrice(this.selectedGatedCommunityForOnboarding);
+      priceValue = gatedPrice !== null ? gatedPrice : null;
+    } else {
+      const parsedPrice = typeof this.complexPrice === 'number' ? this.complexPrice : parseFloat(String(this.complexPrice));
+      priceValue = Number.isNaN(parsedPrice) ? null : parsedPrice;
+    }
+    const hasValidPrice = priceValue !== null && priceValue >= 0;
+    let validRange = false;
+    if (this.hasBlocks) {
+      validRange = this.areBlocksValid();
+    } else {
+      const hasNumberOfUnits = this.numberOfUnits !== '' && this.numberOfUnits !== null;
+      const numberOfUnitsNum = typeof this.numberOfUnits === 'number' ? this.numberOfUnits : parseInt(String(this.numberOfUnits), 10);
+      validRange = Number.isFinite(numberOfUnitsNum) && numberOfUnitsNum > 0 && hasNumberOfUnits;
+    }
 
     if (this.parkingMode === 'fixed') {
       // If unlimited is selected, no need to validate parking count
       if (this.parkingIsUnlimited) {
-        return hasComplexName && validRange;
+        return hasComplexName && hasAddress && hasValidPrice && validRange;
       }
       
       const parkingNum = typeof this.fixedParkingCount === 'number' ? this.fixedParkingCount : parseInt(String(this.fixedParkingCount), 10);
       const hasFixedParking = this.fixedParkingCount !== '' && this.fixedParkingCount !== null && !isNaN(parkingNum) && parkingNum >= 0;
-      return hasComplexName && validRange && hasFixedParking;
+      return hasComplexName && hasAddress && hasValidPrice && validRange && hasFixedParking;
     }
 
-    return hasComplexName && validRange;
+    return hasComplexName && hasAddress && hasValidPrice && validRange;
   }
 
   protected get allUnitsConfigured(): boolean {
@@ -826,18 +1419,27 @@ export class AdminPortal implements OnInit {
     this.showOnboardingModal = true;
     this.showUnitConfigStep = false;
     this.resetOnboardingForm();
+    this.addressAutocompleteInitialized = false;
+    this.addressAutocompleteElement = null;
+    setTimeout(() => {
+      void this.setupAddressAutocomplete();
+    }, 0);
   }
 
   protected closeOnboardingModal(): void {
     this.showOnboardingModal = false;
     this.showUnitConfigStep = false;
+    this.addressAutocompleteInitialized = false;
+    this.addressAutocompleteElement = null;
     this.resetOnboardingForm();
   }
 
   protected resetOnboardingForm(): void {
     this.complexName = '';
-    this.unitStart = '';
-    this.unitEnd = '';
+    this.complexAddress = '';
+    this.hasBlocks = false;
+    this.complexOnboardingForm.blocks = [];
+    this.numberOfUnits = '';
     this.parkingMode = 'fixed';
     this.fixedParkingCount = '';
     this.parkingIsUnlimited = false;
@@ -852,57 +1454,87 @@ export class AdminPortal implements OnInit {
     this.onboardingError = '';
     this.onboardingSuccess = '';
 
+    const element = this.complexAddressInput?.nativeElement as any;
+    const domAddress = String(
+      element?.value ??
+      element?.inputValue ??
+      element?.getAttribute?.('value') ??
+      ''
+    ).trim();
+    if (!this.complexAddress.trim() && domAddress) {
+      this.complexAddress = domAddress;
+    }
+    console.log('[onboarding][address] submit check', {
+      modelAddress: this.complexAddress,
+      domAddress,
+      hasModelAddress: Boolean(this.complexAddress.trim()),
+    });
+
     if (!this.complexName.trim()) {
       this.onboardingError = 'Complex name is required.';
       return;
     }
 
-    const unitStart = typeof this.unitStart === 'number' ? this.unitStart : parseInt(String(this.unitStart), 10);
-    const unitEnd = typeof this.unitEnd === 'number' ? this.unitEnd : parseInt(String(this.unitEnd), 10);
-
-    if (isNaN(unitStart) || isNaN(unitEnd)) {
-      this.onboardingError = 'Unit numbers must be valid integers.';
+    if (!this.complexAddress.trim()) {
+      this.onboardingError = 'Address is required.';
       return;
     }
 
-    if (unitStart > unitEnd) {
-      this.onboardingError = 'Start unit must be less than or equal to end unit.';
+    let numberOfUnits = 0;
+    if (this.hasBlocks) {
+      if (!this.validateBlocks()) {
+        return;
+      }
+      const summary = this.getBlocksSummary();
+      if (!summary) {
+        this.onboardingError = 'Blocks are incomplete.';
+        return;
+      }
+      numberOfUnits = summary.numberOfUnits;
+    } else {
+      numberOfUnits = typeof this.numberOfUnits === 'number' ? this.numberOfUnits : parseInt(String(this.numberOfUnits), 10);
+      if (!Number.isFinite(numberOfUnits) || numberOfUnits <= 0) {
+        this.onboardingError = 'Number of units must be a valid positive number.';
+        return;
+      }
+    }
+    let price = this.complexPrice;
+    if (this.selectedGatedCommunityForOnboarding) {
+      const gatedPrice = this.getGatedCommunityPrice(this.selectedGatedCommunityForOnboarding);
+      if (gatedPrice !== null) price = gatedPrice;
+    }
+    const parsedPrice = typeof price === 'number' ? price : parseFloat(String(price));
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+      this.onboardingError = 'Price must be a valid non-negative number.';
       return;
     }
 
     // Fixed mode - submit immediately
     if (this.parkingMode === 'fixed') {
-      let price = this.complexPrice;
-      if (this.selectedGatedCommunityForOnboarding) {
-        const gatedPrice = this.getGatedCommunityPrice(this.selectedGatedCommunityForOnboarding);
-        if (gatedPrice !== null) price = gatedPrice;
-      }
       if (this.parkingIsUnlimited) {
         const onboardingData = {
+          complexId: '',
           complexName: this.complexName.trim(),
-          unitStart,
-          unitEnd,
+          address: this.complexAddress.trim(),
           parkingMode: 'fixed',
           fixedParkingCount: 'unlimited',
-          price,
+          price: parsedPrice,
         };
-        this.onboardedComplexes.push(onboardingData);
-        // Assign to gated community if selected
-        if (this.selectedGatedCommunityForOnboarding) {
-          const community = this.gatedCommunities.find(
-            (c: any) => c.gatedCommunityName === this.selectedGatedCommunityForOnboarding
-          );
-          if (community) {
-            if (!community.complexes) {
-              community.complexes = [];
-            }
-            community.complexes.push(this.complexName.trim());
-          }
-        }
-        this.onboardingSuccess = `Complex "${onboardingData.complexName}" has been onboarded successfully with unlimited parking!`;
-        setTimeout(() => {
-          this.closeOnboardingModal();
-        }, 2000);
+        this.createComplexRecord(
+          {
+            name: onboardingData.complexName,
+            address: onboardingData.address,
+            numberOfUnits,
+            price: parsedPrice,
+            parkingMode: 'fixed',
+            fixedParkingCount: null,
+            parkingIsUnlimited: true,
+            unitParkingConfig: [],
+            blocks: this.hasBlocks ? this.normalizeBlocks() : [],
+          },
+          onboardingData,
+          `Complex "${onboardingData.complexName}" has been onboarded successfully with unlimited parking!`
+        );
         return;
       }
       const fixedCount = typeof this.fixedParkingCount === 'number' ? this.fixedParkingCount : parseInt(String(this.fixedParkingCount), 10);
@@ -911,41 +1543,39 @@ export class AdminPortal implements OnInit {
         return;
       }
       const onboardingData = {
+        complexId: '',
         complexName: this.complexName.trim(),
-        unitStart,
-        unitEnd,
+        address: this.complexAddress.trim(),
         parkingMode: 'fixed',
         fixedParkingCount: fixedCount,
-        price,
+        price: parsedPrice,
       };
-      this.onboardedComplexes.push(onboardingData);
-      // Assign to gated community if selected
-      if (this.selectedGatedCommunityForOnboarding) {
-        const community = this.gatedCommunities.find(
-          (c: any) => c.gatedCommunityName === this.selectedGatedCommunityForOnboarding
-        );
-        if (community) {
-          if (!community.complexes) {
-            community.complexes = [];
-          }
-          community.complexes.push(this.complexName.trim());
-        }
-      }
-      this.onboardingSuccess = `Complex "${onboardingData.complexName}" has been onboarded successfully!`;
-      setTimeout(() => {
-        this.closeOnboardingModal();
-      }, 2000);
+      this.createComplexRecord(
+        {
+          name: onboardingData.complexName,
+          address: onboardingData.address,
+          numberOfUnits,
+          price: parsedPrice,
+          parkingMode: 'fixed',
+          fixedParkingCount: fixedCount,
+          parkingIsUnlimited: false,
+          unitParkingConfig: [],
+          blocks: this.hasBlocks ? this.normalizeBlocks() : [],
+        },
+        onboardingData,
+        `Complex "${onboardingData.complexName}" has been onboarded successfully!`
+      );
       return;
     }
 
     // Per-unit mode - show unit configuration
-    this.generateUnitList(unitStart, unitEnd);
+    this.generateUnitList(numberOfUnits);
     this.showUnitConfigStep = true;
   }
 
-  protected generateUnitList(start: number, end: number): void {
+  protected generateUnitList(count: number): void {
     this.unitList = [];
-    for (let i = start; i <= end; i++) {
+    for (let i = 1; i <= count; i++) {
       this.unitList.push({ unitNumber: i, parkingBays: '' });
     }
   }
@@ -958,32 +1588,206 @@ export class AdminPortal implements OnInit {
       return;
     }
 
-    const unitStart = typeof this.unitStart === 'number' ? this.unitStart : parseInt(String(this.unitStart), 10);
-    const unitEnd = typeof this.unitEnd === 'number' ? this.unitEnd : parseInt(String(this.unitEnd), 10);
+    let numberOfUnits = 0;
+    if (this.hasBlocks) {
+      if (!this.validateBlocks()) {
+        return;
+      }
+      const summary = this.getBlocksSummary();
+      if (!summary) {
+        this.onboardingError = 'Blocks are incomplete.';
+        return;
+      }
+      numberOfUnits = summary.numberOfUnits;
+    } else {
+      numberOfUnits = typeof this.numberOfUnits === 'number' ? this.numberOfUnits : parseInt(String(this.numberOfUnits), 10);
+      if (!Number.isFinite(numberOfUnits) || numberOfUnits <= 0) {
+        this.onboardingError = 'Number of units must be a valid positive number.';
+        return;
+      }
+    }
+    let priceValue: number | null = null;
+    if (this.selectedGatedCommunityForOnboarding) {
+      const gatedPrice = this.getGatedCommunityPrice(this.selectedGatedCommunityForOnboarding);
+      priceValue = gatedPrice !== null ? gatedPrice : null;
+    } else {
+      const parsedPrice = typeof this.complexPrice === 'number' ? this.complexPrice : parseFloat(String(this.complexPrice));
+      priceValue = Number.isNaN(parsedPrice) ? null : parsedPrice;
+    }
+    const parsedPrice = priceValue ?? NaN;
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+      this.onboardingError = 'Price must be a valid non-negative number.';
+      return;
+    }
 
     const finalData = {
+      complexId: '',
       complexName: this.complexName.trim(),
-      unitStart,
-      unitEnd,
+      address: this.complexAddress.trim(),
       parkingMode: 'per-unit',
       unitParkingConfig: this.unitList.map((unit) => ({
         unitNumber: unit.unitNumber,
         parkingBays: typeof unit.parkingBays === 'string' ? parseInt(unit.parkingBays, 10) : unit.parkingBays,
       })),
+      price: parsedPrice,
     };
 
-    console.log('Final Onboarding Data:', finalData);
-    this.onboardedComplexes.push(finalData);
-    this.onboardingSuccess = `Complex "${finalData.complexName}" has been onboarded successfully with per-unit parking configuration!`;
+    this.createComplexRecord(
+      {
+        name: finalData.complexName,
+        address: finalData.address,
+        numberOfUnits,
+        price: parsedPrice,
+        parkingMode: 'per-unit',
+        fixedParkingCount: null,
+        parkingIsUnlimited: false,
+        unitParkingConfig: finalData.unitParkingConfig,
+        blocks: this.hasBlocks ? this.normalizeBlocks() : [],
+      },
+      finalData,
+      `Complex "${finalData.complexName}" has been onboarded successfully with per-unit parking configuration!`
+    );
+  }
 
-    setTimeout(() => {
-      this.closeOnboardingModal();
-    }, 2000);
+  private createComplexRecord(
+    payload: {
+      name: string;
+      address: string;
+      numberOfUnits: number;
+      price: number;
+      parkingMode: 'fixed' | 'per-unit';
+      fixedParkingCount: number | null;
+      parkingIsUnlimited: boolean;
+      unitParkingConfig: Array<{ unitNumber: number; parkingBays: number }>;
+      blocks: Array<{ name: string; numberOfUnits: number }>;
+    },
+    onboardingData: any,
+    successMessage: string
+  ): void {
+    const requestPayload: Record<string, unknown> = { ...payload };
+    if (this.selectedGatedCommunityForOnboarding) {
+      requestPayload['gatedCommunityName'] = this.selectedGatedCommunityForOnboarding;
+    }
+    if (requestPayload['fixedParkingCount'] === null) {
+      delete requestPayload['fixedParkingCount'];
+    }
+    this.dataService.post<{ payload?: { _id?: string } }>('complex', requestPayload).subscribe({
+      next: (response) => {
+        onboardingData.complexId = response?.payload?._id ?? '';
+        onboardingData.gatedCommunityName = this.selectedGatedCommunityForOnboarding || '';
+        this.onboardedComplexes.push(onboardingData);
+        this.onboardingSuccess = successMessage;
+        setTimeout(() => {
+          this.closeOnboardingModal();
+        }, 2000);
+        this.triggerToast(`Complex "${onboardingData.complexName}" added successfully.`);
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      },
+      error: (err) => {
+        const apiMessage = err?.error?.message;
+        const payloadErrors = err?.error?.payload;
+        const firstError = Array.isArray(payloadErrors) ? payloadErrors[0] : null;
+        const detailedMessage = firstError?.msg
+          ? `${firstError.msg}${firstError.param ? ` (${firstError.param})` : ''}`
+          : null;
+        const fallback = 'Unable to onboard complex. Please try again.';
+        this.onboardingError = detailedMessage || apiMessage || fallback;
+      }
+    });
   }
 
   protected backToBasicConfig(): void {
     this.showUnitConfigStep = false;
     this.onboardingError = '';
+  }
+
+  protected addBlock(): void {
+    this.blocks.push({
+      name: this.getNextBlockName(),
+      numberOfUnits: '',
+    });
+  }
+
+  protected removeBlock(index: number): void {
+    this.blocks.splice(index, 1);
+  }
+
+  private syncBlocksState(): void {
+    if (this.hasBlocks && this.blocks.length === 0) {
+      this.blocks.push({ name: 'Block A', numberOfUnits: '' });
+    }
+    if (!this.hasBlocks && this.blocks.length > 0) {
+      this.blocks.splice(0, this.blocks.length);
+    }
+  }
+
+  private getNextBlockName(): string {
+    const index = this.blocks.length;
+    if (index < 26) {
+      return `Block ${String.fromCharCode(65 + index)}`;
+    }
+    return `Block ${index + 1}`;
+  }
+
+  private normalizeBlocks(): Array<{ name: string; numberOfUnits: number }> {
+    return this.blocks.map((block) => {
+      const count = typeof block.numberOfUnits === 'number' ? block.numberOfUnits : parseInt(String(block.numberOfUnits), 10);
+      const safeCount = Number.isFinite(count) && count > 0 ? count : 0;
+      return {
+        name: block.name.trim(),
+        numberOfUnits: safeCount,
+      };
+    });
+  }
+
+  private validateBlocks(): boolean {
+    if (!this.hasBlocks) {
+      return true;
+    }
+    if (this.blocks.length === 0) {
+      this.onboardingError = 'Add at least one block or disable blocks.';
+      return false;
+    }
+    for (const block of this.blocks) {
+      if (!block.name.trim()) {
+        this.onboardingError = 'Block name is required.';
+        return false;
+      }
+      const blockUnits = typeof block.numberOfUnits === 'number' ? block.numberOfUnits : parseInt(String(block.numberOfUnits), 10);
+      if (!Number.isFinite(blockUnits) || blockUnits <= 0) {
+        this.onboardingError = 'Each block must have a valid positive number of units.';
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private areBlocksValid(): boolean {
+    if (!this.hasBlocks) {
+      return true;
+    }
+    if (this.blocks.length === 0) {
+      return false;
+    }
+    return this.blocks.every((block) => {
+      if (!block.name.trim()) return false;
+      const blockUnits = typeof block.numberOfUnits === 'number' ? block.numberOfUnits : parseInt(String(block.numberOfUnits), 10);
+      return Number.isFinite(blockUnits) && blockUnits > 0;
+    });
+  }
+
+  private getBlocksSummary(): { numberOfUnits: number } | null {
+    const normalized = this.normalizeBlocks();
+    if (normalized.length === 0) {
+      return null;
+    }
+    const numberOfUnits = normalized.reduce((total, block) => total + block.numberOfUnits, 0);
+    if (Number.isNaN(numberOfUnits)) {
+      return null;
+    }
+    return { numberOfUnits };
   }
 
   protected handleActionClick(action?: string): void {
@@ -1087,16 +1891,17 @@ export class AdminPortal implements OnInit {
         contractStart: this.contractStart,
         contractEnd: this.contractEnd,
       });
-      
-      this.securitySuccess = `Security company "${existingCompany.companyName}" has been assigned to ${this.selectedComplexName}!`;
+      this.persistCompanyAssignments(existingCompany, `Security company "${existingCompany.companyName}" has been assigned to ${this.selectedComplexName}!`);
     } else {
       // New company, create with assignments array
       const securityData = {
+        companyId: '',
         companyName: this.securityCompanyName.trim(),
         companyEmail: this.securityCompanyEmail.trim(),
         companyTel: this.securityCompanyTel.trim(),
         cipcReg: this.cipcReg.trim(),
         psiraNumber: this.psiraNumber.trim(),
+        sosOptin: false,
         assignments: [
           {
             complexName: this.selectedComplexName,
@@ -1106,9 +1911,32 @@ export class AdminPortal implements OnInit {
         ],
       };
 
-      console.log('Security Company Registration:', securityData);
-      this.registeredSecurityCompanies.push(securityData);
-      this.securitySuccess = `Security company "${securityData.companyName}" has been registered for ${this.selectedComplexName}!`;
+      const payload = {
+        name: securityData.companyName,
+        email: securityData.companyEmail,
+        contactNumber: securityData.companyTel,
+        cipcRegistrationNumber: securityData.cipcReg,
+        psiraNumber: securityData.psiraNumber,
+        sosOptin: Boolean(securityData.sosOptin),
+        contract: this.buildContractPayload(securityData.assignments),
+      };
+
+      this.dataService.post<{ payload?: { _id?: string } }>('securityCompany', payload).subscribe({
+        next: (response) => {
+          securityData.companyId = response?.payload?._id ?? '';
+          this.registeredSecurityCompanies.push(securityData);
+          this.securitySuccess = `Security company "${securityData.companyName}" has been registered for ${this.selectedComplexName}!`;
+          setTimeout(() => {
+            this.closeSecurityModal();
+          }, 2000);
+        },
+        error: (err) => {
+          const apiMessage = err?.error?.message;
+          const detail = err?.error?.error;
+          this.securityError = detail || apiMessage || 'Unable to register security company.';
+        }
+      });
+      return;
     }
 
     setTimeout(() => {
@@ -1136,17 +1964,13 @@ export class AdminPortal implements OnInit {
     if (!this.gatedCommunityFilter) {
       return this.onboardedComplexes;
     }
-    
-    const selectedCommunity = this.gatedCommunities.find(
-      (c: any) => c.gatedCommunityName === this.gatedCommunityFilter
-    );
-    
-    if (!selectedCommunity || !selectedCommunity.complexes) {
+    const selectedCommunityName = String(this.gatedCommunityFilter ?? '').trim().toLowerCase();
+    if (!selectedCommunityName) {
       return this.onboardedComplexes;
     }
-    
+
     return this.onboardedComplexes.filter(
-      (complex: any) => selectedCommunity.complexes.includes(complex.complexName)
+      (complex: any) => String(complex?.gatedCommunityName ?? '').trim().toLowerCase() === selectedCommunityName
     );
   }
 
@@ -1234,6 +2058,10 @@ export class AdminPortal implements OnInit {
         contractStart: this.assignmentContractStart,
         contractEnd: this.assignmentContractEnd,
       });
+      this.persistCompanyAssignments(
+        this.selectedCompanyForAssignment,
+        `${this.selectedCompanyForAssignment?.companyName} has been assigned to ${this.assignmentComplexName}!`
+      );
     }
 
     console.log('Company Assignment:', {
@@ -1274,13 +2102,59 @@ export class AdminPortal implements OnInit {
       if (index > -1) {
         company.assignments.splice(index, 1);
       }
-      console.log('Company unassigned from complex:', company.companyName, assignment.complexName);
-      this.assignmentSuccess = `${company.companyName} has been unassigned from ${assignment.complexName}!`;
+      const assignedName = assignment.complexName || assignment.gatedCommunityName || '';
+      console.log('Company unassigned from complex:', company.companyName, assignedName);
+      this.persistCompanyAssignments(
+        company,
+        `${company.companyName} has been unassigned from ${assignedName}!`
+      );
       setTimeout(() => {
         this.closeUnassignModal();
         this.assignmentSuccess = '';
       }, 2000);
     }
+  }
+
+  private buildContractPayload(assignments: Array<{ complexName?: string; gatedCommunityName?: string; contractStart?: string; contractEnd?: string }>): Array<{ complex?: { name: string }; complexName?: string; gatedCommunityName?: string; contractStartDate?: string; contractEndDate?: string }> {
+    return (assignments || []).map((assignment) => {
+      const payload: { complex?: { name: string }; complexName?: string; gatedCommunityName?: string; contractStartDate?: string; contractEndDate?: string } = {
+        contractStartDate: assignment.contractStart,
+        contractEndDate: assignment.contractEnd,
+      };
+      if (assignment.complexName) {
+        payload.complex = { name: assignment.complexName };
+        payload.complexName = assignment.complexName;
+      }
+      if (assignment.gatedCommunityName) {
+        payload.gatedCommunityName = assignment.gatedCommunityName;
+      }
+      return payload;
+    });
+  }
+
+  private persistCompanyAssignments(company: any, successMessage?: string): void {
+    if (!company?.companyId) {
+      if (successMessage) {
+        this.assignmentSuccess = successMessage;
+      }
+      return;
+    }
+    const payload = {
+      contract: this.buildContractPayload(company.assignments ?? []),
+    };
+    this.dataService.put(`securityCompany/${company.companyId}`, payload).subscribe({
+      next: () => {
+        if (successMessage) {
+          this.assignmentSuccess = successMessage;
+        }
+        this.buildContractHistoryFromCompanies();
+        this.hydrateGatedSecurityAssignments();
+      },
+      error: (err) => {
+        const apiMessage = err?.error?.message;
+        this.assignmentError = apiMessage || 'Unable to update security assignments.';
+      }
+    });
   }
 
   protected calculateDuration(entryTime: string, exitTime: string): string {
@@ -1304,22 +2178,32 @@ export class AdminPortal implements OnInit {
     this.loadVisitorLogs();
   }
 
+  ngAfterViewInit(): void {
+    if (this.showOnboardingModal) {
+      void this.setupAddressAutocomplete();
+    }
+  }
+
   private loadSecurityCompanies(): void {
     this.dataService.get<any[]>('securityCompany').subscribe({
       next: (companies) => {
         this.registeredSecurityCompanies = (companies || []).map((company) => ({
+          companyId: company._id ?? '',
           companyName: company.name ?? '',
           companyEmail: company.email ?? '',
           companyTel: company.contactNumber ?? '',
           cipcReg: company.cipcRegistrationNumber ?? '',
           psiraNumber: company.psiraNumber ?? '',
+          sosOptin: Boolean(company.sosOptin),
           assignments: (company.contract ?? []).map((contract: any) => ({
-            complexName: contract?.complex?.name ?? '',
+            complexName: contract?.complex?.name ?? contract?.complexName ?? '',
+            gatedCommunityName: contract?.gatedCommunityName ?? '',
             contractStart: this.formatDateValue(contract?.contractStartDate),
             contractEnd: this.formatDateValue(contract?.contractEndDate),
           })),
         }));
         this.buildContractHistoryFromCompanies();
+        this.hydrateGatedSecurityAssignments();
       },
       error: () => {
         this.registeredSecurityCompanies = [];
@@ -1335,9 +2219,10 @@ export class AdminPortal implements OnInit {
       (company.assignments ?? []).map((assignment: any) => {
         const endDate = assignment.contractEnd ? new Date(assignment.contractEnd) : null;
         const status = endDate && endDate < today ? 'Ended' : 'Active';
+        const assignedName = assignment.complexName || assignment.gatedCommunityName || '';
         return {
           companyName: company.companyName,
-          complexName: assignment.complexName,
+          complexName: assignedName,
           contractStartDate: assignment.contractStart,
           contractEndDate: assignment.contractEnd,
           status,
@@ -1355,12 +2240,19 @@ export class AdminPortal implements OnInit {
     this.dataService.get<any[]>('complex').subscribe({
       next: (complexes) => {
         this.onboardedComplexes = (complexes || []).map((complex) => ({
+          complexId: complex._id ?? '',
           complexName: complex.name ?? '',
-          unitStart: 1,
-          unitEnd: complex.numberOfUnits ?? '',
-          parkingMode: 'fixed',
-          fixedParkingCount: '',
+          gatedCommunityName: complex.gatedCommunityName ?? '',
+          unitStart: complex.unitStart ?? 1,
+          unitEnd: complex.unitEnd ?? complex.numberOfUnits ?? '',
+          numberOfUnits: complex.numberOfUnits ?? 0,
+          parkingMode: complex.parkingMode ?? 'fixed',
+          fixedParkingCount: complex.parkingIsUnlimited ? 'unlimited' : (complex.fixedParkingCount ?? ''),
+          parkingIsUnlimited: Boolean(complex.parkingIsUnlimited),
           address: complex.address ?? '',
+          price: complex.price ?? '',
+          unitParkingConfig: complex.unitParkingConfig ?? [],
+          blocks: complex.blocks ?? [],
         }));
       },
       error: () => {
@@ -1373,18 +2265,44 @@ export class AdminPortal implements OnInit {
     this.dataService.get<any[]>('gatedCommunity').subscribe({
       next: (communities) => {
         this.gatedCommunities = (communities || []).map((community) => ({
+          gatedCommunityId: community._id ?? '',
           gatedCommunityName: community.name ?? '',
-          unitStart: 1,
-          unitEnd: community.numberOfHouses ?? '',
-          price: '',
-          complexes: [],
+          unitStart: community.unitStart ?? 1,
+          unitEnd: community.unitEnd ?? community.numberOfHouses ?? '',
+          price: community.price ?? '',
           securityAssignments: [],
         }));
+        this.hydrateGatedSecurityAssignments();
       },
       error: () => {
         this.gatedCommunities = [];
       }
     });
+  }
+
+  private hydrateGatedSecurityAssignments(): void {
+    if (!this.gatedCommunities.length || !this.registeredSecurityCompanies.length) {
+      return;
+    }
+    const assignmentsByCommunity = new Map<string, Array<{ companyName: string; contractStart: string; contractEnd: string }>>();
+    for (const company of this.registeredSecurityCompanies) {
+      for (const assignment of company.assignments ?? []) {
+        if (!assignment.gatedCommunityName) {
+          continue;
+        }
+        const list = assignmentsByCommunity.get(assignment.gatedCommunityName) ?? [];
+        list.push({
+          companyName: company.companyName,
+          contractStart: assignment.contractStart,
+          contractEnd: assignment.contractEnd,
+        });
+        assignmentsByCommunity.set(assignment.gatedCommunityName, list);
+      }
+    }
+    this.gatedCommunities = this.gatedCommunities.map((community) => ({
+      ...community,
+      securityAssignments: assignmentsByCommunity.get(community.gatedCommunityName) ?? [],
+    }));
   }
 
   private loadVisitorLogs(): void {

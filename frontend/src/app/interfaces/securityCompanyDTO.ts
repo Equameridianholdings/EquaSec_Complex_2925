@@ -13,7 +13,9 @@ export interface SecurityCompanyDTO {
 }
 
 export interface Contract {
-    complex: complexDTO;
+    complex?: complexDTO;
+    complexName?: string;
+    gatedCommunityName?: string;
     contractEndDate?: Date;
     contractStartDate?: Date;
 }
