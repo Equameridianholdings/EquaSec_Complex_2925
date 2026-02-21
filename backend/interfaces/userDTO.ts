@@ -14,9 +14,20 @@ export interface UserDTO {
     name: string;
     password: string;
     profilePhoto: string;
+    address?: string;
+    residenceType?: "complex" | "community";
+    gatedCommunity?: { _id: ObjectId; name: string } | null;
+    communityId?: string;
+    communityResidenceType?: "house" | "complex";
+    communityComplexId?: string;
+    unitNumber?: string;
+    houseNumber?: string;
     salt?: string;
     surname: string;
     type: string[];
+    verificationCode?: string;
+    verificationCodeCreatedAt?: Date;
+    securityCompany?: { _id: ObjectId; name: string } | null;
 }
 
 export const userBodyValidation: Schema = {

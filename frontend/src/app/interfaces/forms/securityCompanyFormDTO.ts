@@ -4,5 +4,6 @@ export interface SecurityCompanyFormDTO {
   companyTel: string;
   cipcReg: string;
   psiraNumber: string;
+  sosOptin: boolean;
   assignments?: any[];
 }

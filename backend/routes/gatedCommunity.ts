@@ -1,19 +1,101 @@
 import gatedCommunitySchema from "#db/gatedCommunity.js";
+import complexSchema from "#db/complexSchema.js";
+import securityCompanySchema from "#db/securityCompanySchema.js";
+import unitSchema from "#db/unitSchema.js";
 import { gatedCommunityBodyValidation, gatedCommunityDTO } from "#interfaces/gatedCommunityDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import validateObjectId from "#utils/validateObjectId.js";
 import { Request, Response, Router } from "express";
 import { checkSchema } from "express-validator/lib/middlewares/schema.js";
-import { ObjectId } from "mongoose";
+import { ObjectId } from "mongodb";
 
 const gatedCommunityRouter = Router();
+
+const syncUnitsForGatedCommunity = async (gatedCommunity: any): Promise<void> => {
+  if (!gatedCommunity?._id) {
+    return;
+  }
+
+  const gatedCommunityId = String(gatedCommunity._id);
+  const gatedCommunityIdVariants: Array<string | ObjectId> = [gatedCommunityId];
+  if (ObjectId.isValid(gatedCommunityId)) {
+    gatedCommunityIdVariants.push(new ObjectId(gatedCommunityId));
+  }
+
+  const name = String(gatedCommunity?.name ?? "").trim();
+  const numberOfHouses = Number(gatedCommunity?.numberOfHouses);
+  const targetCount = Number.isFinite(numberOfHouses) && numberOfHouses > 0 ? Math.floor(numberOfHouses) : 0;
+
+  const existingUnits = await unitSchema.find({
+    "gatedCommunity._id": { $in: gatedCommunityIdVariants },
+  }).exec();
+
+  const existingByNumber = new Map<number, any>();
+  for (const unit of existingUnits) {
+    const unitNumber = Number(unit?.number);
+    if (Number.isFinite(unitNumber)) {
+      existingByNumber.set(unitNumber, unit);
+    }
+  }
+
+  const createDocs: Array<any> = [];
+  for (let unitNumber = 1; unitNumber <= targetCount; unitNumber++) {
+    const existing = existingByNumber.get(unitNumber);
+    if (!existing) {
+      createDocs.push({
+        complex: null,
+        gatedCommunity: {
+          _id: gatedCommunityId,
+          name,
+        },
+        number: unitNumber,
+        numberOfParkingBays: 0,
+        users: [],
+      });
+      continue;
+    }
+
+    const currentName = String(existing?.gatedCommunity?.name ?? "").trim();
+    if (currentName !== name) {
+      existing.gatedCommunity = {
+        _id: gatedCommunityId,
+        name,
+      };
+      await existing.save();
+    }
+  }
+
+  if (createDocs.length > 0) {
+    await unitSchema.insertMany(createDocs);
+  }
+
+  const removableUnitIds = existingUnits
+    .filter((unit: any) => {
+      const unitNumber = Number(unit?.number);
+      const users = Array.isArray(unit?.users) ? unit.users : [];
+      return Number.isFinite(unitNumber) && unitNumber > targetCount && users.length === 0;
+    })
+    .map((unit: any) => unit._id);
+
+  if (removableUnitIds.length > 0) {
+    await unitSchema.deleteMany({ _id: { $in: removableUnitIds } });
+  }
+};
 
 gatedCommunityRouter.use(AuthMiddleware);
 
 gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
     const gatedCommunity = req.body as gatedCommunityDTO;
+    delete (req.body as any).unitStart;
+    delete (req.body as any).unitEnd;
+
+    console.log("[gatedCommunity] create request", {
+      name: gatedCommunity.name,
+      numberOfComplexes: gatedCommunity.numberOfComplexes,
+      numberOfHouses: gatedCommunity.numberOfHouses,
+    });
     const gatedCommunityQuery = {
       name: gatedCommunity.name,
     };
@@ -26,10 +108,13 @@ gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), valida
 
     const newGatedCommunity = new gatedCommunitySchema(req.body);
     await newGatedCommunity.save();
+    await syncUnitsForGatedCommunity(newGatedCommunity);
+    console.log("[gatedCommunity] created", { id: newGatedCommunity._id, name: newGatedCommunity.name });
 
     res.status(201).json({ message: "Gated Community added successfully!", payload: newGatedCommunity });
     return;
-  } catch {
+  } catch (error) {
+    console.error("[gatedCommunity] create failed", error);
     res.status(500).json({ message: "Internal Server Error!" });
     return;
   }
@@ -61,7 +146,7 @@ gatedCommunityRouter.get("/", async (req, res) => {
     const gatedCommunities = await gatedCommunitySchema.find({});
 
     if (gatedCommunities.length === 0) {
-      res.status(404).json({ message: "No Gated Communities found!" });
+      res.status(200).json([]);
       return;
     }
 
@@ -74,6 +159,9 @@ gatedCommunityRouter.get("/", async (req, res) => {
 });
 
 gatedCommunityRouter.patch("/:id", validateObjectId, async (req, res) => {
+  delete (req.body as any).unitStart;
+  delete (req.body as any).unitEnd;
+
   const gatedCommunityQuery = {
     $set: req.body as object,
   };
@@ -82,16 +170,42 @@ gatedCommunityRouter.patch("/:id", validateObjectId, async (req, res) => {
   const _id = req.params.id as ObjectId;
 
   try {
-    const updatedGatedCommunity = await gatedCommunitySchema.findOneAndUpdate(_id, gatedCommunityQuery, { new: true });
+    console.log("[gatedCommunity] update request", { id: _id, body: req.body });
+    const existingGatedCommunity = await gatedCommunitySchema.findById(_id);
+    if (existingGatedCommunity === null) {
+      res.status(404).json({ message: "Gated Community does not exist!" });
+      return;
+    }
+
+    const updatedGatedCommunity = await gatedCommunitySchema.findOneAndUpdate({ _id }, gatedCommunityQuery, { new: true });
 
     if (updatedGatedCommunity === null) {
       res.status(404).json({ message: "Gated Community does not exist!" });
       return;
     }
 
+    await syncUnitsForGatedCommunity(updatedGatedCommunity);
+
+    const previousName = existingGatedCommunity.name;
+    const nextName = typeof req.body?.name === "string" ? req.body.name : previousName;
+    if (previousName !== nextName) {
+      await complexSchema.updateMany(
+        { gatedCommunityName: previousName },
+        { $set: { gatedCommunityName: nextName } }
+      );
+      await securityCompanySchema.updateMany(
+        { "contract.gatedCommunityName": previousName },
+        { $set: { "contract.$[elem].gatedCommunityName": nextName } },
+        { arrayFilters: [{ "elem.gatedCommunityName": previousName }] }
+      );
+    }
+
+    console.log("[gatedCommunity] updated", { id: _id, name: nextName });
+
     res.status(200).json({ message: "Gated Community successfully updated!" });
     return;
-  } catch {
+  } catch (error) {
+    console.error("[gatedCommunity] update failed", error);
     res.status(500).json({ message: "Internal Server Error" });
     return;
   }
@@ -103,6 +217,7 @@ gatedCommunityRouter.delete("/:id", validateObjectId, async (req, res) => {
   const _id = req.params.id as ObjectId;
 
   try {
+    console.log("[gatedCommunity] delete request", { id: _id });
     const deletedGatedCommunity = await gatedCommunitySchema.findByIdAndDelete(_id);
 
     if (deletedGatedCommunity === null) {
@@ -110,9 +225,22 @@ gatedCommunityRouter.delete("/:id", validateObjectId, async (req, res) => {
       return;
     }
 
+    const gatedName = deletedGatedCommunity.name;
+    if (gatedName) {
+      await complexSchema.deleteMany({ gatedCommunityName: gatedName });
+      await unitSchema.deleteMany({ "gatedCommunity._id": { $in: [String(deletedGatedCommunity._id), deletedGatedCommunity._id] } });
+      await securityCompanySchema.updateMany(
+        { "contract.gatedCommunityName": gatedName },
+        { $pull: { contract: { gatedCommunityName: gatedName } } }
+      );
+    }
+
+    console.log("[gatedCommunity] deleted", { id: _id, name: gatedName });
+
     res.status(200).json({ message: "Gated Community successfully deleted!" });
     return;
-  } catch {
+  } catch (error) {
+    console.error("[gatedCommunity] delete failed", error);
     res.status(500).json({ message: "Internal Server Error" });
     return;
   }

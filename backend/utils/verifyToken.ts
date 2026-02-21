@@ -1,8 +1,8 @@
 import jsonwebtoken from "jsonwebtoken";
 
 export interface UserPayload {
-    id: string;
-    role: string
+    email: string;
+    role: string[] | string;
 }
 
 export default function VerifyToken(token: string) {

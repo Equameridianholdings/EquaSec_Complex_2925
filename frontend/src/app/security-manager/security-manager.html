@@ -48,6 +48,39 @@
       </div>
     </section>
 
+    <!-- Assigned Gated Communities Section -->
+    <section class="panel-section">
+      <div class="panel-header">
+        <h2>Assigned Gated Communities</h2>
+        <span class="helper">Gated communities under your management</span>
+      </div>
+      <div class="complexes-grid">
+        <div class="complex-card" *ngFor="let community of gatedCommunities">
+          <div class="complex-header">
+            <h3>{{ community.name }}</h3>
+            <span class="badge" [class.active]="community.status === 'active'" [class.inactive]="community.status === 'inactive'">
+              {{ community.status }}
+            </span>
+          </div>
+          <div class="complex-info">
+            <div class="info-row">
+              <span class="label">Parent Complex:</span>
+              <span class="value">{{ getComplexName(community.complexId) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Residents:</span>
+              <span class="value">{{ community.totalResidents }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Type:</span>
+              <span class="value">Gated Community</span>
+            </div>
+          </div>
+          <button class="btn-view" (click)="openGatedCommunityDetails(community)">View Details</button>
+        </div>
+      </div>
+    </section>
+
     <!-- Security Manager Assignment Section -->
     <section class="panel-section">
       <div class="panel-header">
@@ -199,9 +232,9 @@
             <div class="card-info-row">
               <span class="info-label">Location:</span>
               <div class="location-path">
-                <span *ngFor="let part of getTenantLocationPath(tenant); let i = index" class="location-part">
+                <span *ngFor="let part of tenant.locationPath; let i = index" class="location-part">
                   <span class="location-text" [class.location-primary]="i === 0">{{ part }}</span>
-                  <span *ngIf="i < getTenantLocationPath(tenant).length - 1" class="location-arrow">→</span>
+                  <span *ngIf="i < tenant.locationPath.length - 1" class="location-arrow">→</span>
                 </span>
               </div>
               <div class="visitor-location-secondary">{{ tenant.residenceType === 'complex' ? 'Complex' : 'Gated Community' }}</div>
@@ -324,6 +357,62 @@
         </div>
       </ng-template>
     </section>
+
+    <!-- SOS Alerts Section -->
+    <section class="panel-section">
+      <div class="panel-header">
+        <div>
+          <h2>SOS Alerts</h2>
+          <span class="helper">Read-only emergency events (latest first)</span>
+        </div>
+      </div>
+
+      <div class="search-filter visitor-filter">
+        <input type="text" class="search-input" placeholder="Search guard, source, or address..." [(ngModel)]="sosSearchTerm">
+        <select class="filter-select" [(ngModel)]="sosFilterSourceType">
+          <option value="all">All Sources</option>
+          <option value="complex">Complex</option>
+          <option value="gated">Gated Community</option>
+        </select>
+      </div>
+
+      <div class="visitors-table-container" *ngIf="filteredSosAlerts.length > 0; else noSosAlerts">
+        <div class="responsive-table-wrapper">
+          <table class="visitors-table sos-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Guard On Duty</th>
+                <th>Source</th>
+                <th>Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let alert of filteredSosAlerts" class="visitor-table-row" [class.sos-recent-row]="isSosRecent(alert.date)">
+                <td class="col-date">
+                  <span class="date-line">{{ alert.date | date: 'MMM dd, yyyy' }}</span>
+                  <span class="time-line">{{ alert.date | date: 'HH:mm:ss' }}</span>
+                </td>
+                <td class="col-visitor-name">
+                  <strong>{{ alert.guardName }}</strong>
+                  <div class="visitor-location-secondary" *ngIf="alert.guardPhone">{{ alert.guardPhone }}</div>
+                </td>
+                <td class="col-tenant-name">
+                  {{ getSosSourceDisplay(alert) }}
+                  <div class="visitor-location-secondary">{{ alert.stationType === 'gated' ? 'Gated Community' : (alert.stationType === 'complex' ? 'Complex' : 'Unknown') }}</div>
+                </td>
+                <td class="col-unit-location">{{ getSosAddressDisplay(alert) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <ng-template #noSosAlerts>
+        <div class="empty-state">
+          <p>No SOS alerts found for the selected filter.</p>
+        </div>
+      </ng-template>
+    </section>
   </div>
 
   <!-- Add/Edit Employee Modal -->
@@ -353,7 +442,7 @@
           </div>
           <div class="form-group">
             <label for="emp-phone">Phone *</label>
-            <input id="emp-phone" type="tel" class="form-control" placeholder="+27 81 234 5678" [(ngModel)]="employeeForm.phone" name="phone" (blur)="markTouched($event)">
+            <input id="emp-phone" type="tel" class="form-control" placeholder="0123456789" [(ngModel)]="employeeForm.phone" name="phone" inputmode="numeric" maxlength="10" pattern="0[0-9]{9}" (blur)="markTouched($event)">
           </div>
         </div>
 
@@ -451,8 +540,8 @@
           <div class="contract-info-row">
             <span class="contract-info-label">Contract Ends:</span>
             <span class="contract-info-value">{{ selectedComplex?.contractEndDate | date: 'MMM dd, yyyy' }}</span>
-            <span class="days-remaining" [class.warning]="isContractExpiringSoon(selectedComplex?.contractEndDate)" [class.danger]="isContractExpired(selectedComplex?.contractEndDate)">
-              ({{ getContractDaysRemaining(selectedComplex?.contractEndDate) }} days)
+            <span class="days-remaining" [class.warning]="selectedComplexContractExpiringSoon" [class.danger]="selectedComplexContractExpired">
+              ({{ selectedComplexDaysRemaining }} days)
             </span>
           </div>
         </div>
@@ -573,7 +662,7 @@
           </div>
           <div class="form-group">
             <label for="tenant-phone">Phone *</label>
-            <input id="tenant-phone" type="tel" class="form-control" placeholder="+27 81 234 5678" [(ngModel)]="tenantForm.phone" name="phone" required>
+            <input id="tenant-phone" type="tel" class="form-control" placeholder="0123456789" [(ngModel)]="tenantForm.phone" name="phone" inputmode="numeric" maxlength="10" pattern="0[0-9]{9}" required>
           </div>
         </div>
 
@@ -592,8 +681,7 @@
           <div class="form-group">
             <label for="tenant-residence-type">Residence Type *</label>
             <select id="tenant-residence-type" class="form-control" [(ngModel)]="tenantForm.residenceType" name="residenceType" (ngModelChange)="onResidenceTypeChange()" required>
-              <option value="complex">Complex/Apartment</option>
-              <option value="community">Gated Community</option>
+              <option *ngFor="let type of availableTenantResidenceTypes" [value]="type.value">{{ type.label }}</option>
             </select>
           </div>
         </div>
@@ -630,8 +718,8 @@
             <div class="form-group">
               <label for="tenant-community-type">Residence Type in Community *</label>
               <select id="tenant-community-type" class="form-control" [(ngModel)]="tenantForm.communityResidenceType" name="communityResidenceType" (ngModelChange)="onCommunityResidenceTypeChange()" required>
-                <option value="house">Standalone House</option>
-                <option value="complex">Complex/Building</option>
+                <option *ngIf="availableCommunityResidenceTypes.includes('house')" value="house">Standalone House</option>
+                <option *ngIf="availableCommunityResidenceTypes.includes('complex')" value="complex">Complex/Building</option>
               </select>
             </div>
           </div>

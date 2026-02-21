@@ -3,7 +3,7 @@ import { vehicleBodyValidation, vehicleDTO } from "#interfaces/vehicleDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import validateObjectId from "#utils/validateObjectId.js";
-import validateUser from "#utils/validateUser.js";
+import userSchema from "#db/userSchema.js";
 import { Router } from "express";
 import { Request, Response } from "express";
 import { checkSchema } from "express-validator/lib/middlewares/schema.js";
@@ -18,7 +18,7 @@ vehicleRouter.get("/", async (req, res) => {
     const vehicles = await vehicleSchema.find({});
 
     if (vehicles.length === 0) {
-      res.status(404).json({ message: "No Vehicles found!" });
+      res.status(200).json([]);
       return;
     }
 
@@ -43,7 +43,7 @@ vehicleRouter.get("/:id", validateObjectId, async (req, res) => {
     const vehicles = await vehicleSchema.find(vehicleQuery);
 
     if (vehicles.length === 0) {
-      res.status(404).json({ message: "No Vehicles found!" });
+      res.status(200).json([]);
       return;
     }
 
@@ -56,9 +56,14 @@ vehicleRouter.get("/:id", validateObjectId, async (req, res) => {
 });
 
 vehicleRouter.post("/", checkSchema(vehicleBodyValidation), validateSchema, async (req: Request, res: Response) => {
-  const user = await validateUser(req.get('id') as unknown as string);
+  const authReq = req as Request & { userEmail?: string };
+  const userEmail = authReq.userEmail;
+  const user = userEmail ? await userSchema.findOne({ emailAddress: userEmail }) : null;
 
-  if (!user) res.status(401).json("Access Denied!");
+  if (!user) {
+    res.status(401).json("Access Denied!");
+    return;
+  }
 
   const vehicle = req.body as vehicleDTO;
   try {

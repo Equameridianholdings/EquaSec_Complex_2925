@@ -6,17 +6,29 @@ export interface SOSDTO {
     _id?: string;
     date: Date;
     guard: UserDTO;
+    station?: {
+        type?: "complex" | "gated" | "unknown" | string;
+        name?: string;
+        complexId?: string;
+        complexName?: string;
+        complexAddress?: string | null;
+        gatedCommunityId?: string;
+        gatedCommunityName?: string;
+    };
 }
 
 export const sosBodyValidation = checkSchema({
     date: {
-        errorMessage: "Field is required",
-        isDate: true,
-        isEmpty: false,
+        errorMessage: "Invalid date",
+        exists: {
+            errorMessage: "Field is required",
+        },
+        isISO8601: true,
     },
-    gaurd: {
-        errorMessage: "Field is required",
-        isEmpty: false,
+    guard: {
+        exists: {
+            errorMessage: "Field is required",
+        },
         isObject: true,
     },
 });

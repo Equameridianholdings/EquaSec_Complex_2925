@@ -1,6 +1,7 @@
 import complexRouter from "#routes/complex.js";
 import emergencyContactRouter from "#routes/emergenyContact.js";
 import gatedCommunityRouter from "#routes/gatedCommunity.js";
+import guardHistoryRouter from "#routes/guardHistory.js";
 import incidentRouter from "#routes/incident.js";
 import logsRouter from "#routes/logs.js";
 import securityCompanyRouter from "#routes/securityCompany.js";
@@ -26,7 +27,7 @@ const allowedOrigins = ['http://localhost:4200']; // Replace with your frontend 
 // Configure CORS options
 const corsOptions: CorsOptions = {
   credentials: true, // Allow cookies and authentication headers
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify allowed methods
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], // Specify allowed methods
   optionsSuccessStatus: 204, // Use 204 for successful OPTIONS requests
   origin: (origin, callback) => {
     if (allowedOrigins.includes(origin as unknown as string) || !origin) {
@@ -59,5 +60,6 @@ app.use("/securityCompany", securityCompanyRouter);
 app.use("/sos", sosRouter);
 app.use("/vehicle", vehicleRouter);
 app.use("/gatedCommunity", gatedCommunityRouter);
+app.use("/guardHistory", guardHistoryRouter);
 
 export default app;

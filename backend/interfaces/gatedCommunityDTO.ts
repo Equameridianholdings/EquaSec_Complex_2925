@@ -5,6 +5,7 @@ export interface gatedCommunityDTO {
     name: string;
     numberOfComplexes: number;
     numberOfHouses: number;
+    price: number;
 }
 
 export const gatedCommunityBodyValidation: Schema = {
@@ -16,6 +17,11 @@ export const gatedCommunityBodyValidation: Schema = {
         isNumeric: true,
     },
     numberOfHouses: {
+        errorMessage: "Field must be numeric",
+        isEmpty: false,
+        isNumeric: true,
+    },
+    price: {
         isNumeric: true,
     },
 }

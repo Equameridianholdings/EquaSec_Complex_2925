@@ -1056,6 +1056,27 @@ table tbody tr:hover {
 	vertical-align: middle;
 }
 
+.sos-table .col-date {
+	min-width: 150px;
+}
+
+.sos-table .col-visitor-name {
+	min-width: 180px;
+}
+
+.sos-table .col-tenant-name {
+	min-width: 180px;
+}
+
+.sos-table .sos-recent-row {
+	background: rgba(220, 38, 38, 0.08);
+	border-left: 4px solid #dc2626;
+}
+
+.sos-table .sos-recent-row:hover {
+	background: rgba(220, 38, 38, 0.14);
+}
+
 /* Empty State */
 .empty-state {
 	text-align: center;

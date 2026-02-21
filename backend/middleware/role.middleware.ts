@@ -1,8 +1,11 @@
-import { NextFunction, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 
 const RoleMiddleware = (requiredRole: string[]) => {
     return function (req: Request, res: Response, next: NextFunction) {
-        if (!requiredRole.includes(req.headers.get('role') as unknown as string)) {
+        const authReq = req as Request & { userRoles?: string[] };
+        const userRoles = authReq.userRoles ?? [];
+
+        if (!requiredRole.some((role) => userRoles.includes(role))) {
             res.status(403).json({ message: "Access Forbidden!"});
             return;
         }

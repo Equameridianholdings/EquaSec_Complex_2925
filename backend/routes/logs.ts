@@ -15,7 +15,7 @@ logsRouter.get("/", async (req, res) => {
     const logs = await logSchema.find({});
 
     if (logs.length === 0) {
-      res.status(404).json({ message: "No logs found!" });
+      res.status(200).json([]);
       return;
     }
 
