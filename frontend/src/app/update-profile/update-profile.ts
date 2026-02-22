@@ -50,12 +50,16 @@ export class UpdateProfile implements OnInit {
 
   onChange(event: any) {
     // Track the fields that are being updated
+    const inputElement = event.target as HTMLInputElement;
+    const propertyName = inputElement.name;
+    const value = inputElement.value;
 
+    this.updatedUser = { ...this.updatedUser, [propertyName]: value };
   }
 
   saveChanges() {
     // TODO: Validations on data
-
+    
     this.service.put<ResponseBody>('user/', this.updatedUser).subscribe({
       next: (res) => {
         console.log(res.message);

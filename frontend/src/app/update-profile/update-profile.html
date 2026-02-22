@@ -6,6 +6,7 @@
     aria-labelledby="update-details-title"
     (click)="$event.stopPropagation()"
     (ngSubmit)="saveChanges()"
+    #profileForm="ngForm"
   >
     <div class="modal-header">
       <h2 id="update-details-title">Update My Details</h2>
@@ -22,7 +23,8 @@
               type="text"
               class="form-control"
               placeholder="Enter your name"
-              [(ngModel)]="user.name"
+              (change)="onChange($event)"
+              name="name"
             />
           </div>
           <div class="form-group">
@@ -31,7 +33,8 @@
               type="text"
               class="form-control"
               placeholder="Enter your surname"
-              [(ngModel)]="user.surname"
+              (change)="onChange($event)"
+              name="surname"
             />
           </div>
         </div>
@@ -52,7 +55,8 @@
               type="tel"
               class="form-control"
               placeholder="Enter your phone number"
-              [(ngModel)]="user.cellNumber"
+              (change)="onChange($event)"
+              name="cellNumber"
             />
           </div>
         </div>
