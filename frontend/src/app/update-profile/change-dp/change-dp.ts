@@ -12,7 +12,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 export class ChangeDp {
   dialogRef = inject(MatDialogRef<ChangeDp>);
   user: UserDTO = inject(MAT_DIALOG_DATA);
-  
+
   profilePhotoData: string = '';
   cameraError: string = '';
   hasCameraStream: boolean = true;
@@ -21,15 +21,9 @@ export class ChangeDp {
     this.dialogRef.close();
   }
 
-  captureProfilePhoto() {
+  captureProfilePhoto() {}
 
-  }
+  startProfileCamera() {}
 
-  startProfileCamera() {
-
-  }
-
-  retakeProfilePhoto() {
-
-  }
+  retakeProfilePhoto() {}
 }

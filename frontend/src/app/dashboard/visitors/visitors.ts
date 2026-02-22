@@ -1,6 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { visitorDTO } from '../../interfaces/visitorDTO';
-import { VisitorCard } from "../../components/visitor-card/visitor-card";
+import { VisitorCard } from '../../components/visitor-card/visitor-card';
 import { DataService } from '../../services/data.service';
 import { ResponseBody } from '../../interfaces/ResponseBody';
 
@@ -16,14 +16,14 @@ export class Visitors implements OnInit {
   visitors: visitorDTO[] = [];
 
   ngOnInit(): void {
-    this.service.get<ResponseBody>("visitor/user/").subscribe({
-      next: res => {
+    this.service.get<ResponseBody>('visitor/user').subscribe({
+      next: (res) => {
         console.log(res.message);
         this.visitors = res.payload;
       },
-      error: err => {
+      error: (err) => {
         console.error(err.message);
-      }
-    })
+      },
+    });
   }
 }

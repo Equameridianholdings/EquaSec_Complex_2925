@@ -11,17 +11,17 @@ import { ResponseBody } from '../../interfaces/ResponseBody';
 })
 export class Vehicles implements OnInit {
   service = inject(DataService);
-  unitVehicles: vehicleDTO[] = []
+  unitVehicles: vehicleDTO[] = [];
 
   ngOnInit(): void {
-    this.service.get<ResponseBody>("vehicle/user/").subscribe({
-      next: res => {
-        console.log(res.message)
+    this.service.get<ResponseBody>('vehicle/user').subscribe({
+      next: (res) => {
+        console.log(res.message);
         this.unitVehicles = res.payload as vehicleDTO[];
       },
-      error: err => {
-        console.error(err.message)
-      }
+      error: (err) => {
+        console.error(err.message);
+      },
     });
   }
 }

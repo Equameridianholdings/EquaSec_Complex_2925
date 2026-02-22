@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { AfterViewInit, Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UserDTO } from '../../interfaces/userDTO';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -11,11 +11,25 @@ import { ResponseBody } from '../../interfaces/ResponseBody';
   templateUrl: './change-pin.html',
   styleUrl: '../../dashboard/dashboard.css',
 })
-export class ChangePin {
+export class ChangePin implements AfterViewInit {
   service = inject(DataService);
   dialogRef = inject(MatDialogRef<ChangePin>);
 
-  user: UserDTO = inject(MAT_DIALOG_DATA); //import for password verifications
+  user?: UserDTO = inject(MAT_DIALOG_DATA); //import for password verifications
+
+  ngAfterViewInit(): void {
+    if (!this.user) {
+      this.service.get<ResponseBody>('user/current').subscribe({
+        next: (res) => {
+          console.log(res.message);
+          this.user = res.payload as UserDTO;
+        },
+        error: (err) => {
+          console.error(err.message);
+        },
+      });
+    }
+  }
 
   oldPassword: number[] = [0, 0, 0, 0, 0, 0];
   newPassword: number[] = [0, 0, 0, 0, 0, 0];

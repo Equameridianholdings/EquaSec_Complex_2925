@@ -39,7 +39,7 @@ export class BookVisitor {
   openConfirmationModal() {
     this.dialog.open(ConfirmVisitor, {
       data: this.newVisitor,
-    })
+    });
     this.dialogRef.close();
   }
 }

@@ -21,7 +21,7 @@ export class UpdateProfile implements OnInit {
   updatedUser: any = {};
 
   ngOnInit(): void {
-    this.service.get<ResponseBody>('user/').subscribe({
+    this.service.get<ResponseBody>('user/current').subscribe({
       next: (res) => {
         console.log(res.message);
         this.user = res.payload as UserDTO;

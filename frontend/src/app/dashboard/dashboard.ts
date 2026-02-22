@@ -1,27 +1,33 @@
 import { MatDialog } from '@angular/material/dialog';
 import { Component, ElementRef, inject, OnDestroy, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { BookVisitor } from './visitors/book-visitor/book-visitor';
-import { Visitors } from "./visitors/visitors";
 import { UpdateProfile } from '../update-profile/update-profile';
 import { ChangePin } from '../update-profile/change-pin/change-pin';
 import { StorageService } from '../services/storage.service';
-import { UserDTO } from '../interfaces/userDTO';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [FormsModule, Visitors],
+  imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
 export class Dashboard implements OnDestroy {
-  @ViewChild('cameraInput') cameraInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('profileCameraVideo') private readonly profileCameraVideo?: ElementRef<HTMLVideoElement>;
-  @ViewChild('profileCameraCanvas') private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
+  menuOpen = false;
 
-  user!: UserDTO;
+  tabs = [
+    { label: 'Visitors', path: '/dashboard/visitors', exact: true },
+    { label: 'Unit', path: '/dashboard/units', exact: false },
+    { label: 'Vehicles', path: '/dashboard/vehicles', exact: false },
+  ];
+
+  @ViewChild('cameraInput') cameraInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('profileCameraVideo')
+  private readonly profileCameraVideo?: ElementRef<HTMLVideoElement>;
+  @ViewChild('profileCameraCanvas')
+  private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
 
   protected isHoldingSos = false;
   protected showSosSuccess = false;
@@ -37,46 +43,21 @@ export class Dashboard implements OnDestroy {
   protected readonly profileName = 'Kamo';
   protected readonly profilePhotoUrl = '';
 
-  // Unit residents and vehicles
-  protected unitResidents = [
-    {
-      name: 'Kamo Moloi',
-      email: 'kamo.moloi@example.com',
-      phone: '+27 82 555 0198',
-      idNumber: '9012155123088',
-    },
-    {
-      name: 'Sarah Moloi',
-      email: 'sarah.moloi@example.com',
-      phone: '+27 83 444 0123',
-      idNumber: '8805205234089',
-    },
-  ];
-
-  protected unitVehicles = [
-    {
-      make: 'Toyota',
-      model: 'Corolla',
-      reg: 'ABC 123 GP',
-      color: 'Silver',
-      owner: 'Kamo Moloi',
-    },
-    {
-      make: 'Honda',
-      model: 'Civic',
-      reg: 'XYZ 456 GP',
-      color: 'Blue',
-      owner: 'Sarah Moloi',
-    },
-  ];
-
   constructor(private readonly router: Router) {}
 
   dialog = inject(MatDialog);
   storage = inject(StorageService);
 
   openBookingModal() {
-    this.dialog.open(BookVisitor)
+    this.dialog.open(BookVisitor);
+  }
+
+  openChangePinModal() {
+    this.dialog.open(ChangePin);
+  }
+
+  openUpdateDetailsModal() {
+    this.dialog.open(UpdateProfile);
   }
 
   protected startSosHold(event: Event): void {
@@ -122,14 +103,6 @@ export class Dashboard implements OnDestroy {
       window.clearTimeout(this.sosAutoCloseTimer);
       this.sosAutoCloseTimer = null;
     }
-  }
-
-  openChangePinModal() {
-    this.dialog.open(ChangePin);
-  }
-
-  openUpdateDetailsModal() {
-    this.dialog.open(UpdateProfile);
   }
 
   protected triggerCameraInput(): void {
@@ -234,7 +207,7 @@ export class Dashboard implements OnDestroy {
   }
 
   logout() {
-    this.storage.removeItem("bearer-token");
+    this.storage.removeItem('bearer-token');
     this.router.navigate(['/login']);
   }
 

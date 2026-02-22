@@ -192,11 +192,7 @@
 
       <div class="modal-actions">
         <button type="button" class="btn-secondary" (click)="closeModal()">Cancel</button>
-        <button
-          type="submit"
-          class="btn-main"
-          [disabled]="!bookingForm.checkValidity()"
-        >
+        <button type="submit" class="btn-main" [disabled]="!bookingForm.checkValidity()">
           Create Booking
         </button>
       </div>

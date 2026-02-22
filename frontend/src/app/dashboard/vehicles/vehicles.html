@@ -1,26 +1,30 @@
 <div class="section-header">
-  <h3>Unit Residents & Vehicles</h3>
+  <h3>Unit Vehicles</h3>
 </div>
 
 <div class="unit-info-section">
   <div class="info-subsection">
     <h4>Registered Vehicles</h4>
-    <!-- Wrap this and unit component if-else to handle for empty array -->
-    <div class="vehicle-list">
-      @for (vehicle of unitVehicles; track $index) {
-        <div class="vehicle-card">
-          <div class="vehicle-info">
-            <div class="vehicle-header">
-              <span class="plate-badge">{{ vehicle.registrationNumber }}</span>
-              <span class="vehicle-details">{{ vehicle.make }} {{ vehicle.model }}</span>
-            </div>
-            <div class="vehicle-meta">
-              <small>Color: {{ vehicle.colour }}</small>
-              <small>Owner: {{ vehicle.user?.name }}</small>
+
+    @if (unitVehicles.length > 0) {
+      <div class="vehicle-list">
+        @for (vehicle of unitVehicles; track $index) {
+          <div class="vehicle-card">
+            <div class="vehicle-info">
+              <div class="vehicle-header">
+                <span class="plate-badge">{{ vehicle.registrationNumber }}</span>
+                <span class="vehicle-details">{{ vehicle.make }} {{ vehicle.model }}</span>
+              </div>
+              <div class="vehicle-meta">
+                <small>Color: {{ vehicle.colour }}</small>
+                <small>Owner: {{ vehicle.user?.name }}</small>
+              </div>
             </div>
           </div>
-        </div>
-      }
-    </div>
+        }
+      </div>
+    } @else {
+      <div>No vehicles registered.</div>
+    }
   </div>
 </div>

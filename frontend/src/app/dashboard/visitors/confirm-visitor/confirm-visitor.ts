@@ -2,6 +2,8 @@ import { Component, inject, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { shareCode, visitorDTO } from '../../../interfaces/visitorDTO';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { DataService } from '../../../services/data.service';
+import { ResponseBody } from '../../../interfaces/ResponseBody';
 
 @Component({
   selector: 'app-confirm-visitor',
@@ -10,11 +12,12 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
   styleUrl: '../../dashboard.css',
 })
 export class ConfirmVisitor {
+  service = inject(DataService);
   readonly dialogRef = inject(MatDialogRef<ConfirmVisitor>);
   visitor: visitorDTO = inject(MAT_DIALOG_DATA);
-  
-  @Input() visitorIdNumber!: string;
-  
+
+  visitorIdNumber!: string;
+
   closeModal() {
     this.dialogRef.close();
   }
@@ -25,7 +28,14 @@ export class ConfirmVisitor {
 
   confirmBooking() {
     // Make POST request to visitor/ endpoint before confirmation
-    this.dialogRef.close();
+    this.service.post<ResponseBody>('visitor/', this.visitor).subscribe({
+      next: (res) => {
+        console.log(res.message);
+        this.dialogRef.close();
+      },
+      error: (err) => {
+        console.error(err.message);
+      },
+    });
   }
-
 }
