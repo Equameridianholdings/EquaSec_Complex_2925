@@ -1,0 +1,205 @@
+<div class="modal-backdrop" (click)="closeModal()">
+  <div
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="booking-title"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-header">
+      <h2 id="booking-title">Book a Visitor</h2>
+      <button class="btn-icon" type="button" (click)="closeModal()">✕</button>
+    </div>
+
+    <form class="modal-form" #bookingForm (ngSubmit)="openConfirmationModal()">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="visitorName">Name</label>
+          <input
+            id="visitorName"
+            name="visitorName"
+            type="text"
+            class="form-control"
+            placeholder="Visitor name"
+            [(ngModel)]="newVisitor.name"
+            required
+            #visitorNameInput
+          />
+          @if (visitorNameInput.classList.contains('touched') && !visitorNameInput.validity.valid) {
+            <small class="error">Name is required.</small>
+          }
+        </div>
+        <div class="form-group">
+          <label for="visitorSurname">Surname</label>
+          <input
+            id="visitorSurname"
+            name="visitorSurname"
+            type="text"
+            class="form-control"
+            placeholder="Visitor surname"
+            [(ngModel)]="newVisitor.surname"
+            required
+            #visitorSurnameInput
+          />
+          @if (
+            visitorSurnameInput.classList.contains('touched') && !visitorSurnameInput.validity.valid
+          ) {
+            <small class="error">Surname is required.</small>
+          }
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="visitorCell">Cellphone</label>
+          <input
+            id="visitorCell"
+            name="visitorCell"
+            type="tel"
+            class="form-control"
+            placeholder="e.g. 0821234567"
+            inputmode="numeric"
+            pattern="0[0-9]{9}"
+            maxlength="10"
+            [(ngModel)]="newVisitor.contact"
+            required
+            #visitorCellInput
+          />
+          @if (
+            visitorCellInput.classList.contains('touched') && visitorCellInput.validity.valueMissing
+          ) {
+            <small class="error">Cellphone is required.</small>
+          }
+          @if (
+            visitorCellInput.classList.contains('touched') &&
+            visitorCellInput.validity.patternMismatch
+          ) {
+            <small class="error">Must start with 0 and be 10 digits.</small>
+          }
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="visitorIdNumber">ID Number (Optional)</label>
+          <input
+            id="visitorIdNumber"
+            name="visitorIdNumber"
+            type="text"
+            class="form-control"
+            placeholder="13-digit ID number"
+            inputmode="numeric"
+            maxlength="13"
+            [(ngModel)]="visitorIdNumber"
+            #visitorIdNumberInput
+          />
+          <small>Optional. 13 digits if provided.</small>
+        </div>
+        <div class="form-group">
+          <label for="visitorDriving">Book in car?</label>
+          <label class="toggle">
+            <input
+              id="visitorDriving"
+              name="visitorDriving"
+              type="checkbox"
+              [(ngModel)]="newVisitor.driving"
+            />
+            <span class="toggle-track" aria-hidden="true"></span>
+            <span class="toggle-label">{{ newVisitor.driving ? 'Yes' : 'No' }}</span>
+          </label>
+        </div>
+      </div>
+      @if (newVisitor.driving) {
+        <div class="form-row">
+          <div class="form-group">
+            <label for="vehicleMake">Make</label>
+            <input
+              id="vehicleMake"
+              name="vehicleMake"
+              type="text"
+              class="form-control"
+              placeholder="e.g. Toyota"
+              [(ngModel)]="newVisitor.vehicle.make"
+              required
+              #vehicleMakeInput
+            />
+            @if (
+              vehicleMakeInput.classList.contains('touched') && !vehicleMakeInput.validity.valid
+            ) {
+              <small class="error">Make is required.</small>
+            }
+          </div>
+          <div class="form-group">
+            <label for="vehicleModel">Model</label>
+            <input
+              id="vehicleModel"
+              name="vehicleModel"
+              type="text"
+              class="form-control"
+              placeholder="e.g. Corolla"
+              [(ngModel)]="newVisitor.vehicle.model"
+              required
+              #vehicleModelInput
+            />
+            @if (
+              vehicleModelInput.classList.contains('touched') && !vehicleModelInput.validity.valid
+            ) {
+              <small class="error">Model is required.</small>
+            }
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="vehicleReg">Registration Number</label>
+            <input
+              id="vehicleReg"
+              name="vehicleReg"
+              type="text"
+              class="form-control"
+              placeholder="e.g. ABC 123 GP"
+              [(ngModel)]="newVisitor.vehicle.registrationNumber"
+              required
+              #vehicleRegInput
+            />
+            @if (vehicleRegInput.classList.contains('touched') && !vehicleRegInput.validity.valid) {
+              <small class="error">Registration number is required.</small>
+            }
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="vehicleColor">Vehicle Colour</label>
+            <input
+              id="vehicleColor"
+              name="vehicleColor"
+              type="text"
+              class="form-control"
+              placeholder="e.g. Silver"
+              [(ngModel)]="newVisitor.vehicle.colour"
+              required
+              #vehicleColorInput
+            />
+            @if (
+              vehicleColorInput.classList.contains('touched') && !vehicleColorInput.validity.valid
+            ) {
+              <small class="error">Vehicle colour is required.</small>
+            }
+          </div>
+        </div>
+      }
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="closeModal()">Cancel</button>
+        <button
+          type="submit"
+          class="btn-main"
+          [disabled]="!bookingForm.checkValidity()"
+        >
+          Create Booking
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

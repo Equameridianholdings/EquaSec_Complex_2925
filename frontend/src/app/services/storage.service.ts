@@ -25,4 +25,10 @@ export class StorageService {
     return null;
   }
   // ... other methods
+  removeItem(key: string): void {
+    if (this.isBrowser) {
+      return localStorage.removeItem(key);
+    }
+    return;
+  }
 }

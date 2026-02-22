@@ -9,9 +9,16 @@ import { clientInterceptor } from './client-interceptor';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes), 
+    provideRouter(routes),
     provideClientHydration(withEventReplay()),
     provideHttpClient(withFetch()),
     provideHttpClient(withInterceptors([clientInterceptor])),
-  ]
+    {
+      provide: {
+        enterAnimationDuration: '200ms',
+        exitAnimationDuration: '100ms',
+      },
+      useValue: { hasBackdrop: false },
+    },
+  ],
 };

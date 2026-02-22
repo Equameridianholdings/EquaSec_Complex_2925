@@ -1,0 +1,73 @@
+<div class="modal-backdrop" (click)="closeModal()">
+  <form
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="update-details-title"
+    (click)="$event.stopPropagation()"
+    (ngSubmit)="saveChanges()"
+  >
+    <div class="modal-header">
+      <h2 id="update-details-title">Update My Details</h2>
+      <button class="btn-icon" type="button" (click)="closeModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="detail-section">
+        <h3>Personal Information</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Name</label>
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Enter your name"
+              [(ngModel)]="user.name"
+            />
+          </div>
+          <div class="form-group">
+            <label>Surname</label>
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Enter your surname"
+              [(ngModel)]="user.surname"
+            />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              class="form-control"
+              placeholder="Enter your email"
+              [disabled]="true"
+              [value]="user.emailAddress"
+            />
+          </div>
+          <div class="form-group">
+            <label>Phone Number</label>
+            <input
+              type="tel"
+              class="form-control"
+              placeholder="Enter your phone number"
+              [(ngModel)]="user.cellNumber"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" (click)="openChangePinModal()">Update Profile Pic</button>
+      <button type="button" class="btn-secondary" (click)="openChangePinModal()">Change Pin</button>
+      <button type="button" class="btn-secondary" (click)="closeModal()">
+        <span class="btn-icon-inline">✕</span>Cancel
+      </button>
+      <button type="submit" class="btn-main">
+        <span class="btn-icon-inline">✓</span>Save Changes
+      </button>
+    </div>
+  </form>
+</div>

@@ -1,12 +1,18 @@
-import { CommonModule } from '@angular/common';
-import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
+import { Component, ElementRef, inject, OnDestroy, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { BookVisitor } from './visitors/book-visitor/book-visitor';
+import { Visitors } from "./visitors/visitors";
+import { UpdateProfile } from '../update-profile/update-profile';
+import { ChangePin } from '../update-profile/change-pin/change-pin';
+import { StorageService } from '../services/storage.service';
+import { UserDTO } from '../interfaces/userDTO';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule, Visitors],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
@@ -15,20 +21,13 @@ export class Dashboard implements OnDestroy {
   @ViewChild('profileCameraVideo') private readonly profileCameraVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('profileCameraCanvas') private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
 
-  protected isBookingModalOpen = false;
-  protected isConfirmationModalOpen = false;
+  user!: UserDTO;
+
   protected isHoldingSos = false;
   protected showSosSuccess = false;
-  protected isUpdateDetailsModalOpen = false;
-  protected isChangePinModalOpen = false;
+
   protected profilePhotoData = '';
-  protected changePinDigits = {
-    current: ['', '', '', '', '', ''],
-    new: ['', '', '', '', '', ''],
-    confirm: ['', '', '', '', '', '']
-  };
-  protected changePinError = '';
-  protected changePinSuccess = '';
+
   protected cameraError = '';
   protected hasCameraStream = false;
   protected isPhotoCameraModalOpen = false;
@@ -37,15 +36,6 @@ export class Dashboard implements OnDestroy {
   private sosAutoCloseTimer: number | null = null;
   protected readonly profileName = 'Kamo';
   protected readonly profilePhotoUrl = '';
-  protected isDriving = false;
-  protected visitorName = '';
-  protected visitorSurname = '';
-  protected visitorCell = '';
-  protected visitorIdNumber = '';
-  protected vehicleMake = '';
-  protected vehicleModel = '';
-  protected vehicleReg = '';
-  protected vehicleColor = '';
 
   // Unit residents and vehicles
   protected unitResidents = [
@@ -82,8 +72,11 @@ export class Dashboard implements OnDestroy {
 
   constructor(private readonly router: Router) {}
 
-  protected openBookingModal(): void {
-    this.isBookingModalOpen = true;
+  dialog = inject(MatDialog);
+  storage = inject(StorageService);
+
+  openBookingModal() {
+    this.dialog.open(BookVisitor)
   }
 
   protected startSosHold(event: Event): void {
@@ -131,138 +124,12 @@ export class Dashboard implements OnDestroy {
     }
   }
 
-  protected closeBookingModal(): void {
-    this.isBookingModalOpen = false;
-    this.resetBookingForm();
+  openChangePinModal() {
+    this.dialog.open(ChangePin);
   }
 
-  protected openUpdateDetailsModal(): void {
-    this.isUpdateDetailsModalOpen = true;
-  }
-
-  protected closeUpdateDetailsModal(): void {
-    this.isUpdateDetailsModalOpen = false;
-  }
-
-  protected openChangePinModal(): void {
-    this.isChangePinModalOpen = true;
-    this.changePinDigits = {
-      current: ['', '', '', '', '', ''],
-      new: ['', '', '', '', '', ''],
-      confirm: ['', '', '', '', '', '']
-    };
-    this.changePinError = '';
-    this.changePinSuccess = '';
-  }
-
-  protected closeChangePinModal(): void {
-    this.isChangePinModalOpen = false;
-  }
-
-  protected onCurrentPinInput(event: Event, index: number): void {
-    const input = event.target as HTMLInputElement | null;
-    if (!input) {
-      return;
-    }
-
-    const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
-    input.value = digit;
-    this.changePinDigits.current[index] = digit;
-
-    if (digit && input.nextElementSibling instanceof HTMLInputElement) {
-      input.nextElementSibling.focus();
-    }
-  }
-
-  protected onNewPinInput(event: Event, index: number): void {
-    const input = event.target as HTMLInputElement | null;
-    if (!input) {
-      return;
-    }
-
-    const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
-    input.value = digit;
-    this.changePinDigits.new[index] = digit;
-
-    if (digit && input.nextElementSibling instanceof HTMLInputElement) {
-      input.nextElementSibling.focus();
-    }
-  }
-
-  protected onConfirmPinInput(event: Event, index: number): void {
-    const input = event.target as HTMLInputElement | null;
-    if (!input) {
-      return;
-    }
-
-    const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
-    input.value = digit;
-    this.changePinDigits.confirm[index] = digit;
-
-    if (digit && input.nextElementSibling instanceof HTMLInputElement) {
-      input.nextElementSibling.focus();
-    }
-  }
-
-  protected onPinKeydown(event: KeyboardEvent, index: number, type: 'current' | 'new' | 'confirm'): void {
-    const input = event.target as HTMLInputElement | null;
-    if (!input) {
-      return;
-    }
-
-    if (event.key === 'Backspace' && !input.value) {
-      const prev = input.previousElementSibling;
-      if (prev instanceof HTMLInputElement) {
-        this.changePinDigits[type][index - 1] = '';
-        prev.focus();
-      }
-    }
-  }
-
-  protected submitChangePinForm(): void {
-    const currentPin = this.changePinDigits.current.join('');
-    const newPin = this.changePinDigits.new.join('');
-    const confirmPin = this.changePinDigits.confirm.join('');
-
-    // Validate all PINs are 6 digits
-    if (currentPin.length !== 6 || !/^\d+$/.test(currentPin)) {
-      this.changePinError = 'Current PIN must be 6 digits.';
-      this.changePinSuccess = '';
-      return;
-    }
-
-    if (newPin.length !== 6 || !/^\d+$/.test(newPin)) {
-      this.changePinError = 'New PIN must be 6 digits.';
-      this.changePinSuccess = '';
-      return;
-    }
-
-    if (confirmPin.length !== 6 || !/^\d+$/.test(confirmPin)) {
-      this.changePinError = 'Confirm PIN must be 6 digits.';
-      this.changePinSuccess = '';
-      return;
-    }
-
-    // Validate PIN confirmation
-    if (newPin !== confirmPin) {
-      this.changePinError = 'New PINs do not match.';
-      this.changePinSuccess = '';
-      return;
-    }
-
-    // Check if current PIN matches new PIN
-    if (currentPin === newPin) {
-      this.changePinError = 'New PIN cannot be the same as current PIN.';
-      this.changePinSuccess = '';
-      return;
-    }
-
-    // Success
-    this.changePinError = '';
-    this.changePinSuccess = 'PIN changed successfully!';
-    setTimeout(() => {
-      this.closeChangePinModal();
-    }, 2000);
+  openUpdateDetailsModal() {
+    this.dialog.open(UpdateProfile);
   }
 
   protected triggerCameraInput(): void {
@@ -351,20 +218,6 @@ export class Dashboard implements OnDestroy {
     }
   }
 
-  protected openConfirmationModal(): void {
-    this.isBookingModalOpen = false;
-    this.isConfirmationModalOpen = true;
-  }
-
-  protected closeConfirmationModal(): void {
-    this.isConfirmationModalOpen = false;
-    this.resetBookingForm();
-  }
-
-  protected get transportModeLabel(): string {
-    return this.isDriving ? 'Car' : 'On foot';
-  }
-
   protected get greetingLabel(): string {
     const hour = new Date().getHours();
     if (hour < 12) {
@@ -380,34 +233,9 @@ export class Dashboard implements OnDestroy {
     return (this.profileName || 'User').trim().slice(0, 2).toUpperCase();
   }
 
-  protected goToGuardLogin(): void {
-    void this.router.navigate(['/guard-login']);
-  }
-
-  private resetBookingForm(): void {
-    this.isDriving = false;
-    this.visitorName = '';
-    this.visitorSurname = '';
-    this.visitorCell = '';
-    this.visitorIdNumber = '';
-    this.vehicleMake = '';
-    this.vehicleModel = '';
-    this.vehicleReg = '';
-    this.vehicleColor = '';
-  }
-
-  protected markTouched(event: Event): void {
-    const input = event.target as HTMLInputElement | HTMLSelectElement | null;
-    if (!input) {
-      return;
-    }
-    input.classList.add('touched');
-  }
-
-  protected shareVisitorCode(code: string, visitorName: string, expiresIn: string): void {
-    const message = encodeURIComponent(`Your visitor access code is: ${code}\n\nVisitor: ${visitorName}\nExpires: ${expiresIn}\n\nPlease share this with your visitor.`);
-    const whatsappURL = `https://wa.me/?text=${message}`;
-    window.open(whatsappURL, '_blank');
+  logout() {
+    this.storage.removeItem("bearer-token");
+    this.router.navigate(['/login']);
   }
 
   public ngOnDestroy(): void {

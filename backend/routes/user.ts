@@ -5,6 +5,7 @@ import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 // import { encrypt } from "#utils/encryption.js";
 import GenerateJWT from "#utils/generateJWT.js";
+import { ValidObjectId } from "#utils/ValidObjectId.js";
 import VerifyToken from "#utils/verifyToken.js";
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
@@ -22,7 +23,7 @@ userRouter.post(
   body("confirmPassword")
     .custom((value, { req }) => {
       const user = req.body as UserDTO;
-      return value === user.password as unknown as string;
+      return value === (user.password as unknown as string);
     })
     .withMessage("Passwords do not match."),
   // body("idNumber")
@@ -31,7 +32,7 @@ userRouter.post(
   //   })
   //   .withMessage("Invalid Id number!"),
   body("complex")
-    .custom((value) => {      
+    .custom((value) => {
       if (!isKeyObject(value)) return {};
 
       return value as unknown as complexDTO;
@@ -55,7 +56,7 @@ userRouter.post(
 
       return res.status(201).json({ message: "User successfully added!", payload: newUser });
     } catch {
-      return res.status(500).json({ message: "Internal Server Error"});
+      return res.status(500).json({ message: "Internal Server Error" });
     }
   },
 );
@@ -81,27 +82,30 @@ const loginBodyValidation: Schema = {
 };
 userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
-    const body = req.body as { emailAddress: string; password: string; };
+    const body = req.body as { emailAddress: string; password: string };
 
-    const user = await userSchema.find<UserDTO>({
-      emailAddress: body.emailAddress,
-    }).select({}).exec();
-    
-    if (user.length === 0) return res.status(401).json({message: "Invaild login details!"});
+    const user = await userSchema
+      .find<UserDTO>({
+        emailAddress: body.emailAddress,
+      })
+      .select({})
+      .exec();
+
+    if (user.length === 0) return res.status(401).json({ message: "Invaild login details!" });
 
     const hashedPassword = await bcrypt.hash(body.password as unknown as string, user[0].salt as unknown as string);
     const isValidPassword = user[0].password === hashedPassword;
 
-    if (!isValidPassword) return res.status(401).json({message: "Invalid login details"});
+    if (!isValidPassword) return res.status(401).json({ message: "Invalid login details" });
 
     //Issue jwt
     const token = GenerateJWT(user[0].emailAddress, user[0].type);
-    
+
     if (VerifyToken(token)) return res.status(200).json({ message: "Logged in successfully", payload: { token: token, type: user[0].type } }); //return jwt token
 
-    return res.status(500).json({message: "Error issuing valid token signature. Please try again later."});
+    return res.status(500).json({ message: "Error issuing valid token signature. Please try again later." });
   } catch {
-    return res.status(500).json({message: "Internal Server Error"});
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -142,32 +146,38 @@ userRouter.patch("/update", AuthMiddleware, async (req, res) => {
 userRouter.get("/current", AuthMiddleware, async (req, res) => {
   try {
     //Update to validate user utility
-    const objectId = new ObjectId(req.get('id') as unknown as string);
-    const user = await userSchema.findOne({ _id: objectId });
+    if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request." });
+
+    const _id = ValidObjectId(req.get("id") as unknown as string);
+
+    const user = await userSchema.findById(_id).exec();
 
     if (user) {
-      return res.status(200).json(user);
+      return res.status(200).json({message: "Successfully retrieved User!", payload: user});
     } else {
-      return res.status(404).send("User details not found!");
-    }
-  } catch {
-    return res.status(500).send("Internal Server Error");
-  }
-});
-
-userRouter.get("/", /*AuthMiddleware,*/ async (req, res) => {
-  try {
-    // if (!isValidObjectID(req.params.id as string)) return res.status(400).send("Bad Request! Invalid Id");
-    const users = await userSchema.find({}).select({}).exec();
-
-    if (users.length > 0) {
-      return res.status(200).json({message: "Users found", payload: users});
-    } else {
-      return res.status(404).json({message: "Users not found!"});
+      return res.status(404).json({message: "User details not found!"});
     }
   } catch {
     return res.status(500).json({message: "Internal Server Error"});
   }
 });
+
+userRouter.get(
+  "/",
+  /*AuthMiddleware,*/ async (req, res) => {
+    try {
+      // if (!isValidObjectID(req.params.id as string)) return res.status(400).send("Bad Request! Invalid Id");
+      const users = await userSchema.find({}).select({}).exec();
+
+      if (users.length > 0) {
+        return res.status(200).json({ message: "Users found", payload: users });
+      } else {
+        return res.status(404).json({ message: "Users not found!" });
+      }
+    } catch {
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
+);
 
 export default userRouter;

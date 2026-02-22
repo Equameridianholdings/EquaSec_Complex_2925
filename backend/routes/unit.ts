@@ -1,18 +1,17 @@
 import unitSchema from "#db/unitSchema.js";
 import { unitBodyValidation, unitDTO } from "#interfaces/unitDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
+import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import validateObjectId from "#utils/validateObjectId.js";
-import { Router } from "express";
+import { ValidObjectId } from "#utils/ValidObjectId.js";
+import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 
 const unitRouter = Router();
 
 unitRouter.use(AuthMiddleware);
 
-unitRouter.post("/", async (req, res) => {
-  const validated = await unitBodyValidation.run(req);
-  if (validated.length > 0) return res.status(400).json({ message: "Invalid details", payload: validated });
-
+unitRouter.post("/", unitBodyValidation, validateSchema, async (req: Request, res: Response) => {
   try {
     const unit = req.body as unitDTO;
 
@@ -36,9 +35,9 @@ unitRouter.post("/", async (req, res) => {
   }
 });
 
-unitRouter.get("/:complex", async (req, res) => {
+unitRouter.get("/complex/:name", async (req, res) => {
   try {
-    const complexName = req.params.complex;
+    const complexName = req.params.name;
 
     const unitsQuery = {
       "complex.name": complexName,
@@ -75,6 +74,30 @@ unitRouter.patch("/:id", validateObjectId, async (req, res) => {
     }
 
     res.status(200).json({ message: "Unit successfully updated!", payload: updatedUnit });
+    return;
+  } catch {
+    res.status(500).json({ message: "Internal Server Error!" });
+    return;
+  }
+});
+
+unitRouter.get("/user/", async (req, res) => {
+  if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request."});
+
+  const _id = ValidObjectId(req.get("id") as unknown as string);
+
+  const unitQuery = {
+    "users._id": _id,
+  }
+  try {
+    const Unit = await unitSchema.findOne(_id, unitQuery, { new: true }).exec();
+
+    if (!Unit) {
+      res.status(404).json({ message: "Unit not found" });
+      return;
+    }
+
+    res.status(200).json({ message: "Unit successfully found!", payload: Unit });
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error!" });

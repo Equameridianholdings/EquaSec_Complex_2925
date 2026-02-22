@@ -1,0 +1,50 @@
+<div class="modal-backdrop" (click)="closeModal()">
+  <div
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="confirmation-title"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-header">
+      <h2 id="confirmation-title">Booking Confirmed</h2>
+      <button class="btn-icon" type="button" (click)="closeModal()">✕</button>
+    </div>
+
+    <div class="confirmation-body">
+      <p>Your visitor access code is ready. You can share it now.</p>
+      <div class="confirmation-details">
+        <p><strong>Visitor:</strong> {{ visitor.name }} {{ visitor.surname }}</p>
+        <p><strong>Cellphone:</strong> {{ visitor.contact }}</p>
+        @if (visitorIdNumber) {
+          <p><strong>ID Number:</strong> {{ visitorIdNumber }}</p>
+        }
+        <p><strong>Transport:</strong> {{ !visitor.driving ? 'Walking' : 'Vehicle' }}</p>
+        @if (visitor.driving) {
+          <ng-container>
+            <p><strong>Make:</strong> {{ visitor.vehicle.make }}</p>
+            <p><strong>Model:</strong> {{ visitor.vehicle.model }}</p>
+            <p><strong>Registration:</strong> {{ visitor.vehicle.registrationNumber }}</p>
+            <p><strong>Colour:</strong> {{ visitor.vehicle.colour }}</p>
+          </ng-container>
+        }
+      </div>
+      <div class="code-share-row">
+        <div class="access-code">{{ visitor.code }}</div>
+        <button
+          type="button"
+          class="btn-whatsapp-share"
+          (click)="shareVisitorCode()"
+          title="Share visitor code on WhatsApp"
+        >
+          <img src="/Screenshot 2026-02-11 174917.png" alt="Share" />
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" (click)="closeModal()">Close</button>
+      <button type="button" class="btn-primary" (click)="confirmBooking()">Close</button>
+    </div>
+  </div>
+</div>

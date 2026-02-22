@@ -6,7 +6,5 @@ export interface unitDTO {
   complex: complexDTO;
   number: number;
   numberOfParkingBays: number;
-  numberOfRooms: number;
-  occupied: boolean;
   users: UserDTO[];
 }

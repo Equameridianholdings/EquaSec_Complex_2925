@@ -1,6 +1,5 @@
 :host {
 	display: block;
-	min-height: 100vh;
 	background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
 	color: #1e293b;
 	font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -734,25 +733,17 @@
 }
 
 .modal-backdrop {
-	position: fixed;
-	inset: 0;
-	background: rgba(30, 58, 95, 0.4);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 20px;
-	z-index: 1000;
+	padding: 15px;
 }
 
 .modal {
-	width: min(560px, 100%);
 	background: #ffffff;
 	border: 2px solid #1e3a5f;
 	border-radius: 12px;
 	padding: 0;
 	box-shadow: 0 20px 60px rgba(30, 58, 95, 0.2), 0 0 1px rgba(30, 58, 95, 0.1);
-	max-height: min(72vh, 600px);
 	overflow: auto;
+	max-height: 600px;
 }
 
 .modal-header {
@@ -1063,7 +1054,6 @@
 	justify-content: center;
 	min-width: 50px;
 	height: 50px;
-	family-variant: tabular-nums;
 }
 
 .code-share-row {
