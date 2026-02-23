@@ -7,31 +7,31 @@ export interface SecurityCompanyDTO {
     cipcRegistrationNumber: string;
     contactNumber: string;
     contract?: Contract[];
-    employeeAssignments?: EmployeeAssignmentDTO[];
     email: string;
+    employeeAssignments?: EmployeeAssignmentDTO[];
     name: string;
     psiraNumber: string;
     sosOptin: boolean;
     userName?: string;
 }
 
-interface EmployeeAssignmentDTO {
-    userId: string;
-    assignedComplexes?: string[];
-    assignedCommunities?: string[];
-    position?: string;
-    status?: "active" | "inactive";
-    contractStartDate?: Date;
-    contractEndDate?: Date;
-    createdBy?: string;
-}
-
 interface Contract {
     complex?: complexDTO;
     complexName?: string;
-    gatedCommunityName?: string;
     contractEndDate?: Date;
     contractStartDate?: Date;
+    gatedCommunityName?: string;
+}
+
+interface EmployeeAssignmentDTO {
+    assignedCommunities?: string[];
+    assignedComplexes?: string[];
+    contractEndDate?: Date;
+    contractStartDate?: Date;
+    createdBy?: string;
+    position?: string;
+    status?: "active" | "inactive";
+    userId: string;
 }
 
 export const securityCompanyBodyValidation = checkSchema({

@@ -3,7 +3,7 @@ import { unitBodyValidation, unitDTO } from "#interfaces/unitDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import validateObjectId from "#utils/validateObjectId.js";
-import { ValidObjectId } from "#utils/ValidObjectId.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 
@@ -15,8 +15,8 @@ unitRouter.post("/", unitBodyValidation, validateSchema, async (req: Request, re
   try {
     const unit = req.body as unitDTO;
 
-    const hasComplex = Boolean(unit?.complex?._id);
-    const hasGatedCommunity = Boolean(unit?.gatedCommunity?._id);
+    const hasComplex = Boolean(unit.complex?._id);
+    const hasGatedCommunity = Boolean(unit.gatedCommunity?._id);
     if (!hasComplex && !hasGatedCommunity) {
       res.status(400).json({ message: "Invalid details. Unit must link to a complex or gated community." });
       return;

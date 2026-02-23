@@ -3,15 +3,15 @@ import userSchema from "#db/userSchema.js";
 import { securityCompanyBodyValidation, SecurityCompanyDTO } from "#interfaces/securityCompanyDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
-import validateObjectId from "#utils/validateObjectId.js";
 import { sendSecurityCompanyCode } from "#utils/sendEmail.js";
+import validateObjectId from "#utils/validateObjectId.js";
 import bcrypt from "bcryptjs";
 import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 
 const securityCompanyRouter = Router();
 
-const getDuplicateFieldMessage = (error: unknown): string | null => {
+const getDuplicateFieldMessage = (error: unknown): null | string => {
   if (typeof error !== "object" || error === null || !("code" in error)) {
     return null;
   }
@@ -80,9 +80,9 @@ securityCompanyRouter.post("/", securityCompanyBodyValidation, validateSchema, a
   const securityCompany = req.body as SecurityCompanyDTO;
   try {
     console.log("[securityCompany] create request", {
-      name: securityCompany.name,
-      email: securityCompany.email,
       contactNumber: securityCompany.contactNumber,
+      email: securityCompany.email,
+      name: securityCompany.name,
     });
     const newSecurityCompany = new securityCompanySchema(securityCompany);
     await newSecurityCompany.save();
@@ -90,7 +90,7 @@ securityCompanyRouter.post("/", securityCompanyBodyValidation, validateSchema, a
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const managerEmail = securityCompany.email;
-    console.log("[securityCompany] manager", { email: managerEmail, code });
+    console.log("[securityCompany] manager", { code, email: managerEmail });
     const salt = await bcrypt.genSalt(10);
     const hashedCode = await bcrypt.hash(code, salt);
     const managerProfile = new userSchema({
@@ -99,15 +99,15 @@ securityCompanyRouter.post("/", securityCompanyBodyValidation, validateSchema, a
       emailAddress: managerEmail,
       movedOut: false,
       name: securityCompany.name,
-      surname: "Manager",
       password: hashedCode,
-      salt,
       profilePhoto: "",
-      type: ["manager"],
+      salt,
       securityCompany: {
         _id: newSecurityCompany._id,
         name: newSecurityCompany.name,
       },
+      surname: "Manager",
+      type: ["manager"],
     });
     try {
       await managerProfile.save();
@@ -118,9 +118,9 @@ securityCompanyRouter.post("/", securityCompanyBodyValidation, validateSchema, a
       console.log("[securityCompany] manager linked", { companyId: newSecurityCompany._id });
 
       await sendSecurityCompanyCode({
-        to: managerEmail,
         code,
         companyName: securityCompany.name,
+        to: managerEmail,
       });
       console.log("[securityCompany] email sent", { to: managerEmail });
     } catch (error) {
@@ -133,11 +133,11 @@ securityCompanyRouter.post("/", securityCompanyBodyValidation, validateSchema, a
         return;
       }
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      res.status(500).json({ message: "Unable to create manager profile or send email.", error: errorMessage });
+      res.status(500).json({ error: errorMessage, message: "Unable to create manager profile or send email." });
       return;
     }
 
-    res.status(201).json({ message: "Security company successfully added!", payload: newSecurityCompany, emailSent: true });
+    res.status(201).json({ emailSent: true, message: "Security company successfully added!", payload: newSecurityCompany });
     return;
   } catch (error) {
     console.error("[securityCompany] create unexpected error", error);

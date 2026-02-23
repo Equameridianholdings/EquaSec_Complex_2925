@@ -1,18 +1,18 @@
-import userSchema from "#db/userSchema.js";
-import residentSchema from "#db/residentSchema.js";
-import securityCompanySchema from "#db/securityCompanySchema.js";
 import complexSchema from "#db/complexSchema.js";
 import gatedCommunitySchema from "#db/gatedCommunity.js";
+import residentSchema from "#db/residentSchema.js";
+import securityCompanySchema from "#db/securityCompanySchema.js";
 import unitSchema from "#db/unitSchema.js";
+import userSchema from "#db/userSchema.js";
 import vehicleSchema from "#db/vehicleSchema.js";
 import { complexDTO } from "#interfaces/complexDTO.js";
 import { userBodyValidation, UserDTO } from "#interfaces/userDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
-import { sendSecurityCompanyCode } from "#utils/sendEmail.js";
 // import { encrypt } from "#utils/encryption.js";
 import GenerateJWT from "#utils/generateJWT.js";
-import { ValidObjectId } from "#utils/ValidObjectId.js";
+import { sendSecurityCompanyCode } from "#utils/sendEmail.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import VerifyToken from "#utils/verifyToken.js";
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
@@ -24,6 +24,98 @@ import { isKeyObject } from "util/types";
 
 const userRouter = Router();
 
+interface CompanyAssignment {
+  assignedCommunities: string[];
+  assignedComplexes: string[];
+  contractEndDate: Date | null;
+  contractStartDate: Date | null;
+  createdBy?: string;
+  position?: string;
+  status?: "active" | "inactive";
+  userId: string;
+}
+
+interface CompanyWithAssignments {
+  employeeAssignments?: unknown;
+}
+
+interface TenantResidentLike {
+  _id?: unknown;
+  address?: string;
+  communityComplexId?: null | string;
+  communityId?: null | string;
+  communityResidenceType?: null | string;
+  complex?: unknown;
+  gatedCommunity?: unknown;
+  houseNumber?: null | string;
+  residenceType?: null | string;
+  securityCompany?: null | TenantSecurityCompanyRef;
+  unitNumber?: null | string;
+}
+
+interface TenantSecurityCompanyRef {
+  _id?: unknown;
+  name?: string;
+}
+
+interface TenantUserLike {
+  _id?: unknown;
+  assignedCommunities?: unknown;
+  assignedComplexes?: unknown;
+  emailAddress?: string;
+  employeeContracts?: unknown;
+  movedOut?: boolean;
+  securityCompany?: null | TenantSecurityCompanyRef;
+}
+
+interface TenantVehicle {
+  color?: string;
+  make: string;
+  model: string;
+  reg: string;
+}
+
+interface TenantVehicleInput {
+  color?: unknown;
+  make?: unknown;
+  model?: unknown;
+  reg?: unknown;
+  registerationNumber?: unknown;
+  registrationNumber?: unknown;
+}
+
+interface UserTenantFields {
+  address?: string;
+  communityComplexId?: null | string;
+  communityId?: null | string;
+  communityResidenceType?: null | string;
+  complex?: unknown;
+  gatedCommunity?: unknown;
+  houseNumber?: null | string;
+  residenceType?: null | string;
+  securityCompany?: null | TenantSecurityCompanyRef;
+  unitNumber?: null | string;
+}
+
+const resolveTenantProfile = (tenantUser: UserDTO & UserTenantFields, tenantResident: null | TenantResidentLike): TenantResidentLike => {
+  if (tenantResident) {
+    return tenantResident;
+  }
+
+  return {
+    address: tenantUser.address ?? "",
+    communityComplexId: tenantUser.communityComplexId ?? "",
+    communityId: tenantUser.communityId ?? "",
+    communityResidenceType: tenantUser.communityResidenceType ?? "",
+    complex: tenantUser.complex ?? null,
+    gatedCommunity: tenantUser.gatedCommunity ?? null,
+    houseNumber: tenantUser.houseNumber ?? "",
+    residenceType: tenantUser.residenceType ?? "",
+    securityCompany: tenantUser.securityCompany ?? null,
+    unitNumber: tenantUser.unitNumber ?? "",
+  };
+};
+
 const getRequestIdParam = (req: Request): string => {
   const id = req.params.id;
   if (Array.isArray(id)) {
@@ -32,7 +124,7 @@ const getRequestIdParam = (req: Request): string => {
   return id ?? "";
 };
 
-const resolveSecurityCompanyForUser = async (user: { emailAddress: string; securityCompany?: UserDTO["securityCompany"] | null }) => {
+const resolveSecurityCompanyForUser = async (user: { emailAddress: string; securityCompany?: null | UserDTO["securityCompany"] }) => {
   const linkedCompanyId = user?.securityCompany?._id;
 
   if (linkedCompanyId) {
@@ -60,23 +152,28 @@ const normalizeStringList = (values: unknown): string[] => {
   );
 };
 
-const normalizeTenantVehicles = (vehicles: unknown): Array<{ make: string; model: string; reg: string; color?: string }> => {
+const normalizeTenantVehicles = (vehicles: unknown): TenantVehicle[] => {
   if (!Array.isArray(vehicles)) {
     return [];
   }
 
   return vehicles
-    .map((vehicle: any) => ({
-      make: String(vehicle?.make ?? "").trim(),
-      model: String(vehicle?.model ?? "").trim(),
-      reg: String(vehicle?.reg ?? vehicle?.registrationNumber ?? vehicle?.registerationNumber ?? "").trim(),
-      color: String(vehicle?.color ?? "").trim() || undefined,
-    }))
+    .map((vehicle): TenantVehicle => {
+      const candidate: TenantVehicleInput =
+        vehicle && typeof vehicle === "object" ? (vehicle as TenantVehicleInput) : {};
+
+      return {
+        color: String(candidate.color ?? "").trim() || undefined,
+        make: String(candidate.make ?? "").trim(),
+        model: String(candidate.model ?? "").trim(),
+        reg: String(candidate.reg ?? candidate.registrationNumber ?? candidate.registerationNumber ?? "").trim(),
+      };
+    })
     .filter((vehicle) => vehicle.make.length > 0 && vehicle.model.length > 0 && vehicle.reg.length > 0);
 };
 
 const syncTenantVehiclesForUser = async (
-  user: { _id?: unknown; name?: string; surname?: string; emailAddress?: string; cellNumber?: string },
+  user: { _id?: unknown; cellNumber?: string; emailAddress?: string; name?: string; surname?: string; },
   vehicles: unknown,
 ): Promise<void> => {
   const userId = String(user?._id ?? "").trim();
@@ -84,7 +181,7 @@ const syncTenantVehiclesForUser = async (
     return;
   }
 
-  const userIdVariants: Array<string | ObjectId> = [userId];
+  const userIdVariants: (ObjectId | string)[] = [userId];
   if (ObjectId.isValid(userId)) {
     userIdVariants.push(new ObjectId(userId));
   }
@@ -98,26 +195,26 @@ const syncTenantVehiclesForUser = async (
 
   const linkedUser = {
     _id: userId,
+    cellNumber: String(user?.cellNumber ?? ""),
+    emailAddress: String(user?.emailAddress ?? ""),
     name: String(user?.name ?? ""),
     surname: String(user?.surname ?? ""),
-    emailAddress: String(user?.emailAddress ?? ""),
-    cellNumber: String(user?.cellNumber ?? ""),
   };
 
   const docs = normalizedVehicles.map((vehicle) => ({
+    color: vehicle.color,
     make: vehicle.make,
     model: vehicle.model,
     registerationNumber: vehicle.reg,
-    color: vehicle.color,
-    year: 0,
     user: linkedUser,
+    year: 0,
   }));
 
   await vehicleSchema.insertMany(docs);
 };
 
-const resolveResidentForTenantUser = async (user: any): Promise<any | null> => {
-  const userId = String(user?._id ?? "");
+const resolveResidentForTenantUser = async (user: TenantUserLike): Promise<null | TenantResidentLike> => {
+  const userId = String(user._id ?? "");
   if (userId && ObjectId.isValid(userId)) {
     const byUserId = await residentSchema.findOne({ userId: new ObjectId(userId) }).lean();
     if (byUserId) {
@@ -125,7 +222,7 @@ const resolveResidentForTenantUser = async (user: any): Promise<any | null> => {
     }
   }
 
-  const emailAddress = String(user?.emailAddress ?? "").trim();
+  const emailAddress = String(user.emailAddress ?? "").trim();
   if (!emailAddress) {
     return null;
   }
@@ -133,86 +230,96 @@ const resolveResidentForTenantUser = async (user: any): Promise<any | null> => {
   return await residentSchema.findOne({ emailAddress }).lean();
 };
 
-const resolveCompanyIdFromTenantContext = (tenantUser: any, tenantResident: any): string => {
-  return String(tenantResident?.securityCompany?._id ?? tenantUser?.securityCompany?._id ?? "");
+const resolveCompanyIdFromTenantContext = (tenantUser: TenantUserLike, tenantResident: null | TenantResidentLike): string => {
+  return String(tenantResident?.securityCompany?._id ?? tenantUser.securityCompany?._id ?? "");
 };
 
-const getCompanyEmployeeAssignments = (company: any): Array<any> => {
-  return Array.isArray(company?.employeeAssignments) ? company.employeeAssignments : [];
+const getCompanyEmployeeAssignments = (company: CompanyWithAssignments | null): CompanyAssignment[] => {
+  if (!Array.isArray(company?.employeeAssignments)) {
+    return [];
+  }
+
+  return company.employeeAssignments.map((entry) => sanitizeCompanyEmployeeAssignment(entry));
 };
 
-const sanitizeCompanyEmployeeAssignment = (entry: any): any => ({
-  userId: String(entry?.userId ?? ""),
-  assignedComplexes: normalizeStringList(entry?.assignedComplexes),
-  assignedCommunities: normalizeStringList(entry?.assignedCommunities),
-  position: entry?.position,
-  status: entry?.status,
-  contractStartDate: entry?.contractStartDate ?? null,
-  contractEndDate: entry?.contractEndDate ?? null,
-  createdBy: entry?.createdBy,
-});
+const sanitizeCompanyEmployeeAssignment = (entry: unknown): CompanyAssignment => {
+  const candidate: Record<string, unknown> = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+  const statusValue = candidate.status;
+  const status = statusValue === "active" || statusValue === "inactive" ? statusValue : undefined;
 
-const findCompanyAssignmentForUser = (company: any, userId: string): any | null => {
+  return {
+    assignedCommunities: normalizeStringList(candidate.assignedCommunities),
+    assignedComplexes: normalizeStringList(candidate.assignedComplexes),
+    contractEndDate: candidate.contractEndDate instanceof Date ? candidate.contractEndDate : null,
+    contractStartDate: candidate.contractStartDate instanceof Date ? candidate.contractStartDate : null,
+    createdBy: typeof candidate.createdBy === "string" ? candidate.createdBy : undefined,
+    position: typeof candidate.position === "string" ? candidate.position : undefined,
+    status,
+    userId: String(candidate.userId ?? ""),
+  };
+};
+
+const findCompanyAssignmentForUser = (company: CompanyWithAssignments | null, userId: string): CompanyAssignment | null => {
   if (!userId) {
     return null;
   }
 
   const assignments = getCompanyEmployeeAssignments(company);
-  const match = assignments.find((item: any) => String(item?.userId ?? "") === String(userId));
+  const match = assignments.find((item) => String(item.userId) === String(userId));
   return match ?? null;
 };
 
-const resolveUserAssignments = (user: any, company: any): { assignedComplexes: string[]; assignedCommunities: string[] } => {
-  const assignment = findCompanyAssignmentForUser(company, String(user?._id ?? ""));
+const resolveUserAssignments = (user: TenantUserLike, company: CompanyWithAssignments | null): { assignedCommunities: string[]; assignedComplexes: string[]; } => {
+  const assignment = findCompanyAssignmentForUser(company, String(user._id ?? ""));
 
   if (assignment) {
     return {
-      assignedComplexes: normalizeStringList(assignment.assignedComplexes),
       assignedCommunities: normalizeStringList(assignment.assignedCommunities),
+      assignedComplexes: normalizeStringList(assignment.assignedComplexes),
     };
   }
 
   return {
-    assignedComplexes: normalizeStringList(user?.assignedComplexes),
-    assignedCommunities: normalizeStringList(user?.assignedCommunities),
+    assignedCommunities: normalizeStringList(user.assignedCommunities),
+    assignedComplexes: normalizeStringList(user.assignedComplexes),
   };
 };
 
-const resolveUserEmployeeContracts = (user: any, company: any): Array<any> => {
-  const assignment = findCompanyAssignmentForUser(company, String(user?._id ?? ""));
+const resolveUserEmployeeContracts = (user: TenantUserLike, company: CompanyWithAssignments | null): unknown[] => {
+  const assignment = findCompanyAssignmentForUser(company, String(user._id ?? ""));
 
   if (assignment) {
     return [
       {
-        securityCompany: {
-          _id: user?.securityCompany?._id ?? company?._id ?? "",
-          name: user?.securityCompany?.name ?? company?.name ?? "",
-        },
-        position: assignment?.position ?? "Guard",
-        status: assignment?.status ?? (user?.movedOut ? "inactive" : "active"),
-        assignedComplexes: normalizeStringList(assignment?.assignedComplexes),
         assignedCommunities: normalizeStringList(assignment?.assignedCommunities),
-        contractStartDate: assignment?.contractStartDate ?? null,
+        assignedComplexes: normalizeStringList(assignment?.assignedComplexes),
         contractEndDate: assignment?.contractEndDate ?? null,
+        contractStartDate: assignment?.contractStartDate ?? null,
         createdBy: assignment?.createdBy,
+        position: assignment?.position ?? "Guard",
+        securityCompany: {
+          _id: user.securityCompany?._id ?? "",
+          name: user.securityCompany?.name ?? "",
+        },
+        status: assignment?.status ?? (user.movedOut ? "inactive" : "active"),
       },
     ];
   }
 
-  return Array.isArray(user?.employeeContracts) ? user.employeeContracts : [];
+  return Array.isArray(user.employeeContracts) ? user.employeeContracts : [];
 };
 
 const upsertCompanyEmployeeAssignment = async (
   companyId: string,
   assignment: {
-    userId: string;
-    assignedComplexes?: string[];
     assignedCommunities?: string[];
+    assignedComplexes?: string[];
+    contractEndDate?: Date | null;
+    contractStartDate?: Date | null;
+    createdBy?: string;
     position?: string;
     status?: "active" | "inactive";
-    contractStartDate?: Date | null;
-    contractEndDate?: Date | null;
-    createdBy?: string;
+    userId: string;
   }
 ): Promise<void> => {
   const userId = String(assignment.userId ?? "").trim();
@@ -226,19 +333,19 @@ const upsertCompanyEmployeeAssignment = async (
   }
 
   const assignments = getCompanyEmployeeAssignments(company)
-    .filter((item: any) => String(item?.userId ?? "") !== userId)
-    .map((item: any) => sanitizeCompanyEmployeeAssignment(item));
+    .filter((item) => String(item.userId) !== userId)
+    .map((item) => sanitizeCompanyEmployeeAssignment(item));
   const previous = findCompanyAssignmentForUser(company, userId);
 
   assignments.push(sanitizeCompanyEmployeeAssignment({
-    userId,
-    assignedComplexes: normalizeStringList(assignment.assignedComplexes ?? previous?.assignedComplexes),
     assignedCommunities: normalizeStringList(assignment.assignedCommunities ?? previous?.assignedCommunities),
+    assignedComplexes: normalizeStringList(assignment.assignedComplexes ?? previous?.assignedComplexes),
+    contractEndDate: assignment.contractEndDate ?? previous?.contractEndDate ?? null,
+    contractStartDate: assignment.contractStartDate ?? previous?.contractStartDate ?? null,
+    createdBy: assignment.createdBy ?? previous?.createdBy,
     position: assignment.position ?? previous?.position,
     status: assignment.status ?? previous?.status,
-    contractStartDate: assignment.contractStartDate ?? previous?.contractStartDate ?? null,
-    contractEndDate: assignment.contractEndDate ?? previous?.contractEndDate ?? null,
-    createdBy: assignment.createdBy ?? previous?.createdBy,
+    userId,
   }));
 
   await securityCompanySchema.updateOne(
@@ -258,8 +365,8 @@ const removeCompanyEmployeeAssignment = async (companyId: string, userId: string
   ).exec();
 };
 
-const extractUnitNumber = (address: string): number | null => {
-  const match = String(address ?? "").match(/\d+/);
+const extractUnitNumber = (address: string): null | number => {
+  const match = /\d+/.exec(String(address ?? ""));
   if (!match) {
     return null;
   }
@@ -272,7 +379,7 @@ const extractUnitNumber = (address: string): number | null => {
   return value;
 };
 
-const normalizeName = (value: string | undefined | null): string => {
+const normalizeName = (value: null | string | undefined): string => {
   return String(value ?? "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 };
 
@@ -293,27 +400,27 @@ const findUnitByLocationAndAddress = async (
   }
 
   if (complexId) {
-    const complexIdVariants: Array<string | ObjectId> = [String(complexId)];
+    const complexIdVariants: (ObjectId | string)[] = [String(complexId)];
     if (ObjectId.isValid(String(complexId))) {
       complexIdVariants.push(new ObjectId(String(complexId)));
     }
 
     const unit = await unitSchema.findOne({
-      number: unitNumber,
       "complex._id": { $in: complexIdVariants },
+      number: unitNumber,
     }).exec();
 
     return unit;
   }
 
-  const gatedCommunityIdVariants: Array<string | ObjectId> = [String(gatedCommunityId)];
+  const gatedCommunityIdVariants: (ObjectId | string)[] = [String(gatedCommunityId)];
   if (ObjectId.isValid(String(gatedCommunityId))) {
     gatedCommunityIdVariants.push(new ObjectId(String(gatedCommunityId)));
   }
 
   const unit = await unitSchema.findOne({
-    number: unitNumber,
     "gatedCommunity._id": { $in: gatedCommunityIdVariants },
+    number: unitNumber,
   }).exec();
 
   return unit;
@@ -322,8 +429,8 @@ const findUnitByLocationAndAddress = async (
 const linkTenantToUnit = async (
   tenantId: string,
   location: {
-    complex?: { _id?: string; name?: string; address?: string } | null;
-    gatedCommunity?: { _id?: string; name?: string } | null;
+    complex?: null | { _id?: string; address?: string; name?: string; };
+    gatedCommunity?: null | { _id?: string; name?: string };
   },
   address: string,
 ) => {
@@ -438,10 +545,6 @@ const loginBodyValidation: Schema = {
   password: {
     errorMessage: "Field is required",
     isEmpty: false,
-    matches: {
-      errorMessage: "Password must be exactly 6 digits.",
-      options: /^\d{6}$/,
-    },
     isLength: {
       errorMessage: "Incorrect password length",
       options: {
@@ -449,29 +552,29 @@ const loginBodyValidation: Schema = {
         min: 6,
       },
     },
+    matches: {
+      errorMessage: "Password must be exactly 6 digits.",
+      options: /^\d{6}$/,
+    },
   },
 };
 
 const securityEmployeeBodyValidation: Schema = {
-  name: {
-    errorMessage: "Field is required",
-    isEmpty: false,
-  },
-  surname: {
-    errorMessage: "Field is required",
-    isEmpty: false,
-  },
-  emailAddress: {
-    errorMessage: "Invalid email address",
-    isEmail: true,
-    isEmpty: false,
-  },
   cellNumber: {
     errorMessage: "Cell number must be 10 digits and start with 0",
     isEmpty: false,
     matches: {
       options: [/^0\d{9}$/],
     },
+  },
+  emailAddress: {
+    errorMessage: "Invalid email address",
+    isEmail: true,
+    isEmpty: false,
+  },
+  name: {
+    errorMessage: "Field is required",
+    isEmpty: false,
   },
   position: {
     errorMessage: "Invalid position",
@@ -480,25 +583,20 @@ const securityEmployeeBodyValidation: Schema = {
     },
   },
   status: {
-    optional: true,
     isIn: {
       options: [["active", "inactive"]],
     },
+    optional: true,
+  },
+  surname: {
+    errorMessage: "Field is required",
+    isEmpty: false,
   },
 };
 
 const tenantCreateBodyValidation: Schema = {
-  name: {
-    errorMessage: "Field is required",
-    isEmpty: false,
-  },
-  surname: {
-    errorMessage: "Field is required",
-    isEmpty: false,
-  },
-  emailAddress: {
-    errorMessage: "Invalid email address",
-    isEmail: true,
+  address: {
+    errorMessage: "Address is required",
     isEmpty: false,
   },
   cellNumber: {
@@ -508,8 +606,13 @@ const tenantCreateBodyValidation: Schema = {
       options: [/^0\d{9}$/],
     },
   },
-  address: {
-    errorMessage: "Address is required",
+  emailAddress: {
+    errorMessage: "Invalid email address",
+    isEmail: true,
+    isEmpty: false,
+  },
+  name: {
+    errorMessage: "Field is required",
     isEmpty: false,
   },
   residenceType: {
@@ -517,21 +620,16 @@ const tenantCreateBodyValidation: Schema = {
     isIn: {
       options: [["complex", "community"]],
     },
+  },
+  surname: {
+    errorMessage: "Field is required",
+    isEmpty: false,
   },
 };
 
 const tenantUpdateBodyValidation: Schema = {
-  name: {
-    errorMessage: "Field is required",
-    isEmpty: false,
-  },
-  surname: {
-    errorMessage: "Field is required",
-    isEmpty: false,
-  },
-  emailAddress: {
-    errorMessage: "Invalid email address",
-    isEmail: true,
+  address: {
+    errorMessage: "Address is required",
     isEmpty: false,
   },
   cellNumber: {
@@ -541,8 +639,13 @@ const tenantUpdateBodyValidation: Schema = {
       options: [/^0\d{9}$/],
     },
   },
-  address: {
-    errorMessage: "Address is required",
+  emailAddress: {
+    errorMessage: "Invalid email address",
+    isEmail: true,
+    isEmpty: false,
+  },
+  name: {
+    errorMessage: "Field is required",
     isEmpty: false,
   },
   residenceType: {
@@ -551,16 +654,20 @@ const tenantUpdateBodyValidation: Schema = {
       options: [["complex", "community"]],
     },
   },
+  surname: {
+    errorMessage: "Field is required",
+    isEmpty: false,
+  },
 };
 
 const securityAssignmentBodyValidation: Schema = {
-  assignedComplexes: {
-    optional: true,
-    isArray: true,
-  },
   assignedCommunities: {
-    optional: true,
     isArray: true,
+    optional: true,
+  },
+  assignedComplexes: {
+    isArray: true,
+    optional: true,
   },
 };
 
@@ -589,22 +696,22 @@ userRouter.post("/security-employee", AuthMiddleware, checkSchema(securityEmploy
     }
 
     const body = req.body as {
-      name: string;
-      surname: string;
-      emailAddress: string;
-      cellNumber: string;
-      position: string;
-      status?: "active" | "inactive";
       assignedComplexId?: string;
       assignedComplexName?: string;
       assignedGatedCommunityName?: string;
-      contractStartDate?: string;
+      cellNumber: string;
       contractEndDate?: string;
+      contractStartDate?: string;
+      emailAddress: string;
+      name: string;
+      position: string;
+      status?: "active" | "inactive";
+      surname: string;
     };
 
     const normalizedPosition = (body.position ?? "").toLowerCase().replace(/[^a-z]/g, "");
     const isAdminGuard = normalizedPosition.includes("admin");
-    const employeePosition: "Guard" | "admin-Guard" = isAdminGuard ? "admin-Guard" : "Guard";
+    const employeePosition: "admin-Guard" | "Guard" = isAdminGuard ? "admin-Guard" : "Guard";
 
     const normalizedEmail = body.emailAddress.trim().toLowerCase();
     const existingUser = await userSchema.findOne({ emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
@@ -627,15 +734,15 @@ userRouter.post("/security-employee", AuthMiddleware, checkSchema(securityEmploy
       emailAddress: normalizedEmail,
       movedOut: (body.status ?? "active") === "inactive",
       name: body.name,
-      surname: body.surname,
       password: hashedPassword,
-      salt,
       profilePhoto: "",
-      type: isAdminGuard ? ["security", "admin"] : ["security"],
+      salt,
       securityCompany: {
         _id: linkedSecurityCompany._id,
         name: linkedSecurityCompany.name,
       },
+      surname: body.surname,
+      type: isAdminGuard ? ["security", "admin"] : ["security"],
     });
 
     await employeeUser.save();
@@ -644,21 +751,21 @@ userRouter.post("/security-employee", AuthMiddleware, checkSchema(securityEmploy
     const initialAssignedCommunities = body.assignedGatedCommunityName ? [String(body.assignedGatedCommunityName)] : [];
 
     await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
-      userId: String(employeeUser._id),
-      assignedComplexes: initialAssignedComplexes,
       assignedCommunities: initialAssignedCommunities,
+      assignedComplexes: initialAssignedComplexes,
+      contractEndDate: body.contractEndDate ? new Date(body.contractEndDate) : null,
+      contractStartDate: body.contractStartDate ? new Date(body.contractStartDate) : new Date(),
+      createdBy: managerEmail,
       position: employeePosition,
       status: body.status ?? "active",
-      contractStartDate: body.contractStartDate ? new Date(body.contractStartDate) : new Date(),
-      contractEndDate: body.contractEndDate ? new Date(body.contractEndDate) : null,
-      createdBy: managerEmail,
+      userId: String(employeeUser._id),
     });
 
     try {
       await sendSecurityCompanyCode({
-        to: normalizedEmail,
         code: temporaryPin,
         companyName: linkedSecurityCompany.name,
+        to: normalizedEmail,
       });
     } catch {
       await removeCompanyEmployeeAssignment(String(linkedSecurityCompany._id), String(employeeUser._id));
@@ -669,9 +776,9 @@ userRouter.post("/security-employee", AuthMiddleware, checkSchema(securityEmploy
     return res.status(201).json({
       message: "Security employee added successfully!",
       payload: {
-        user: employeeUser,
-        temporaryPin,
         emailSent: true,
+        temporaryPin,
+        user: employeeUser,
       },
     });
   } catch {
@@ -702,19 +809,19 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
     const linkedSecurityCompany = await resolveSecurityCompanyForUser(actorUser);
 
     const body = req.body as {
-      name: string;
-      surname: string;
-      emailAddress: string;
-      cellNumber: string;
-      idNumber?: string;
       address: string;
-      residenceType: "complex" | "community";
+      cellNumber: string;
+      communityComplexId?: string;
+      communityId?: string;
+      communityResidenceType?: "complex" | "house";
       complexId?: string;
       complexName?: string;
-      communityId?: string;
-      communityResidenceType?: "house" | "complex";
-      communityComplexId?: string;
-      vehicles?: Array<{ make: string; model: string; reg: string; color?: string }>;
+      emailAddress: string;
+      idNumber?: string;
+      name: string;
+      residenceType: "community" | "complex";
+      surname: string;
+      vehicles?: { color?: string; make: string; model: string; reg: string; }[];
     };
 
     const normalizedEmail = body.emailAddress.trim().toLowerCase();
@@ -723,18 +830,13 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
       return res.status(409).json({ message: "User with this email already exists." });
     }
 
-    const existingResident = await residentSchema.findOne({ emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
-    if (existingResident) {
-      return res.status(409).json({ message: "Resident with this email already exists." });
-    }
-
     const temporaryPin = String(Math.floor(100000 + Math.random() * 900000));
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(temporaryPin, salt);
 
     const trimmedAddress = body.address.trim();
-    let linkedComplex: any = null;
-    let linkedGatedCommunity: any = null;
+    let linkedComplex: null | { _id: unknown; address?: string; gatedCommunityName?: null | string; name?: string } = null;
+    let linkedGatedCommunity: null | { _id: unknown; name?: string } = null;
     let communityIdValue = "";
     let communityResidenceTypeValue = "";
     let communityComplexIdValue = "";
@@ -746,7 +848,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
         return res.status(400).json({ message: "Valid complex is required for complex residence." });
       }
 
-      linkedComplex = await complexSchema.findById(body.complexId).select({ _id: 1, name: 1, gatedCommunityName: 1 }).lean();
+      linkedComplex = await complexSchema.findById(body.complexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
       if (!linkedComplex) {
         return res.status(404).json({ message: "Complex not found." });
       }
@@ -772,7 +874,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
           return res.status(400).json({ message: "Valid gated community complex is required." });
         }
 
-        const communityComplex = await complexSchema.findById(body.communityComplexId).select({ _id: 1, name: 1, gatedCommunityName: 1 }).lean();
+        const communityComplex = await complexSchema.findById(body.communityComplexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
         if (!communityComplex) {
           return res.status(404).json({ message: "Community complex not found." });
         }
@@ -837,90 +939,64 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
       }
     }
 
-    const resident = new residentSchema({
-      name: body.name.trim(),
-      surname: body.surname.trim(),
-      emailAddress: normalizedEmail,
+    const tenantUser = new userSchema({
+      address: trimmedAddress,
       cellNumber: body.cellNumber.trim(),
-      idNumber: body.idNumber?.trim() || undefined,
-      residenceType: body.residenceType,
+      communityComplexId: communityComplexIdValue,
+      communityId: communityIdValue,
+      communityResidenceType: communityResidenceTypeValue,
       complex: linkedComplex
         ? {
             _id: linkedComplex._id,
-            name: linkedComplex.name ?? "",
             gatedCommunityName: linkedComplex.gatedCommunityName ?? "",
+            name: linkedComplex.name ?? "",
           }
         : null,
+      emailAddress: normalizedEmail,
       gatedCommunity: linkedGatedCommunity
         ? {
             _id: linkedGatedCommunity._id,
             name: linkedGatedCommunity.name ?? "",
           }
         : null,
-      communityId: communityIdValue,
-      communityResidenceType: communityResidenceTypeValue,
-      communityComplexId: communityComplexIdValue,
-      unitNumber: unitNumberValue,
       houseNumber: houseNumberValue,
-      address: trimmedAddress,
-      vehicles: [],
+      idNumber: body.idNumber?.trim() || undefined,
+      movedOut: false,
+      name: body.name.trim(),
+      password: hashedPassword,
+      profilePhoto: "",
+      residenceType: body.residenceType,
+      salt,
       securityCompany: linkedSecurityCompany
         ? {
             _id: linkedSecurityCompany._id,
             name: linkedSecurityCompany.name,
           }
         : null,
-      createdBy: actorEmail,
-    });
-
-    try {
-      await resident.save();
-    } catch {
-      return res.status(500).json({ message: "Unable to save tenant in residents collection." });
-    }
-
-    const tenantUser = new userSchema({
-      cellNumber: body.cellNumber.trim(),
-      emailAddress: normalizedEmail,
-      idNumber: body.idNumber?.trim() || undefined,
-      movedOut: false,
-      name: body.name.trim(),
       surname: body.surname.trim(),
-      password: hashedPassword,
-      salt,
-      profilePhoto: "",
       type: ["tenant"],
+      unitNumber: unitNumberValue,
     });
 
     try {
       await tenantUser.save();
     } catch {
-      await residentSchema.findByIdAndDelete(resident._id);
       return res.status(500).json({ message: "Unable to save tenant user." });
-    }
-
-    try {
-      await residentSchema.findByIdAndUpdate(resident._id, { userId: tenantUser._id });
-    } catch {
-      await userSchema.findByIdAndDelete(tenantUser._id);
-      await residentSchema.findByIdAndDelete(resident._id);
-      return res.status(500).json({ message: "Unable to link tenant user to resident." });
     }
 
     try {
       await syncTenantVehiclesForUser(
         {
           _id: tenantUser._id,
+          cellNumber: tenantUser.cellNumber,
+          emailAddress: tenantUser.emailAddress,
           name: tenantUser.name,
           surname: tenantUser.surname,
-          emailAddress: tenantUser.emailAddress,
-          cellNumber: tenantUser.cellNumber,
         },
         body.vehicles,
       );
     } catch {
       await userSchema.findByIdAndDelete(tenantUser._id);
-      await residentSchema.findByIdAndDelete(resident._id);
       return res.status(500).json({ message: "Unable to sync tenant vehicles." });
     }
 
@@ -935,8 +1011,8 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
             complex: linkedComplex
               ? {
                   _id: String(linkedComplex._id ?? ""),
-                  name: String(linkedComplex.name ?? ""),
                   address: String(linkedComplex.address ?? ""),
+                  name: String(linkedComplex.name ?? ""),
                 }
               : null,
             gatedCommunity: linkedGatedCommunity
@@ -952,30 +1028,28 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
     } catch {
       await vehicleSchema.deleteMany({ "user._id": { $in: [String(tenantUser._id ?? ""), tenantUser._id] } });
       await userSchema.findByIdAndDelete(tenantUser._id);
-      await residentSchema.findByIdAndDelete(resident._id);
       return res.status(500).json({ message: "Unable to link tenant to unit." });
     }
 
     try {
       await sendSecurityCompanyCode({
-        to: normalizedEmail,
         code: temporaryPin,
         companyName: linkedSecurityCompany?.name,
+        to: normalizedEmail,
       });
     } catch {
       await vehicleSchema.deleteMany({ "user._id": { $in: [String(tenantUser._id ?? ""), tenantUser._id] } });
       await userSchema.findByIdAndDelete(tenantUser._id);
-      await residentSchema.findByIdAndDelete(resident._id);
       return res.status(500).json({ message: "Unable to send tenant credentials email." });
     }
 
     return res.status(201).json({
       message: "Tenant registered successfully!",
       payload: {
-        user: tenantUser,
-        resident,
-        temporaryPin,
         emailSent: true,
+        resident: null,
+        temporaryPin,
+        user: tenantUser,
       },
     });
   } catch {
@@ -1020,9 +1094,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
     }
 
     const existingResident = await resolveResidentForTenantUser(existingTenant);
-    if (!existingResident) {
-      return res.status(404).json({ message: "Tenant resident details not found." });
-    }
+    const existingTenantProfile = resolveTenantProfile(existingTenant as UserDTO & UserTenantFields, existingResident);
 
     const tenantCompanyId = resolveCompanyIdFromTenantContext(existingTenant, existingResident);
     if (tenantCompanyId && tenantCompanyId !== String(linkedSecurityCompany._id)) {
@@ -1030,35 +1102,34 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
     }
 
     const body = req.body as {
-      name: string;
-      surname: string;
-      emailAddress: string;
-      cellNumber: string;
-      idNumber?: string;
       address: string;
-      residenceType: "complex" | "community";
+      cellNumber: string;
+      communityComplexId?: string;
+      communityId?: string;
+      communityResidenceType?: "complex" | "house";
       complexId?: string;
       complexName?: string;
-      communityId?: string;
-      communityResidenceType?: "house" | "complex";
-      communityComplexId?: string;
-      vehicles?: Array<{ make: string; model: string; reg: string; color?: string }>;
+      emailAddress: string;
+      idNumber?: string;
+      name: string;
+      residenceType: "community" | "complex";
+      surname: string;
+      vehicles?: { color?: string; make: string; model: string; reg: string; }[];
     };
 
-    const previousResidenceType = String(existingResident?.residenceType ?? "") as "complex" | "community";
-    const previousCommunityResidenceType = String(existingResident?.communityResidenceType ?? "") as "house" | "complex";
-    const previousAddress = String(existingResident?.address ?? "");
-    const previousComplexId = String(existingResident?.complex?._id ?? "");
+    const previousResidenceType = String(existingTenantProfile.residenceType ?? "") as "community" | "complex";
+    const previousAddress = String(existingTenantProfile.address ?? "");
+    const previousComplexId = String((existingTenantProfile.complex as null | undefined | { _id?: unknown })?._id ?? "");
 
     const normalizedEmail = body.emailAddress.trim().toLowerCase();
-    const duplicateUser = await userSchema.findOne({ emailAddress: normalizedEmail, _id: { $ne: tenantId } }).select({ _id: 1 }).lean();
+    const duplicateUser = await userSchema.findOne({ _id: { $ne: tenantId }, emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
     if (duplicateUser) {
       return res.status(409).json({ message: "User with this email already exists." });
     }
 
     const duplicateResident = await residentSchema.findOne({
-      emailAddress: normalizedEmail,
       _id: { $ne: existingResident?._id ?? null },
+      emailAddress: normalizedEmail,
       userId: { $ne: tenantId },
     }).select({ _id: 1 }).lean();
     if (duplicateResident) {
@@ -1066,8 +1137,8 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
     }
 
     const trimmedAddress = body.address.trim();
-    let linkedComplex: any = null;
-    let linkedGatedCommunity: any = null;
+    let linkedComplex: null | { _id: unknown; address?: string; gatedCommunityName?: null | string; name?: string } = null;
+    let linkedGatedCommunity: null | { _id: unknown; name?: string } = null;
     let communityIdValue = "";
     let communityResidenceTypeValue = "";
     let communityComplexIdValue = "";
@@ -1079,7 +1150,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
         return res.status(400).json({ message: "Valid complex is required for complex residence." });
       }
 
-      linkedComplex = await complexSchema.findById(body.complexId).select({ _id: 1, name: 1, gatedCommunityName: 1 }).lean();
+      linkedComplex = await complexSchema.findById(body.complexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
       if (!linkedComplex) {
         return res.status(404).json({ message: "Complex not found." });
       }
@@ -1105,7 +1176,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
           return res.status(400).json({ message: "Valid gated community complex is required." });
         }
 
-        const communityComplex = await complexSchema.findById(body.communityComplexId).select({ _id: 1, name: 1, gatedCommunityName: 1 }).lean();
+        const communityComplex = await complexSchema.findById(body.communityComplexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
         if (!communityComplex) {
           return res.status(404).json({ message: "Community complex not found." });
         }
@@ -1128,25 +1199,37 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       tenantId,
       {
         $set: {
-          name: body.name.trim(),
-          surname: body.surname.trim(),
-          emailAddress: normalizedEmail,
+          address: trimmedAddress,
           cellNumber: body.cellNumber.trim(),
+          communityComplexId: communityComplexIdValue,
+          communityId: communityIdValue,
+          communityResidenceType: communityResidenceTypeValue,
+          complex: linkedComplex
+            ? {
+                _id: linkedComplex._id,
+                gatedCommunityName: linkedComplex.gatedCommunityName ?? "",
+                name: linkedComplex.name ?? "",
+              }
+            : null,
+          emailAddress: normalizedEmail,
+          gatedCommunity: linkedGatedCommunity
+            ? {
+                _id: linkedGatedCommunity._id,
+                name: linkedGatedCommunity.name ?? "",
+              }
+            : null,
+          houseNumber: houseNumberValue,
           idNumber: body.idNumber?.trim() || undefined,
-        },
-        $unset: {
-          address: "",
-          residenceType: "",
-          complex: "",
-          gatedCommunity: "",
-          communityId: "",
-          communityResidenceType: "",
-          communityComplexId: "",
-          unitNumber: "",
-          houseNumber: "",
-          vehicles: "",
-          securityCompany: "",
-          residentId: "",
+          name: body.name.trim(),
+          residenceType: body.residenceType,
+          securityCompany: linkedSecurityCompany
+            ? {
+                _id: linkedSecurityCompany._id,
+                name: linkedSecurityCompany.name,
+              }
+            : null,
+          surname: body.surname.trim(),
+          unitNumber: unitNumberValue,
         },
       },
       { new: true }
@@ -1172,7 +1255,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
         String(updatedTenant._id ?? ""),
         {
           complexId: previousComplexId,
-          gatedCommunityId: previousComplexId ? "" : String(existingResident?.communityId ?? ""),
+          gatedCommunityId: previousComplexId ? "" : String(existingTenantProfile.communityId ?? ""),
         },
         previousAddress,
       );
@@ -1185,8 +1268,8 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
           complex: linkedComplex
             ? {
                 _id: nextComplexId,
-                name: String(linkedComplex.name ?? ""),
                 address: String(linkedComplex.address ?? ""),
+                name: String(linkedComplex.name ?? ""),
               }
             : null,
           gatedCommunity: linkedGatedCommunity
@@ -1200,70 +1283,17 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       );
     }
 
-    const residentFilter = existingResident?._id
-      ? { _id: existingResident._id }
-      : {
-          $or: [
-            { userId: tenantId },
-            { emailAddress: existingTenant.emailAddress },
-          ],
-        };
-
-    const residentPayload = {
-      userId: updatedTenant._id,
-      name: updatedTenant.name,
-      surname: updatedTenant.surname,
-      emailAddress: updatedTenant.emailAddress,
-      cellNumber: updatedTenant.cellNumber,
-      idNumber: updatedTenant.idNumber,
-      residenceType: body.residenceType,
-      complex: linkedComplex
-        ? {
-            _id: linkedComplex._id,
-            name: linkedComplex.name ?? "",
-            gatedCommunityName: linkedComplex.gatedCommunityName ?? "",
-          }
-        : null,
-      gatedCommunity: linkedGatedCommunity
-        ? {
-            _id: linkedGatedCommunity._id,
-            name: linkedGatedCommunity.name ?? "",
-          }
-        : null,
-      communityId: communityIdValue,
-      communityResidenceType: communityResidenceTypeValue,
-      communityComplexId: communityComplexIdValue,
-      unitNumber: unitNumberValue,
-      houseNumber: houseNumberValue,
-      address: trimmedAddress,
-      vehicles: [],
-      securityCompany: linkedSecurityCompany
-        ? {
-            _id: linkedSecurityCompany._id,
-            name: linkedSecurityCompany.name,
-          }
-        : null,
-      createdBy: managerEmail,
-    };
-
-    let updatedResident = await residentSchema.findOneAndUpdate(
-      residentFilter,
-      { $set: residentPayload },
-      { new: true }
-    ).exec();
-
-    if (!updatedResident) {
-      const createdResident = await new residentSchema(residentPayload).save();
-      updatedResident = createdResident;
-    }
+    const updatedResident = existingResident
+      ? await residentSchema.findById(existingResident._id).exec()
+      : null;
 
     await syncTenantVehiclesForUser(
       {
         _id: updatedTenant._id,
+        cellNumber: updatedTenant.cellNumber,
+        emailAddress: updatedTenant.emailAddress,
         name: updatedTenant.name,
         surname: updatedTenant.surname,
-        emailAddress: updatedTenant.emailAddress,
-        cellNumber: updatedTenant.cellNumber,
       },
       body.vehicles,
     );
@@ -1271,8 +1301,8 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
     return res.status(200).json({
       message: "Tenant updated successfully!",
       payload: {
-        user: updatedTenant,
         resident: updatedResident,
+        user: updatedTenant,
       },
     });
   } catch {
@@ -1317,9 +1347,7 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
     }
 
     const tenantResident = await resolveResidentForTenantUser(tenant);
-    if (!tenantResident) {
-      return res.status(404).json({ message: "Tenant resident details not found." });
-    }
+    const tenantProfile = resolveTenantProfile(tenant as UserDTO & UserTenantFields, tenantResident);
 
     const tenantCompanyId = resolveCompanyIdFromTenantContext(tenant, tenantResident);
     if (tenantCompanyId && tenantCompanyId !== String(linkedSecurityCompany._id)) {
@@ -1327,16 +1355,16 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
     }
 
     const tenantUsesUnit =
-      tenantResident.residenceType === "complex" ||
-      tenantResident.residenceType === "community";
+      tenantProfile.residenceType === "complex" ||
+      tenantProfile.residenceType === "community";
     if (tenantUsesUnit) {
       await unlinkTenantFromUnit(
         String(tenant._id ?? ""),
         {
-          complexId: String(tenantResident?.complex?._id ?? ""),
-          gatedCommunityId: String(tenantResident?.communityId ?? ""),
+          complexId: String((tenantProfile.complex as null | undefined | { _id?: unknown })?._id ?? ""),
+          gatedCommunityId: String(tenantProfile.communityId ?? ""),
         },
-        String(tenantResident?.address ?? "")
+        String(tenantProfile.address ?? "")
       );
     }
 
@@ -1356,8 +1384,8 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
     return res.status(200).json({
       message: "Tenant deleted successfully!",
       payload: {
-        user: deletedTenant,
         resident: deletedResident,
+        user: deletedTenant,
       },
     });
   } catch {
@@ -1404,7 +1432,7 @@ userRouter.patch("/security-assignment/:id", AuthMiddleware, checkSchema(securit
       return res.status(400).json({ message: "Selected record is not a security employee." });
     }
 
-    const body = req.body as { assignedComplexes?: string[]; assignedCommunities?: string[] };
+    const body = req.body as { assignedCommunities?: string[]; assignedComplexes?: string[]; };
     const companyAssignment = findCompanyAssignmentForUser(linkedSecurityCompany, String(employee._id ?? ""));
     const assignedComplexes = Array.isArray(body.assignedComplexes)
       ? normalizeStringList(body.assignedComplexes)
@@ -1415,14 +1443,14 @@ userRouter.patch("/security-assignment/:id", AuthMiddleware, checkSchema(securit
       : normalizeStringList(companyAssignment?.assignedCommunities);
 
     await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
-      userId: String(employee._id),
-      assignedComplexes,
       assignedCommunities,
+      assignedComplexes,
+      contractEndDate: companyAssignment?.contractEndDate ?? null,
+      contractStartDate: companyAssignment?.contractStartDate ?? null,
+      createdBy: companyAssignment?.createdBy ?? managerEmail,
       position: companyAssignment?.position,
       status: companyAssignment?.status,
-      contractStartDate: companyAssignment?.contractStartDate ?? null,
-      contractEndDate: companyAssignment?.contractEndDate ?? null,
-      createdBy: companyAssignment?.createdBy ?? managerEmail,
+      userId: String(employee._id),
     });
 
     const updatedEmployee = await userSchema.findByIdAndUpdate(
@@ -1441,8 +1469,8 @@ userRouter.patch("/security-assignment/:id", AuthMiddleware, checkSchema(securit
           },
         },
         $unset: {
-          assignedComplexes: "",
           assignedCommunities: "",
+          assignedComplexes: "",
           employeeContracts: "",
         },
       },
@@ -1452,8 +1480,8 @@ userRouter.patch("/security-assignment/:id", AuthMiddleware, checkSchema(securit
     const responsePayload = updatedEmployee
       ? {
           ...updatedEmployee.toObject(),
-          assignedComplexes,
           assignedCommunities,
+          assignedComplexes,
         }
       : null;
 
@@ -1502,71 +1530,71 @@ userRouter.patch("/security-employee/:id", AuthMiddleware, checkSchema(securityE
     }
 
     const body = req.body as {
-      name: string;
-      surname: string;
-      emailAddress: string;
-      cellNumber: string;
-      position: string;
-      status?: "active" | "inactive";
       assignedComplexId?: string;
       assignedComplexName?: string;
       assignedGatedCommunityName?: string;
-      contractStartDate?: string;
+      cellNumber: string;
       contractEndDate?: string;
+      contractStartDate?: string;
+      emailAddress: string;
+      name: string;
+      position: string;
+      status?: "active" | "inactive";
+      surname: string;
     };
 
     const normalizedEmail = body.emailAddress.trim().toLowerCase();
-    const duplicateUser = await userSchema.findOne({ emailAddress: normalizedEmail, _id: { $ne: employeeId } }).select({ _id: 1 }).lean();
+    const duplicateUser = await userSchema.findOne({ _id: { $ne: employeeId }, emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
     if (duplicateUser) {
       return res.status(409).json({ message: "User with this email already exists." });
     }
 
     const normalizedPosition = (body.position ?? "").toLowerCase().replace(/[^a-z]/g, "");
     const isAdminGuard = normalizedPosition.includes("admin");
-    const employeePosition: "Guard" | "admin-Guard" = isAdminGuard ? "admin-Guard" : "Guard";
+    const employeePosition: "admin-Guard" | "Guard" = isAdminGuard ? "admin-Guard" : "Guard";
 
     const existingCompanyAssignment = findCompanyAssignmentForUser(linkedSecurityCompany, String(employeeId));
 
     const updatedContract = {
+      contractEndDate: body.contractEndDate
+        ? new Date(body.contractEndDate)
+        : (existingCompanyAssignment?.contractEndDate ?? null),
+      contractStartDate: body.contractStartDate
+        ? new Date(body.contractStartDate)
+        : (existingCompanyAssignment?.contractStartDate ?? new Date()),
+      createdBy: existingCompanyAssignment?.createdBy ?? managerEmail,
+      position: employeePosition,
       securityCompany: {
         _id: linkedSecurityCompany._id,
         name: linkedSecurityCompany.name,
       },
-      position: employeePosition,
       status: body.status ?? "active",
-      contractStartDate: body.contractStartDate
-        ? new Date(body.contractStartDate)
-        : (existingCompanyAssignment?.contractStartDate ?? new Date()),
-      contractEndDate: body.contractEndDate
-        ? new Date(body.contractEndDate)
-        : (existingCompanyAssignment?.contractEndDate ?? null),
-      createdBy: existingCompanyAssignment?.createdBy ?? managerEmail,
     };
 
     const updatedEmployee = await userSchema.findByIdAndUpdate(
       employeeId,
       {
         $set: {
-          name: body.name.trim(),
-          surname: body.surname.trim(),
-          emailAddress: normalizedEmail,
           cellNumber: body.cellNumber.trim(),
-          movedOut: (body.status ?? "active") === "inactive",
           complex: body.assignedComplexId
             ? {
                 _id: body.assignedComplexId,
                 name: body.assignedComplexName ?? "",
               }
             : null,
-          type: isAdminGuard ? ["security", "admin"] : ["security"],
+          emailAddress: normalizedEmail,
+          movedOut: (body.status ?? "active") === "inactive",
+          name: body.name.trim(),
           securityCompany: {
             _id: linkedSecurityCompany._id,
             name: linkedSecurityCompany.name,
           },
+          surname: body.surname.trim(),
+          type: isAdminGuard ? ["security", "admin"] : ["security"],
         },
         $unset: {
-          assignedComplexes: "",
           assignedCommunities: "",
+          assignedComplexes: "",
           employeeContracts: "",
         },
       },
@@ -1581,14 +1609,14 @@ userRouter.patch("/security-employee/:id", AuthMiddleware, checkSchema(securityE
       : normalizeStringList(existingCompanyAssignment?.assignedCommunities);
 
     await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
-      userId: String(employeeId),
-      assignedComplexes: nextAssignedComplexes,
       assignedCommunities: nextAssignedCommunities,
+      assignedComplexes: nextAssignedComplexes,
+      contractEndDate: updatedContract.contractEndDate ?? null,
+      contractStartDate: updatedContract.contractStartDate ?? null,
+      createdBy: updatedContract.createdBy,
       position: employeePosition,
       status: body.status ?? "active",
-      contractStartDate: updatedContract.contractStartDate ?? null,
-      contractEndDate: updatedContract.contractEndDate ?? null,
-      createdBy: updatedContract.createdBy,
+      userId: String(employeeId),
     });
 
     return res.status(200).json({ message: "Employee updated successfully!", payload: updatedEmployee });
@@ -1643,17 +1671,18 @@ userRouter.delete("/security-employee/:id", AuthMiddleware, async (req: Request,
 userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
     const body = req.body as { emailAddress: string; password: string };
+    const normalizedEmail = String(body.emailAddress ?? "").trim().toLowerCase();
 
     const user = await userSchema
-      .find<UserDTO>({
-        emailAddress: body.emailAddress,
+      .findOne<UserDTO>({
+        emailAddress: normalizedEmail,
       })
       .select({})
       .exec();
 
-    if (user.length === 0) return res.status(401).json({ message: "Invaild login details!" });
+    if (!user) return res.status(401).json({ message: "Invalid login details!" });
 
-    const isValidPassword = await bcrypt.compare(body.password, user[0].password as unknown as string);
+    const isValidPassword = await bcrypt.compare(body.password, user.password as unknown as string);
 
     if (!isValidPassword) return res.status(401).json({ message: "Invalid login details" });
 
@@ -1666,15 +1695,17 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
       const userRoles = Array.isArray(user.type) ? user.type : [];
       const isTenant = userRoles.includes("tenant") || userRoles.includes("user");
       const tenantResident = isTenant ? await resolveResidentForTenantUser(user) : null;
+      const tenantProfile = resolveTenantProfile(user as UserDTO & UserTenantFields, tenantResident);
       const tenantVehicles = isTenant
         ? await vehicleSchema.find({ "user._id": { $in: [String(user._id ?? ""), user._id] } }).lean()
         : [];
-      const normalizedTenantVehicles = tenantVehicles.map((vehicle: any) => ({
-        make: String(vehicle?.make ?? ""),
-        model: String(vehicle?.model ?? ""),
-        reg: String(vehicle?.registerationNumber ?? vehicle?.registrationNumber ?? ""),
-        color: String(vehicle?.color ?? "") || "",
+      const normalizedTenantVehicles = normalizeTenantVehicles(tenantVehicles).map((vehicle) => ({
+        color: vehicle.color ?? "",
+        make: vehicle.make,
+        model: vehicle.model,
+        reg: vehicle.reg,
       }));
+      const nonTenantUser = user as UserDTO & UserTenantFields;
       
       return res.status(200).json({
         message: "Logged in successfully",
@@ -1683,36 +1714,36 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
           type: user.type,
           user: {
             _id: user._id,
-            emailAddress: user.emailAddress,
-            name: user.name,
-            surname: user.surname,
-            cellNumber: user.cellNumber,
-            type: user.type,
-            profilePhoto: user.profilePhoto,
-            complex: isTenant ? (tenantResident?.complex ?? null) : (user.complex ?? null),
-            residenceType: isTenant ? (tenantResident?.residenceType ?? "") : (user as any).residenceType,
-            gatedCommunity: isTenant ? (tenantResident?.gatedCommunity ?? null) : (user as any).gatedCommunity,
-            communityId: isTenant ? (tenantResident?.communityId ?? "") : (user as any).communityId,
-            communityResidenceType: isTenant ? (tenantResident?.communityResidenceType ?? "") : (user as any).communityResidenceType,
-            communityComplexId: isTenant ? (tenantResident?.communityComplexId ?? "") : (user as any).communityComplexId,
-            unitNumber: isTenant ? (tenantResident?.unitNumber ?? "") : (user as any).unitNumber,
-            houseNumber: isTenant ? (tenantResident?.houseNumber ?? "") : (user as any).houseNumber,
-            address: isTenant ? (tenantResident?.address ?? "") : (user as any).address,
-            vehicles: isTenant ? normalizedTenantVehicles : [],
-            assignedComplexes: resolvedAssignments.assignedComplexes,
+            address: isTenant ? (tenantProfile.address ?? "") : (nonTenantUser.address ?? ""),
             assignedCommunities: resolvedAssignments.assignedCommunities,
+            assignedComplexes: resolvedAssignments.assignedComplexes,
+            cellNumber: user.cellNumber,
+            communityComplexId: isTenant ? (tenantProfile.communityComplexId ?? "") : (nonTenantUser.communityComplexId ?? ""),
+            communityId: isTenant ? (tenantProfile.communityId ?? "") : (nonTenantUser.communityId ?? ""),
+            communityResidenceType: isTenant ? (tenantProfile.communityResidenceType ?? "") : (nonTenantUser.communityResidenceType ?? ""),
+            complex: isTenant ? (tenantProfile.complex ?? null) : (user.complex ?? null),
+            emailAddress: user.emailAddress,
             employeeContracts: resolvedEmployeeContracts,
+            gatedCommunity: isTenant ? (tenantProfile.gatedCommunity ?? null) : (nonTenantUser.gatedCommunity ?? null),
+            houseNumber: isTenant ? (tenantProfile.houseNumber ?? "") : (nonTenantUser.houseNumber ?? ""),
+            name: user.name,
+            profilePhoto: user.profilePhoto,
+            residenceType: isTenant ? (tenantProfile.residenceType ?? "") : (nonTenantUser.residenceType ?? ""),
             securityCompany: isTenant
               ? null
               : linkedSecurityCompany
               ? {
                   _id: linkedSecurityCompany._id,
-                  name: linkedSecurityCompany.name,
-                  email: linkedSecurityCompany.email,
                   contactNumber: linkedSecurityCompany.contactNumber,
                   contract: linkedSecurityCompany.contract ?? [],
+                  email: linkedSecurityCompany.email,
+                  name: linkedSecurityCompany.name,
                 }
               : (user.securityCompany ?? null),
+            surname: user.surname,
+            type: user.type,
+            unitNumber: isTenant ? (tenantProfile.unitNumber ?? "") : (nonTenantUser.unitNumber ?? ""),
+            vehicles: isTenant ? normalizedTenantVehicles : [],
           },
         },
       });

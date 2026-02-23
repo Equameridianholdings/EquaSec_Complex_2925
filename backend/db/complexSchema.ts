@@ -3,23 +3,23 @@ import mongoose from "mongoose";
 
 const complex = new mongoose.Schema({
     address: { required: true, type: String},
-    name: { required: true, type: String, unique: true},
-    numberOfUnits: { required: true, type: Int32},
-    price: { required: true, type: Number },
-    gatedCommunityName: { required: false, type: String },
-    parkingMode: { required: true, type: String },
-    fixedParkingCount: { required: false, type: Number },
-    parkingIsUnlimited: { required: true, type: Boolean },
     blocks: {
+        default: [],
         required: false,
         type: [
             {
-                name: { type: String, required: true },
-                numberOfUnits: { type: Number, required: true },
+                name: { required: true, type: String },
+                numberOfUnits: { required: true, type: Number },
             },
         ],
-        default: [],
     },
+    fixedParkingCount: { required: false, type: Number },
+    gatedCommunityName: { required: false, type: String },
+    name: { required: true, type: String, unique: true},
+    numberOfUnits: { required: true, type: Int32},
+    parkingIsUnlimited: { required: true, type: Boolean },
+    parkingMode: { required: true, type: String },
+    price: { required: true, type: Number },
 });
 
 const complexSchema = mongoose.model("Complex", complex);

@@ -156,7 +156,7 @@ export class Login {
 
   submitForm() {
     this.service
-      .post<ResponseBody>('user/login', { emailAddress: this.loginForm.email, password: this.getPinValue().replaceAll(',', '') })
+      .post<ResponseBody>('user/login', { emailAddress: this.loginForm.email.trim().toLowerCase(), password: this.getPinValue().replaceAll(',', '') })
       .subscribe({
         next: (res) => {
           this.storage.setItem("bearer-token", res.payload.token);

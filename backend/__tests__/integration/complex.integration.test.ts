@@ -1,9 +1,7 @@
 import { describe, it } from "vitest";
 
 describe("Complex endpoints for api", () => {
-  it("Should add new complexes and return a 201 code", async () => {
-
-  });
+  it.todo("Should add new complexes and return a 201 code");
 
   it.todo("Should update a complex and all unit documents with related complexes and return a 200 code");
 

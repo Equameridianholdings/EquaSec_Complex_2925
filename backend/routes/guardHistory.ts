@@ -1,28 +1,35 @@
 import guardHistorySchema from "#db/guardHistorySchema.js";
 import userSchema from "#db/userSchema.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
-import { Router } from "express";
-import { body } from "express-validator/lib/middlewares/validation-chain-builders.js";
-import { checkSchema, Schema } from "express-validator/lib/middlewares/schema.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
+import { Router } from "express";
 import { Request, Response } from "express";
+import { checkSchema, Schema } from "express-validator/lib/middlewares/schema.js";
+import { body } from "express-validator/lib/middlewares/validation-chain-builders.js";
 import { ObjectId } from "mongodb";
 
 const guardHistoryRouter = Router();
 const SHIFT_WINDOW_HOURS = 12;
 const CAPE_TOWN_TIME_ZONE = "Africa/Johannesburg";
 
+interface ShiftStationRequestBody {
+  selectedComplex?: string;
+  selectedGatedCommunity?: string;
+  stationName?: string;
+  stationType?: "complex" | "gated";
+}
+
 const getCapeTownNow = (): Date => {
   const now = new Date();
   const formatter = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: CAPE_TOWN_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
     hour12: false,
+    minute: "2-digit",
+    month: "2-digit",
+    second: "2-digit",
+    timeZone: CAPE_TOWN_TIME_ZONE,
+    year: "numeric",
   });
 
   const capeTownDateTime = formatter.format(now).replace(" ", "T");
@@ -46,7 +53,7 @@ const toObjectIdString = (value: unknown): string => {
     }
 
     if (withOid.$oid) {
-      return String(withOid.$oid);
+      return toObjectIdString(withOid.$oid);
     }
 
     if (withOid._id) {
@@ -67,15 +74,15 @@ const toObjectIdString = (value: unknown): string => {
 guardHistoryRouter.use(AuthMiddleware);
 
 const startShiftValidation: Schema = {
+  stationName: {
+    errorMessage: "Station name is required",
+    isEmpty: false,
+  },
   stationType: {
     errorMessage: "Invalid station type",
     isIn: {
       options: [["gated", "complex"]],
     },
-  },
-  stationName: {
-    errorMessage: "Station name is required",
-    isEmpty: false,
   },
 };
 
@@ -108,19 +115,21 @@ guardHistoryRouter.post(
         return res.status(404).json({ message: "Guard not found" });
       }
 
+      const requestBody = req.body as ShiftStationRequestBody;
+
       console.log("[GuardHistory][start] request", {
         emailAddress,
-        userId: String(user._id ?? ""),
-        stationType: req.body.stationType,
-        selectedGatedCommunity: req.body.selectedGatedCommunity,
-        selectedComplex: req.body.selectedComplex,
-        stationName: req.body.stationName,
+        selectedComplex: requestBody.selectedComplex,
+        selectedGatedCommunity: requestBody.selectedGatedCommunity,
+        stationName: requestBody.stationName,
+        stationType: requestBody.stationType,
+        userId: toObjectIdString(user._id),
       });
 
-      const stationType = String(req.body.stationType ?? "") as "gated" | "complex";
-      const stationName = String(req.body.stationName ?? "").trim();
-      const selectedGatedCommunity = String(req.body.selectedGatedCommunity ?? "").trim();
-      const selectedComplex = String(req.body.selectedComplex ?? "").trim();
+      const stationType = requestBody.stationType ?? "";
+      const stationName = (requestBody.stationName ?? "").trim();
+      const selectedGatedCommunity = (requestBody.selectedGatedCommunity ?? "").trim();
+      const selectedComplex = (requestBody.selectedComplex ?? "").trim();
 
       if (!stationName) {
         return res.status(400).json({ message: "Station name is required" });
@@ -147,18 +156,18 @@ guardHistoryRouter.post(
 
       if (existingActiveShift) {
         existingActiveShift.station = {
-          type: stationType,
-          gatedCommunityId: ObjectId.isValid(selectedGatedCommunity) ? new ObjectId(selectedGatedCommunity) : undefined,
           complexId: ObjectId.isValid(selectedComplex) ? new ObjectId(selectedComplex) : undefined,
+          gatedCommunityId: ObjectId.isValid(selectedGatedCommunity) ? new ObjectId(selectedGatedCommunity) : undefined,
           name: stationName,
+          type: stationType,
         };
 
         const updatedShift = await existingActiveShift.save();
 
         console.log("[GuardHistory][start] reusedActiveShift", {
-          shiftId: String(updatedShift?._id ?? ""),
-          startShift: updatedShift?.startShift,
-          station: updatedShift?.station,
+          shiftId: toObjectIdString(updatedShift._id),
+          startShift: updatedShift.startShift,
+          station: updatedShift.station,
         });
 
         return res.status(200).json({
@@ -168,26 +177,26 @@ guardHistoryRouter.post(
       }
 
       const payload = {
-        startShift: getCapeTownNow(),
         guardOnShift: {
-          userId: user._id,
-          name: `${user.name ?? ""} ${user.surname ?? ""}`.trim(),
           emailAddress: user.emailAddress,
+          name: `${user.name} ${user.surname}`.trim(),
+          userId: user._id,
         },
+        startShift: getCapeTownNow(),
         station: {
-          type: stationType,
-          gatedCommunityId: ObjectId.isValid(selectedGatedCommunity) ? new ObjectId(selectedGatedCommunity) : undefined,
           complexId: ObjectId.isValid(selectedComplex) ? new ObjectId(selectedComplex) : undefined,
+          gatedCommunityId: ObjectId.isValid(selectedGatedCommunity) ? new ObjectId(selectedGatedCommunity) : undefined,
           name: stationName,
+          type: stationType,
         },
       };
 
       const guardHistory = await guardHistorySchema.create(payload);
 
       console.log("[GuardHistory][start] created", {
-        shiftId: String(guardHistory?._id ?? ""),
-        startShift: guardHistory?.startShift,
-        station: guardHistory?.station,
+        shiftId: toObjectIdString(guardHistory._id),
+        startShift: guardHistory.startShift,
+        station: guardHistory.station,
       });
 
       return res.status(201).json({
@@ -252,19 +261,21 @@ guardHistoryRouter.patch(
         return res.status(404).json({ message: "Guard not found" });
       }
 
+      const requestBody = req.body as ShiftStationRequestBody;
+
       console.log("[GuardHistory][active/station] request", {
         emailAddress,
-        userId: String(user._id ?? ""),
-        stationType: req.body.stationType,
-        selectedGatedCommunity: req.body.selectedGatedCommunity,
-        selectedComplex: req.body.selectedComplex,
-        stationName: req.body.stationName,
+        selectedComplex: requestBody.selectedComplex,
+        selectedGatedCommunity: requestBody.selectedGatedCommunity,
+        stationName: requestBody.stationName,
+        stationType: requestBody.stationType,
+        userId: toObjectIdString(user._id),
       });
 
-      const stationType = String(req.body.stationType ?? "") as "gated" | "complex";
-      const stationName = String(req.body.stationName ?? "").trim();
-      const selectedGatedCommunity = String(req.body.selectedGatedCommunity ?? "").trim();
-      const selectedComplex = String(req.body.selectedComplex ?? "").trim();
+      const stationType = requestBody.stationType ?? "";
+      const stationName = (requestBody.stationName ?? "").trim();
+      const selectedGatedCommunity = (requestBody.selectedGatedCommunity ?? "").trim();
+      const selectedComplex = (requestBody.selectedComplex ?? "").trim();
 
       if (!stationName) {
         return res.status(400).json({ message: "Station name is required" });
@@ -301,17 +312,17 @@ guardHistoryRouter.patch(
       }
 
       activeShift.station = {
-        type: stationType,
-        gatedCommunityId: ObjectId.isValid(selectedGatedCommunity) ? new ObjectId(selectedGatedCommunity) : undefined,
         complexId: ObjectId.isValid(selectedComplex) ? new ObjectId(selectedComplex) : undefined,
+        gatedCommunityId: ObjectId.isValid(selectedGatedCommunity) ? new ObjectId(selectedGatedCommunity) : undefined,
         name: stationName,
+        type: stationType,
       };
 
       const updatedShift = await activeShift.save();
 
       console.log("[GuardHistory][active/station] updated", {
-        shiftId: String(updatedShift?._id ?? ""),
-        station: updatedShift?.station,
+        shiftId: toObjectIdString(updatedShift._id),
+        station: updatedShift.station,
       });
 
       return res.status(200).json({
@@ -342,9 +353,9 @@ guardHistoryRouter.get("/active", async (req: Request, res: Response) => {
     const effectiveCutoff = getEffectiveCutoffDate();
 
     console.log("[GuardHistory][active] lookup", {
-      emailAddress,
-      userId: String(user._id ?? ""),
       effectiveCutoff,
+      emailAddress,
+      userId: toObjectIdString(user._id),
     });
 
     const activeShift = await guardHistorySchema
@@ -374,8 +385,8 @@ guardHistoryRouter.get("/active", async (req: Request, res: Response) => {
         ...activeShift,
         station: {
           ...activeShift.station,
-          gatedCommunityId: toObjectIdString(activeShift?.station?.gatedCommunityId),
-          complexId: toObjectIdString(activeShift?.station?.complexId),
+          complexId: toObjectIdString(activeShift.station?.complexId),
+          gatedCommunityId: toObjectIdString(activeShift.station?.gatedCommunityId),
         },
       },
     });
