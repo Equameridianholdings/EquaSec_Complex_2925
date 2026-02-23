@@ -12,7 +12,7 @@
       </div>
       <div class="form-group">
         <label>Email</label>
-        <input class="form-control" name="companyEmail" [(ngModel)]="newSecurityCompany.companyEmail" required type="email" pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" #emailInput="ngModel" />
+        <input class="form-control" name="companyEmail" [(ngModel)]="newSecurityCompany.companyEmail" required type="email" #emailInput="ngModel" />
         <div class="validation-error" *ngIf="emailInput.invalid && emailInput.touched">Enter a valid email address.</div>
       </div>
       <div class="form-group">
@@ -28,6 +28,13 @@
         <label>PSIRA Number</label>
         <input class="form-control" name="psiraNumber" [(ngModel)]="newSecurityCompany.psiraNumber" required />
       </div>
+      <div class="form-group">
+        <label class="checkbox-row">
+          <input type="checkbox" name="sosOptin" [(ngModel)]="newSecurityCompany.sosOptin" />
+          <span>Enable SOS opt-in</span>
+        </label>
+      </div>
+      <small class="error-text" *ngIf="addSecurityError">{{ addSecurityError }}</small>
       <div class="modal-actions modal-actions-wide">
         <button class="btn-primary modal-btn-wide" type="submit" [disabled]="addSecurityForm.invalid">Add</button>
         <button class="btn-secondary modal-btn-wide" type="button" (click)="closeAddSecurityModal()">Cancel</button>
@@ -72,6 +79,7 @@
           </span>
         </button>
       </div>
+      <small class="error-text" *ngIf="updateSecurityError">{{ updateSecurityError }}</small>
     </form>
   </div>
 </div>
@@ -94,10 +102,12 @@
         <button class="btn-danger modal-btn-wide" type="submit" [disabled]="!removeCompanyName">Remove</button>
         <button class="btn-secondary modal-btn-wide" type="button" (click)="closeRemoveSecurityModal()">Cancel</button>
       </div>
+      <small class="error-text" *ngIf="removeSecurityError">{{ removeSecurityError }}</small>
     </form>
   </div>
 </div>
 <div class="admin-portal">
+  <div class="toast" *ngIf="showToast">{{ toastMessage }}</div>
   <header class="portal-header">
     <div>
       <p class="eyebrow">Admin Console</p>
@@ -161,11 +171,12 @@
                   </div>
                   <div class="company-details">
                     <div class="detail-item" *ngIf="company.assignments && company.assignments.length > 0">
-                      <span class="detail-label">Assigned Complexes:</span>
+                      <span class="detail-label">Assigned Sites:</span>
                       <div class="detail-value">
                         <div class="assignment-item" *ngFor="let assignment of company.assignments">
                           <div class="assignment-info">
-                            <strong>{{ assignment.complexName }}</strong>
+                            <strong>{{ assignment.complexName || assignment.gatedCommunityName }}</strong>
+                            <span class="contract-dates" *ngIf="assignment.gatedCommunityName"> (Gated Community)</span>
                             <span class="contract-dates"> (Contract: {{ assignment.contractStart }} to {{ assignment.contractEnd }})</span>
                           </div>
                           <button class="btn-sm btn-danger" type="button" (click)="unassignCompanyFromComplex(company, assignment)">🔓 Unassign</button>
@@ -217,61 +228,74 @@
             <div class="gated-community-card" *ngFor="let community of gatedCommunities">
               <div class="community-header">
                 <div class="community-info">
-                  <h3 class="community-name">{{ community.gatedCommunityName }}</h3>
+                  <div class="company-title-row">
+                    <h3 class="community-name">{{ community.gatedCommunityName }}</h3>
+                    <span class="status-badge assigned" *ngIf="community.securityAssignments && community.securityAssignments.length > 0">
+                      Security Assigned
+                    </span>
+                  </div>
                   <div class="community-details">
                     <div class="detail-item">
-                      <span class="detail-label">House Numbers:</span>
-                      <span class="detail-value">{{ community.unitStart }} - {{ community.unitEnd }}</span>
+                      <span class="detail-label">Total Houses:</span>
+                      <span class="detail-value">{{ getCommunityHouseCount(community) }}</span>
                     </div>
                   </div>
                 </div>
                 <div class="community-actions">
-                  <button class="btn-secondary" type="button" (click)="openGatedSecurityAssignModal(community)">🛡️ Assign Security</button>
+                  <button class="btn-secondary" type="button" (click)="openGatedSecurityAssignModal(community)" *ngIf="!community.securityAssignments || community.securityAssignments.length === 0">🛡️ Assign Security</button>
                   <button class="btn-primary" type="button" (click)="openGatedCommunityModal(community)">✏️ Edit</button>
                   <button class="btn-danger" type="button" (click)="deleteGatedCommunity(community)">🗑️ Delete</button>
                 </div>
               </div>
 
               <!-- Assigned Complexes -->
-              <div *ngIf="community.complexes && community.complexes.length > 0" class="assignment-section">
+              <div *ngIf="getComplexesForCommunity(community.gatedCommunityName).length > 0" class="assignment-section">
                 <div class="assignment-header">
                   <span class="assignment-title">Assigned Complexes</span>
                 </div>
                 <div class="assignment-items">
-                  <div class="assignment-item" *ngFor="let complexName of community.complexes">
+                  <div class="assignment-item" *ngFor="let linkedComplex of getComplexesForCommunity(community.gatedCommunityName)">
                     <div class="complex-card" style="margin-bottom: 10px;">
                       <div class="complex-header">
                         <div class="complex-info">
-                          <h3 class="complex-name">{{ complexName }}</h3>
+                          <h3 class="complex-name">{{ linkedComplex.complexName }}</h3>
                           <div class="complex-details">
                             <div class="detail-item">
-                              <span class="detail-label">Units:</span>
-                              <span class="detail-value">{{ getComplexByName(complexName)?.unitStart }} - {{ getComplexByName(complexName)?.unitEnd }}</span>
+                              <span class="detail-label">Total Units:</span>
+                              <span class="detail-value">{{ linkedComplex.numberOfUnits }}</span>
+                            </div>
+                            <div class="detail-item" *ngIf="linkedComplex.blocks && linkedComplex.blocks.length > 0">
+                              <span class="detail-label">Units per Block:</span>
+                              <div class="detail-value">
+                                <div *ngFor="let block of linkedComplex.blocks">
+                                  {{ block.name }}: {{ getBlockUnitCount(block) }} units
+                                </div>
+                              </div>
                             </div>
                             <div class="detail-item">
                               <span class="detail-label">Parking:</span>
-                              <span class="detail-value">{{ getComplexByName(complexName)?.parkingMode === 'fixed' ? 'Fixed (' + getComplexByName(complexName)?.fixedParkingCount + ')' : 'Per-Unit' }}</span>
+                              <span class="detail-value">{{ linkedComplex.parkingMode === 'fixed' ? 'Fixed (' + linkedComplex['fixedParkingCount'] + ')' : 'Per-Unit' }}</span>
                             </div>
                           </div>
                         </div>
-                        <div class="complex-status-wrapper" *ngIf="!isComplexAssigned(complexName)">
+                        <div class="complex-status-wrapper" *ngIf="!isComplexAssigned(linkedComplex.complexName)">
                           <div class="security-unassigned security-assigned">
                             <span class="xmark" style="color:#e53935;font-size:18px;font-weight:bold;margin-right:6px;">&#10006;</span>
                             <span class="status-text">Not Assigned</span>
                           </div>
-                          <button class="btn-update-small" type="button" (click)="openUpdateComplexModal(getComplexByName(complexName))">
+                          <button class="btn-update-small" type="button" (click)="openUpdateComplexModal(linkedComplex)">
                             <span class="update-icon-text">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg>
                               <span style="vertical-align:middle;font-size:13px;">Update</span>
                             </span>
                           </button>
                         </div>
-                        <div class="complex-status-wrapper" *ngIf="isComplexAssigned(complexName)">
+                        <div class="complex-status-wrapper" *ngIf="isComplexAssigned(linkedComplex.complexName)">
                           <div class="security-assigned">
                             <span class="checkmark">✓</span>
                             <span class="status-text">Security Assigned</span>
                           </div>
-                          <button class="btn-update-small" type="button" (click)="openUpdateComplexModal(getComplexByName(complexName))">
+                          <button class="btn-update-small" type="button" (click)="openUpdateComplexModal(linkedComplex)">
                             <span class="update-icon-text">
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg>
                               <span style="vertical-align:middle;font-size:13px;">Update</span>
@@ -357,13 +381,39 @@
                               </div>
                             </ng-container>
                   <div class="complex-details">
-                    <div class="detail-item">
-                      <span class="detail-label">Units:</span>
-                      <span class="detail-value">{{ complex.unitStart }} - {{ complex.unitEnd }}</span>
+                    <div class="detail-item" *ngIf="!complex.blocks || complex.blocks.length === 0">
+                      <span class="detail-label">Total Units:</span>
+                      <span class="detail-value">{{ complex.numberOfUnits }}</span>
+                    </div>
+                    <div class="detail-item" *ngIf="complex.numberOfUnits">
+                      <span class="detail-label">Total Units:</span>
+                      <span class="detail-value">{{ complex.numberOfUnits }}</span>
+                    </div>
+                    <div class="detail-item" *ngIf="complex.address">
+                      <span class="detail-label">Address:</span>
+                      <span class="detail-value">{{ complex.address }}</span>
+                    </div>
+                    <div class="detail-item" *ngIf="complex.price !== '' && complex.price !== null && complex.price !== undefined">
+                      <span class="detail-label">Price:</span>
+                      <span class="detail-value">R {{ complex.price }}</span>
                     </div>
                     <div class="detail-item">
                       <span class="detail-label">Parking:</span>
-                      <span class="detail-value">{{ complex.parkingMode === 'fixed' ? 'Fixed (' + complex.fixedParkingCount + ')' : 'Per-Unit' }}</span>
+                      <span class="detail-value">{{ complex.parkingMode === 'fixed' ? 'Fixed (' + complex['fixedParkingCount'] + ')' : 'Per-Unit' }}</span>
+                    </div>
+                    <div class="detail-item" *ngIf="complex.blocks && complex.blocks.length > 0">
+                      <span class="detail-label">Blocks:</span>
+                      <span class="detail-value">
+                        {{ complex.blocks.length }} block{{ complex.blocks.length === 1 ? '' : 's' }}
+                      </span>
+                    </div>
+                    <div class="detail-item" *ngIf="complex.blocks && complex.blocks.length > 0">
+                      <span class="detail-label">Units per Block:</span>
+                      <div class="detail-value">
+                        <div *ngFor="let block of complex.blocks">
+                          {{ block.name }}: {{ getBlockUnitCount(block) }} units
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -378,23 +428,6 @@
                       <span style="vertical-align:middle;font-size:15px;">Delete</span>
                     </span>
                   </button>
-                <!-- Delete Complex Confirmation Modal -->
-                <div class="modal-overlay" *ngIf="showDeleteComplexModal" (click)="closeDeleteComplexModal()">
-                  <div class="modal-card" (click)="$event.stopPropagation()">
-                    <div class="modal-header">
-                      <h2>Confirm Delete</h2>
-                      <button class="close-btn" (click)="closeDeleteComplexModal()">✕</button>
-                    </div>
-                    <div class="modal-form">
-                      <p>Are you sure you want to delete the complex <strong>{{ complexToDelete?.complexName }}</strong>?</p>
-                      <p style="color: var(--portal-muted); font-size: 13px; margin: 0;">This action cannot be undone.</p>
-                    </div>
-                    <div class="modal-actions">
-                      <button type="button" class="btn-secondary" (click)="closeDeleteComplexModal()">Cancel</button>
-                      <button type="button" class="btn-danger" (click)="confirmDeleteComplex()">Delete</button>
-                    </div>
-                  </div>
-                </div>
                 </div>
                 <div class="complex-status-wrapper" *ngIf="isComplexAssigned(complex.complexName)">
                   <div class="security-assigned">
@@ -414,6 +447,24 @@
        
       </div> <!-- end .grid-column -->
 
+            <!-- Delete Complex Confirmation Modal (single instance) -->
+            <div class="modal-overlay" *ngIf="showDeleteComplexModal" (click)="closeDeleteComplexModal()">
+              <div class="modal-card" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                  <h2>Confirm Delete</h2>
+                  <button class="close-btn" (click)="closeDeleteComplexModal()">✕</button>
+                </div>
+                <div class="modal-form">
+                  <p>Are you sure you want to delete the complex <strong>{{ complexToDelete?.complexName }}</strong>?</p>
+                  <p style="color: var(--portal-muted); font-size: 13px; margin: 0;">This action cannot be undone.</p>
+                </div>
+                <div class="modal-actions">
+                  <button type="button" class="btn-secondary" (click)="closeDeleteComplexModal()">Cancel</button>
+                  <button type="button" class="btn-danger" (click)="confirmDeleteComplex()">Delete</button>
+                </div>
+              </div>
+            </div>
+
       <!-- Update Complex Modal (moved outside *ngFor) -->
       <div class="modal-overlay" *ngIf="showUpdateComplexModal" (click)="closeUpdateComplexModal()">
         <div class="modal-card" (click)="$event.stopPropagation()">
@@ -426,7 +477,7 @@
               <label for="updateComplexName">Complex Name</label>
               <input type="text" id="updateComplexName" class="form-control" [(ngModel)]="editingComplex.complexName" name="updateComplexName" required />
             </div>
-            <div class="form-row">
+            <div class="form-row" *ngIf="!editingComplex.blocks || editingComplex.blocks.length === 0">
               <div class="form-group">
                 <label for="updateUnitStart">Unit Range - Start</label>
                 <input type="number" id="updateUnitStart" class="form-control" [(ngModel)]="editingComplex.unitStart" name="updateUnitStart" required />
@@ -435,6 +486,16 @@
                 <label for="updateUnitEnd">Unit Range - End</label>
                 <input type="number" id="updateUnitEnd" class="form-control" [(ngModel)]="editingComplex.unitEnd" name="updateUnitEnd" required />
               </div>
+            </div>
+            <div class="form-group" *ngIf="editingComplex.blocks && editingComplex.blocks.length > 0">
+              <label>Blocks</label>
+              <div class="block-grid" *ngFor="let block of editingComplex.blocks; let i = index">
+                <input class="form-control" [(ngModel)]="block.name" name="updateBlockName{{ i }}" placeholder="Block name" />
+                <input class="form-control" type="number" [(ngModel)]="block.unitStart" name="updateBlockStart{{ i }}" placeholder="Start" />
+                <input class="form-control" type="number" [(ngModel)]="block.unitEnd" name="updateBlockEnd{{ i }}" placeholder="End" />
+                <button class="btn-sm btn-danger" type="button" (click)="removeUpdateBlock(i)">Remove</button>
+              </div>
+              <button class="btn-secondary" type="button" (click)="addUpdateBlock()">Add Block</button>
             </div>
             <div class="form-group">
               <label for="updateComplexPrice">Price (ZAR)</label>
@@ -448,8 +509,14 @@
               </select>
             </div>
             <div class="form-group" *ngIf="editingComplex.parkingMode === 'fixed'">
+              <label class="checkbox-row">
+                <input type="checkbox" [(ngModel)]="editingComplex.parkingIsUnlimited" name="updateParkingUnlimited" />
+                <span>Unlimited parking</span>
+              </label>
+            </div>
+            <div class="form-group" *ngIf="editingComplex.parkingMode === 'fixed' && !editingComplex.parkingIsUnlimited">
               <label for="updateFixedParkingCount">Fixed Parking Bays</label>
-              <input type="number" id="updateFixedParkingCount" class="form-control" [(ngModel)]="editingComplex.fixedParkingCount" name="updateFixedParkingCount" min="0" />
+              <input type="number" id="updateFixedParkingCount" class="form-control" [(ngModel)]="editingComplex['fixedParkingCount']" name="updateFixedParkingCount" min="0" />
             </div>
             <div class="modal-actions">
               <button type="button" class="btn-secondary" (click)="closeUpdateComplexModal()">Cancel</button>
@@ -460,6 +527,7 @@
                 </span>
               </button>
             </div>
+            <small class="error-text" *ngIf="updateComplexError">{{ updateComplexError }}</small>
           </form>
         </div>
       </div>
@@ -486,7 +554,7 @@
           <option value="lastMonth">Last Month</option>
         </select>
         <select class="form-control" [(ngModel)]="selectedComplexFilter" (change)="filterVisitors()">
-          <option value="">All Complexes</option>
+          <option value="">All Sites</option>
           <option *ngFor="let complex of onboardedComplexes" [value]="complex.complexName">{{ complex.complexName }}</option>
         </select>
         <input type="date" class="form-control" [(ngModel)]="filterStartDate" (change)="onCustomDateChange()" title="Start Date">
@@ -610,7 +678,7 @@
               PSIRA Number {{ getContractSortIcon('psiraNumber') }}
             </th>
             <th (click)="sortContracts('complexName')" class="sortable">
-              Complex Assigned {{ getContractSortIcon('complexName') }}
+              Assigned Site {{ getContractSortIcon('complexName') }}
             </th>
             <th (click)="sortContracts('contractStartDate')" class="sortable">
               Contract Start {{ getContractSortIcon('contractStartDate') }}
@@ -649,7 +717,7 @@
 
 <!-- Onboarding Modal -->
 <div class="modal-overlay" *ngIf="showOnboardingModal" (click)="closeOnboardingModal()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
+  <div class="modal-card modal-card-scroll" (click)="$event.stopPropagation()">
     <!-- Step 1: Basic Configuration -->
     <div *ngIf="!showUnitConfigStep">
       <div class="modal-header">
@@ -673,33 +741,69 @@
           >
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="unitStart">Unit Range - Start</label>
+        <div class="form-group">
+          <label for="complexAddress">Address</label>
+          <gmp-place-autocomplete
+            id="complexAddress"
+            class="form-control"
+            placeholder="e.g., 12 Main Rd, Johannesburg"
+            #complexAddressInput
+          ></gmp-place-autocomplete>
+          <input type="hidden" name="complexAddress" [(ngModel)]="complexAddress" required>
+        </div>
+
+        <div class="form-group">
+          <label>Has Blocks?</label>
+          <select
+            class="form-control"
+            [ngModel]="hasBlocks"
+            (ngModelChange)="hasBlocks = $event"
+            name="hasBlocks"
+          >
+            <option [ngValue]="false">No</option>
+            <option [ngValue]="true">Yes</option>
+          </select>
+        </div>
+
+        <div class="form-group" *ngIf="hasBlocks">
+          <label>Blocks</label>
+          <div class="form-row" *ngFor="let block of blocks; let i = index">
             <input
-              type="number"
-              id="unitStart"
-              name="unitStart"
-              placeholder="e.g., 101"
+              type="text"
               class="form-control"
-              [ngModel]="unitStart"
-              (ngModelChange)="unitStart = $event"
-              (input)="markTouched($event)"
+              placeholder="Block name"
+              [(ngModel)]="blocks[i].name"
+              name="blockName-{{ i }}"
               required
             >
-          </div>
-          <div class="form-group">
-            <label for="unitEnd">Unit Range - End</label>
             <input
               type="number"
-              id="unitEnd"
-              name="unitEnd"
-              placeholder="e.g., 502"
               class="form-control"
-              [ngModel]="unitEnd"
-              (ngModelChange)="unitEnd = $event"
+              placeholder="Units in block"
+              [(ngModel)]="blocks[i].numberOfUnits"
+              name="blockUnits-{{ i }}"
+              required
+              min="1"
+            >
+            <button type="button" class="btn-secondary" (click)="removeBlock(i)">Remove</button>
+          </div>
+          <button type="button" class="btn-secondary" (click)="addBlock()">+ Add Block</button>
+        </div>
+
+        <div class="form-row" *ngIf="!hasBlocks">
+          <div class="form-group" style="width: 100%;">
+            <label for="numberOfUnits">Number of Units</label>
+            <input
+              type="number"
+              id="numberOfUnits"
+              name="numberOfUnits"
+              placeholder="e.g., 120"
+              class="form-control"
+              [ngModel]="numberOfUnits"
+              (ngModelChange)="numberOfUnits = $event"
               (input)="markTouched($event)"
               required
+              min="1"
             >
           </div>
         </div>
@@ -826,7 +930,6 @@
           <button
             type="button"
             class="btn-primary"
-            [disabled]="!isOnboardingFormValid"
             (click)="submitOnboarding()"
           >
             {{ parkingMode === 'fixed' ? 'Complete Onboarding' : 'Next: Configure Units' }}
@@ -1047,7 +1150,7 @@
         >
           <option value="">-- Select a complex --</option>
           <option *ngFor="let complex of unassignedComplexes" [value]="complex.complexName">
-            {{ complex.complexName }} (Units: {{ complex.unitStart }} - {{ complex.unitEnd }})
+            {{ complex.complexName }} (Units: {{ complex.numberOfUnits }})
           </option>
         </select>
         <small class="note-text" *ngIf="unassignedComplexes.length === 0">No complexes available for assignment.</small>
@@ -1115,7 +1218,7 @@
     </div>
     <div class="modal-form">
       <p class="modal-subtitle" *ngIf="unassignmentTarget">
-        Are you sure you want to unassign <strong>{{ unassignmentTarget.company.companyName }}</strong> from <strong>{{ unassignmentTarget.assignment.complexName }}</strong>?
+        Are you sure you want to unassign <strong>{{ unassignmentTarget.company.companyName }}</strong> from <strong>{{ unassignmentTarget.assignment.complexName || unassignmentTarget.assignment.gatedCommunityName }}</strong>?
       </p>
       <p style="color: var(--portal-muted); font-size: 13px; margin: 0;">This action will remove the security contract for this complex.</p>
     </div>
@@ -1170,35 +1273,20 @@
         >
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label for="gatedUnitStart">House Number - From</label>
-          <input
-            type="number"
-            id="gatedUnitStart"
-            name="gatedUnitStart"
-            placeholder="e.g., 1"
-            class="form-control"
-            [ngModel]="gatedUnitStart"
-            (ngModelChange)="gatedUnitStart = $event"
-            (input)="markTouched($event)"
-            required
-          >
-        </div>
-        <div class="form-group">
-          <label for="gatedUnitEnd">House Number - To</label>
-          <input
-            type="number"
-            id="gatedUnitEnd"
-            name="gatedUnitEnd"
-            placeholder="e.g., 150"
-            class="form-control"
-            [ngModel]="gatedUnitEnd"
-            (ngModelChange)="gatedUnitEnd = $event"
-            (input)="markTouched($event)"
-            required
-          >
-        </div>
+      <div class="form-group">
+        <label for="numberOfHouses">Number of Houses</label>
+        <input
+          type="number"
+          id="numberOfHouses"
+          name="numberOfHouses"
+          placeholder="e.g., 150"
+          class="form-control"
+          [ngModel]="numberOfHouses"
+          (ngModelChange)="numberOfHouses = $event"
+          (input)="markTouched($event)"
+          required
+          min="1"
+        >
       </div>
 
       <div *ngIf="gatedCommunityError" class="error-message">

@@ -7,6 +7,7 @@ export interface SecurityCompanyDTO {
     cipcRegistrationNumber: string;
     contactNumber: string;
     contract?: Contract[];
+    employeeAssignments?: EmployeeAssignmentDTO[];
     email: string;
     name: string;
     psiraNumber: string;
@@ -14,8 +15,21 @@ export interface SecurityCompanyDTO {
     userName?: string;
 }
 
+interface EmployeeAssignmentDTO {
+    userId: string;
+    assignedComplexes?: string[];
+    assignedCommunities?: string[];
+    position?: string;
+    status?: "active" | "inactive";
+    contractStartDate?: Date;
+    contractEndDate?: Date;
+    createdBy?: string;
+}
+
 interface Contract {
-    complex: complexDTO;
+    complex?: complexDTO;
+    complexName?: string;
+    gatedCommunityName?: string;
     contractEndDate?: Date;
     contractStartDate?: Date;
 }
@@ -27,27 +41,13 @@ export const securityCompanyBodyValidation = checkSchema({
         isLength: {
             errorMessage: "Invalid CIPC Registration number",
             options: {
-                max: 19,
-                min: 19,
+                max: 50,
+                min: 1,
             }
         },
     },
-    complex: {
-        errorMessage: "Field must be of type object.",
-        isObject: true,
-    },
     contactNumber: {
         errorMessage: "Field is required",
-        isEmpty: false,
-    },
-    contractEndDate: {
-        errorMessage: "Invalid contract end date",
-        isDate: true,
-        isEmpty: false,
-    },
-    contractStartDate: {
-        errorMessage: "Invalid contract start date",
-        isDate: true,
         isEmpty: false,
     },
     email: {
@@ -65,17 +65,13 @@ export const securityCompanyBodyValidation = checkSchema({
             },
         },
     },
-    prisaNumber: {
+        psiraNumber: {
         errorMessage: "Field is required",
         isEmpty: false,
     },
     sosOptin: {
         errorMessage: "Field is required",
         isBoolean: true,
-        isEmpty: false,
-    },
-    userName: {
-        errorMessage: "Field is required",
         isEmpty: false,
     },
 })

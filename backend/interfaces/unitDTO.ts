@@ -5,18 +5,20 @@ import { UserDTO } from "./userDTO.js";
 
 export interface unitDTO {
   _id?: string;
-  complex: complexDTO;
+  complex?: complexDTO;
+  gatedCommunity?: { _id?: string; name?: string };
   number: number;
   numberOfParkingBays: number;
-  numberOfRooms: number;
-  occupied: boolean;
   users: UserDTO[];
 }
 
 export const unitBodyValidation = checkSchema({
   complex: {
-    errorMessage: "Field is required",
-    isEmpty: false,
+    optional: true,
+    isObject: true,
+  },
+  gatedCommunity: {
+    optional: true,
     isObject: true,
   },
   number: {
@@ -28,15 +30,5 @@ export const unitBodyValidation = checkSchema({
     errorMessage: "Field is required",
     isEmpty: false,
     isNumeric: true,
-  },
-  numberOfRooms: {
-    errorMessage: "Field is required",
-    isEmpty: false,
-    isNumeric: true,
-  },
-  occupied: {
-    errorMessage: "Field is required",
-    isBoolean: true,
-    isEmpty: false,
   },
 });

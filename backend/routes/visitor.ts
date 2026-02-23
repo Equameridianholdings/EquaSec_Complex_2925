@@ -55,7 +55,7 @@ visitorRouter.get("/user/", validateObjectId, async (req, res) => {
     const visitors = await visitorShema.find<visitorDTO>(visitorQuery).select({}).exec();
 
     if (visitors.length == 0) {
-      res.status(404).json({ message: "No visitors today!" });
+      res.status(200).json([]);
       return;
     }
 
