@@ -6,13 +6,43 @@ import { GuardPortal } from './guard-portal/guard-portal';
 
 import { AdminPortal } from './admin-portal/admin-portal';
 import { SecurityManager } from './security-manager/security-manager';
+import { Visitors } from './dashboard/visitors/visitors';
+import { AllUnits } from './dashboard/all-units/all-units';
+import { Vehicles } from './dashboard/vehicles/vehicles';
+import { Notfound } from './notfound/notfound';
 
 export const routes: Routes = [
-	{ path: '', pathMatch: 'full', redirectTo: 'login' },
-	{ path: 'login', component: Login },
-	{ path: 'dashboard', component: Dashboard },
-	{ path: 'guard-portal', component: GuardPortal },
-	{ path: 'admin-portal', component: AdminPortal },
-	{ path: 'security-manager', component: SecurityManager },
-	{ path: "**", component: Login},
+  { path: '', pathMatch: 'full', redirectTo: 'login' },
+  { path: 'login', component: Login },
+  {
+    path: 'dashboard',
+    component: Dashboard,
+    children: [
+      {
+        path: 'visitors',
+        component: Visitors,
+      },
+      {
+        path: 'units',
+        component: AllUnits,
+      },
+      {
+        path: 'vehicles',
+        component: Vehicles,
+      },
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'visitors',
+      },
+      {
+        path: '**',
+        component: Notfound,
+      },
+    ],
+  },
+  { path: 'guard-portal', component: GuardPortal },
+  { path: 'admin-portal', component: AdminPortal },
+  { path: 'security-manager', component: SecurityManager },
+  { path: '**', component: Notfound },
 ];

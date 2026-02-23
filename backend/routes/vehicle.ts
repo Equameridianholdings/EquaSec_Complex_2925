@@ -3,6 +3,8 @@ import { vehicleBodyValidation, vehicleDTO } from "#interfaces/vehicleDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import validateObjectId from "#utils/validateObjectId.js";
+import validateUser from "#utils/validateUser.js";
+import { ValidObjectId } from "#utils/ValidObjectId.js";
 import userSchema from "#db/userSchema.js";
 import { Router } from "express";
 import { Request, Response } from "express";
@@ -30,17 +32,17 @@ vehicleRouter.get("/", async (req, res) => {
   }
 });
 
-vehicleRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
-
-  const _id = req.params.id as ObjectId;
-
-  const vehicleQuery = {
-    "user._id": new ObjectId(_id),
-  };
-
+vehicleRouter.get("/user/", validateObjectId, async (req, res) => {
   try {
-    const vehicles = await vehicleSchema.find(vehicleQuery);
+    if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request." });
+
+    const _id = ValidObjectId(req.get("id") as unknown as string);
+
+    const vehicleQuery = {
+      "user._id": _id,
+    };
+
+    const vehicles = await vehicleSchema.find(vehicleQuery).select({}).exec();
 
     if (vehicles.length === 0) {
       res.status(200).json([]);
@@ -56,17 +58,13 @@ vehicleRouter.get("/:id", validateObjectId, async (req, res) => {
 });
 
 vehicleRouter.post("/", checkSchema(vehicleBodyValidation), validateSchema, async (req: Request, res: Response) => {
-  const authReq = req as Request & { userEmail?: string };
-  const userEmail = authReq.userEmail;
-  const user = userEmail ? await userSchema.findOne({ emailAddress: userEmail }) : null;
-
-  if (!user) {
-    res.status(401).json("Access Denied!");
-    return;
-  }
-
-  const vehicle = req.body as vehicleDTO;
   try {
+    const user = await validateUser(req.get("id") as unknown as string);
+
+    if (!user) return res.status(401).json("Access Denied!");
+
+    const vehicle = req.body as vehicleDTO;
+    
     const newVehicle = new vehicleSchema(vehicle);
     await newVehicle.save();
 
@@ -79,7 +77,7 @@ vehicleRouter.post("/", checkSchema(vehicleBodyValidation), validateSchema, asyn
 });
 
 vehicleRouter.patch("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 
@@ -103,7 +101,7 @@ vehicleRouter.patch("/:id", validateObjectId, async (req, res) => {
 });
 
 vehicleRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 

@@ -6,6 +6,7 @@ import { visitorBodyValidation, visitorDTO } from "#interfaces/visitorDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import Code_Generator from "#utils/code_generator.js";
 import validateObjectId from "#utils/validateObjectId.js";
+import { ValidObjectId } from "#utils/ValidObjectId.js";
 import { Router } from "express";
 import { ObjectId } from "mongodb";
 import { isValidObjectId } from "mongoose";
@@ -14,10 +15,11 @@ const visitorRouter = Router();
 
 visitorRouter.use(AuthMiddleware);
 
-visitorRouter.get("/:id", validateObjectId, async (req, res) => {
-    if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+visitorRouter.get("/security/", validateObjectId, async (req, res) => {
+  if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
-  const _id = req.params.id as ObjectId;
+  const _id = ValidObjectId(req.get("id") as unknown as string);
+
   try {
     //load visitors based on security guard => complex specific visitors
     const security = await userSchema.findById<UserDTO>(_id);
@@ -28,7 +30,29 @@ visitorRouter.get("/:id", validateObjectId, async (req, res) => {
     }
 
     const visitorQuery = { "user.unit.complex": security.complex?.name };
-    const visitors = await visitorShema.find<visitorDTO>(visitorQuery);
+    const visitors = await visitorShema.find<visitorDTO>(visitorQuery).exec();
+
+    if (visitors.length == 0) {
+      res.status(404).json({ message: "No visitors today!" });
+      return;
+    }
+
+    res.status(200).json(visitors);
+    return;
+  } catch {
+    res.status(500).json({ message: "Internal Server Error!" });
+    return;
+  }
+});
+
+visitorRouter.get("/user/", validateObjectId, async (req, res) => {
+  if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request." });
+
+  const _id = ValidObjectId(req.get("id") as unknown as string);
+
+  try {
+    const visitorQuery = { "user._id": _id };
+    const visitors = await visitorShema.find<visitorDTO>(visitorQuery).select({}).exec();
 
     if (visitors.length == 0) {
       res.status(200).json([]);
@@ -85,7 +109,7 @@ visitorRouter.patch("/grant/:id/:access", async (req, res) => {
 
     const objectId = new ObjectId(id);
     const securityQuery = { _id: objectId };
-    const security = await userSchema.findOne<UserDTO>(securityQuery);
+    const security = await userSchema.findOne<UserDTO>(securityQuery).exec();
 
     if (security === null) {
       res.status(404).json({ message: "Security company not found!" });

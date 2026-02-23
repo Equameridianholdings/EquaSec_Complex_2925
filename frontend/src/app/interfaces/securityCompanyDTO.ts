@@ -1,4 +1,6 @@
 import { complexDTO } from './complexDTO.js';
+import { gatedCommunityDTO } from './gatedCommunityDTO.js';
+import { UserDTO } from './userDTO.js';
 
 export interface SecurityCompanyDTO {
     _id?: string;
@@ -10,6 +12,7 @@ export interface SecurityCompanyDTO {
     psiraNumber: string;
     sosOptin: boolean;
     userName?: string;
+    employees: employees[];
 }
 
 export interface Contract {
@@ -18,4 +21,9 @@ export interface Contract {
     gatedCommunityName?: string;
     contractEndDate?: Date;
     contractStartDate?: Date;
+}
+
+export interface employees {
+    users: UserDTO;
+    createdAt: string; 
 }

@@ -12,6 +12,7 @@ import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import { sendSecurityCompanyCode } from "#utils/sendEmail.js";
 // import { encrypt } from "#utils/encryption.js";
 import GenerateJWT from "#utils/generateJWT.js";
+import { ValidObjectId } from "#utils/ValidObjectId.js";
 import VerifyToken from "#utils/verifyToken.js";
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
@@ -389,7 +390,7 @@ userRouter.post(
   body("confirmPassword")
     .custom((value, { req }) => {
       const user = req.body as UserDTO;
-      return value === user.password as unknown as string;
+      return value === (user.password as unknown as string);
     })
     .withMessage("Passwords do not match."),
   // body("idNumber")
@@ -398,7 +399,7 @@ userRouter.post(
   //   })
   //   .withMessage("Invalid Id number!"),
   body("complex")
-    .custom((value) => {      
+    .custom((value) => {
       if (!isKeyObject(value)) return {};
 
       return value as unknown as complexDTO;
@@ -422,7 +423,7 @@ userRouter.post(
 
       return res.status(201).json({ message: "User successfully added!", payload: newUser });
     } catch {
-      return res.status(500).json({ message: "Internal Server Error"});
+      return res.status(500).json({ message: "Internal Server Error" });
     }
   },
 );
@@ -1641,18 +1642,20 @@ userRouter.delete("/security-employee/:id", AuthMiddleware, async (req: Request,
 
 userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
-    const body = req.body as { emailAddress: string; password: string; };
-    const normalizedEmail = body.emailAddress.trim().toLowerCase();
+    const body = req.body as { emailAddress: string; password: string };
 
-    const user = await userSchema.findOne<UserDTO>({
-      emailAddress: normalizedEmail,
-    }).select({}).exec();
+    const user = await userSchema
+      .find<UserDTO>({
+        emailAddress: body.emailAddress,
+      })
+      .select({})
+      .exec();
 
-    if (!user) return res.status(401).json({message: "Invalid login details!"});
+    if (user.length === 0) return res.status(401).json({ message: "Invaild login details!" });
 
-    const isValidPassword = await bcrypt.compare(body.password, user.password as unknown as string);
+    const isValidPassword = await bcrypt.compare(body.password, user[0].password as unknown as string);
 
-    if (!isValidPassword) return res.status(401).json({message: "Invalid login details"});
+    if (!isValidPassword) return res.status(401).json({ message: "Invalid login details" });
 
     const token = GenerateJWT(user.emailAddress, user.type);
 
@@ -1672,10 +1675,11 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
         reg: String(vehicle?.registerationNumber ?? vehicle?.registrationNumber ?? ""),
         color: String(vehicle?.color ?? "") || "",
       }));
+      
       return res.status(200).json({
         message: "Logged in successfully",
         payload: {
-          token,
+          token: token,
           type: user.type,
           user: {
             _id: user._id,
@@ -1714,9 +1718,9 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
       });
     }
 
-    return res.status(500).json({message: "Error issuing valid token signature. Please try again later."});
+    return res.status(500).json({ message: "Error issuing valid token signature. Please try again later." });
   } catch {
-    return res.status(500).json({message: "Internal Server Error"});
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -1768,152 +1772,39 @@ userRouter.patch("/update", AuthMiddleware, async (req, res) => {
 //Fetch user details
 userRouter.get("/current", AuthMiddleware, async (req, res) => {
   try {
-    const authReq = req as Request & { userEmail?: string };
-    const email = authReq.userEmail;
-    if (!email) {
-      return res.status(401).send("Access Denied!");
-    }
+    //Update to validate user utility
+    if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
-    const user = await userSchema.findOne<UserDTO>({ emailAddress: email }).lean();
+    const _id = ValidObjectId(req.get("id") as unknown as string);
+
+    const user = await userSchema.findById(_id).exec();
 
     if (user) {
-      const linkedSecurityCompany = await resolveSecurityCompanyForUser(user);
-      const resolvedAssignments = resolveUserAssignments(user, linkedSecurityCompany);
-      const resolvedEmployeeContracts = resolveUserEmployeeContracts(user, linkedSecurityCompany);
-      const userRoles = Array.isArray(user.type) ? user.type : [];
-      const isTenant = userRoles.includes("tenant") || userRoles.includes("user");
-      const tenantResident = isTenant ? await resolveResidentForTenantUser(user) : null;
-      const tenantVehicles = isTenant
-        ? await vehicleSchema.find({ "user._id": { $in: [String(user._id ?? ""), user._id] } }).lean()
-        : [];
-      const normalizedTenantVehicles = tenantVehicles.map((vehicle: any) => ({
-        make: String(vehicle?.make ?? ""),
-        model: String(vehicle?.model ?? ""),
-        reg: String(vehicle?.registerationNumber ?? vehicle?.registrationNumber ?? ""),
-        color: String(vehicle?.color ?? "") || "",
-      }));
-      const { residentId: _residentId, vehicles: _legacyVehicles, ...userWithoutLegacyLinks } = user as any;
-      return res.status(200).json({
-        ...userWithoutLegacyLinks,
-        complex: isTenant ? (tenantResident?.complex ?? null) : (user as any).complex,
-        residenceType: isTenant ? (tenantResident?.residenceType ?? "") : (user as any).residenceType,
-        gatedCommunity: isTenant ? (tenantResident?.gatedCommunity ?? null) : (user as any).gatedCommunity,
-        communityId: isTenant ? (tenantResident?.communityId ?? "") : (user as any).communityId,
-        communityResidenceType: isTenant ? (tenantResident?.communityResidenceType ?? "") : (user as any).communityResidenceType,
-        communityComplexId: isTenant ? (tenantResident?.communityComplexId ?? "") : (user as any).communityComplexId,
-        unitNumber: isTenant ? (tenantResident?.unitNumber ?? "") : (user as any).unitNumber,
-        houseNumber: isTenant ? (tenantResident?.houseNumber ?? "") : (user as any).houseNumber,
-        address: isTenant ? (tenantResident?.address ?? "") : (user as any).address,
-        vehicles: isTenant ? normalizedTenantVehicles : [],
-        assignedComplexes: resolvedAssignments.assignedComplexes,
-        assignedCommunities: resolvedAssignments.assignedCommunities,
-        employeeContracts: resolvedEmployeeContracts,
-        securityCompany: isTenant
-          ? null
-          : linkedSecurityCompany
-          ? {
-              _id: linkedSecurityCompany._id,
-              name: linkedSecurityCompany.name,
-              email: linkedSecurityCompany.email,
-              contactNumber: linkedSecurityCompany.contactNumber,
-              contract: linkedSecurityCompany.contract ?? [],
-            }
-          : (user.securityCompany ?? null),
-      });
+      return res.status(200).json({message: "Successfully retrieved User!", payload: user});
     } else {
-      return res.status(404).send("User details not found!");
-    }
-  } catch {
-    return res.status(500).send("Internal Server Error");
-  }
-});
-
-userRouter.get("/", /*AuthMiddleware,*/ async (req, res) => {
-  try {
-    // if (!isValidObjectID(req.params.id as string)) return res.status(400).send("Bad Request! Invalid Id");
-    const users = await userSchema.find({}).lean();
-    const securityCompanies = await securityCompanySchema.find({}).select({ _id: 1, employeeAssignments: 1 }).lean();
-    const residents = await residentSchema.find({}).lean();
-    const vehicles = await vehicleSchema.find({}).lean();
-
-    const companyById = new Map<string, any>();
-    for (const company of securityCompanies) {
-      const id = String(company?._id ?? "");
-      if (id) {
-        companyById.set(id, company);
-      }
-    }
-
-    const residentByUserId = new Map<string, any>();
-    const residentByEmail = new Map<string, any>();
-    for (const resident of residents) {
-      const userId = String((resident as any)?.userId ?? "");
-      const emailAddress = String((resident as any)?.emailAddress ?? "").trim().toLowerCase();
-      if (userId) {
-        residentByUserId.set(userId, resident);
-      }
-      if (emailAddress) {
-        residentByEmail.set(emailAddress, resident);
-      }
-    }
-
-    const vehiclesByUserId = new Map<string, Array<{ make: string; model: string; reg: string; color?: string }>>();
-    for (const vehicle of vehicles) {
-      const userId = String((vehicle as any)?.user?._id ?? "");
-      if (!userId) {
-        continue;
-      }
-
-      const list = vehiclesByUserId.get(userId) ?? [];
-      list.push({
-        make: String((vehicle as any)?.make ?? ""),
-        model: String((vehicle as any)?.model ?? ""),
-        reg: String((vehicle as any)?.registerationNumber ?? (vehicle as any)?.registrationNumber ?? ""),
-        color: String((vehicle as any)?.color ?? "") || undefined,
-      });
-      vehiclesByUserId.set(userId, list);
-    }
-
-    const usersWithAssignments = users.map((user: any) => {
-      const userCompanyId = String(user?.securityCompany?._id ?? "");
-      const company = userCompanyId ? companyById.get(userCompanyId) : null;
-      const resolvedAssignments = resolveUserAssignments(user, company);
-      const resolvedEmployeeContracts = resolveUserEmployeeContracts(user, company);
-      const userRoles = Array.isArray(user?.type) ? user.type : [];
-      const isTenant = userRoles.includes("tenant") || userRoles.includes("user");
-      const resident = isTenant
-        ? residentByUserId.get(String(user?._id ?? "")) ?? residentByEmail.get(String(user?.emailAddress ?? "").trim().toLowerCase())
-        : null;
-      const tenantVehicles = isTenant ? (vehiclesByUserId.get(String(user?._id ?? "")) ?? []) : [];
-      const { residentId: _residentId, vehicles: _legacyVehicles, ...userWithoutLegacyLinks } = user as any;
-
-      return {
-        ...userWithoutLegacyLinks,
-        complex: isTenant ? (resident?.complex ?? null) : user?.complex,
-        residenceType: isTenant ? (resident?.residenceType ?? "") : user?.residenceType,
-        gatedCommunity: isTenant ? (resident?.gatedCommunity ?? null) : user?.gatedCommunity,
-        communityId: isTenant ? (resident?.communityId ?? "") : user?.communityId,
-        communityResidenceType: isTenant ? (resident?.communityResidenceType ?? "") : user?.communityResidenceType,
-        communityComplexId: isTenant ? (resident?.communityComplexId ?? "") : user?.communityComplexId,
-        unitNumber: isTenant ? (resident?.unitNumber ?? "") : user?.unitNumber,
-        houseNumber: isTenant ? (resident?.houseNumber ?? "") : user?.houseNumber,
-        address: isTenant ? (resident?.address ?? "") : user?.address,
-        vehicles: isTenant ? tenantVehicles : [],
-        securityCompany: isTenant ? null : user?.securityCompany,
-        assignedComplexes: resolvedAssignments.assignedComplexes,
-        assignedCommunities: resolvedAssignments.assignedCommunities,
-        employeeContracts: resolvedEmployeeContracts,
-      };
-    });
-
-    if (usersWithAssignments.length > 0) {
-      return res.status(200).json({message: "Users found", payload: usersWithAssignments});
-    } else {
-      return res.status(404).json({message: "Users not found!"});
+      return res.status(404).json({message: "User details not found!"});
     }
   } catch {
     return res.status(500).json({message: "Internal Server Error"});
   }
 });
+
+userRouter.get(
+  "/",
+  /*AuthMiddleware,*/ async (req, res) => {
+    try {
+      // if (!isValidObjectID(req.params.id as string)) return res.status(400).send("Bad Request! Invalid Id");
+      const users = await userSchema.find({}).select({}).exec();
+
+      if (users.length > 0) {
+        return res.status(200).json({ message: "Users found", payload: users });
+      } else {
+        return res.status(404).json({ message: "Users not found!" });
+      }
+    } catch {
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
+);
 
 export default userRouter;

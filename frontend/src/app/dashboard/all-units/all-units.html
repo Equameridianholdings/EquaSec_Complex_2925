@@ -1,0 +1,30 @@
+<div class="section-header">
+  <h3>Unit Residents</h3>
+</div>
+
+<div class="unit-info-section">
+  <div class="info-subsection">
+    <h4>Residents in This Unit</h4>
+
+    @if (unit.users.length > 0) {
+      <div class="resident-list">
+        @for (resident of unit.users; track $index) {
+          <div class="resident-card">
+            <div class="resident-info">
+              <div class="resident-name">
+                {{ resident.name }}
+              </div>
+              <div class="resident-details">
+                <small>Email: {{ resident.emailAddress }}</small>
+                <small>Phone: {{ resident.cellNumber }}</small>
+                <small>ID: {{ resident.idNumber }}</small>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <div>No Tenants at this Unit.</div>
+    }
+  </div>
+</div>

@@ -1,0 +1,18 @@
+<div class="code-card">
+  <div class="code-info">
+    <span class="code-number">{{ visitor.code }}</span>
+    <span class="visitor-name">{{ visitor.name }} {{ visitor.surname }}</span>
+    <small>Transport: {{ visitor.driving ? "Car" : "Waiking" }} | Cellphone: {{ visitor.contact }}</small>
+    <small>Expires in {{ hours }} hours</small>
+  </div>
+  <div class="code-actions">
+    <button
+      type="button"
+      class="btn-whatsapp-share"
+      (click)="shareVisitorCode()"
+      title="Share visitor code on WhatsApp"
+    >
+      <img src="/Screenshot 2026-02-11 174917.png" alt="Share" />
+    </button>
+  </div>
+</div>
