@@ -17,15 +17,17 @@ const unit = new mongoose.Schema<UnitDocument>({
 }, {
     toJSON: {
         transform: (_doc, ret) => {
-            delete ret.numberOfRooms;
-            delete ret.occupied;
+            const record = ret as Record<string, unknown>;
+            delete record.numberOfRooms;
+            delete record.occupied;
             return ret;
         },
     },
     toObject: {
         transform: (_doc, ret) => {
-            delete ret.numberOfRooms;
-            delete ret.occupied;
+            const record = ret as Record<string, unknown>;
+            delete record.numberOfRooms;
+            delete record.occupied;
             return ret;
         },
     },

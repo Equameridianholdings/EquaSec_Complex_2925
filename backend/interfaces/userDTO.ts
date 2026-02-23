@@ -5,29 +5,29 @@ import { complexDTO } from "./complexDTO.js";
 
 export interface UserDTO {
     _id?: ObjectId;
+    address?: string;
     cellNumber: string;
+    communityComplexId?: string;
+    communityId?: string;
+    communityResidenceType?: "complex" | "house";
     complex?: complexDTO;
     confirmPassword: string;
     emailAddress: string;
+    gatedCommunity?: null | { _id: ObjectId; name: string };
+    houseNumber?: string;
     idNumber?: string;
     movedOut: boolean;
     name: string;
     password: string;
     profilePhoto: string;
-    address?: string;
-    residenceType?: "complex" | "community";
-    gatedCommunity?: { _id: ObjectId; name: string } | null;
-    communityId?: string;
-    communityResidenceType?: "house" | "complex";
-    communityComplexId?: string;
-    unitNumber?: string;
-    houseNumber?: string;
+    residenceType?: "community" | "complex";
     salt?: string;
+    securityCompany?: null | { _id: ObjectId; name: string };
     surname: string;
     type: string[];
+    unitNumber?: string;
     verificationCode?: string;
     verificationCodeCreatedAt?: Date;
-    securityCompany?: { _id: ObjectId; name: string } | null;
 }
 
 export const userBodyValidation: Schema = {

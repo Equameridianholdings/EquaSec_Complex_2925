@@ -1,4 +1,4 @@
-import { checkSchema } from "express-validator/lib/middlewares/schema.js";
+import { checkSchema, Schema } from "express-validator";
 
 import { UserDTO } from "./userDTO.js";
 
@@ -7,17 +7,17 @@ export interface SOSDTO {
     date: Date;
     guard: UserDTO;
     station?: {
-        type?: "complex" | "gated" | "unknown" | string;
-        name?: string;
+        complexAddress?: null | string;
         complexId?: string;
         complexName?: string;
-        complexAddress?: string | null;
         gatedCommunityId?: string;
         gatedCommunityName?: string;
+        name?: string;
+        type?: "complex" | "gated" | "unknown";
     };
 }
 
-export const sosBodyValidation = checkSchema({
+const sosValidationSchema: Schema = {
     date: {
         errorMessage: "Invalid date",
         exists: {
@@ -31,4 +31,6 @@ export const sosBodyValidation = checkSchema({
         },
         isObject: true,
     },
-});
+};
+
+export const sosBodyValidation = checkSchema(sosValidationSchema);

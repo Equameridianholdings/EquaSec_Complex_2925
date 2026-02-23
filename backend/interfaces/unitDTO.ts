@@ -14,12 +14,12 @@ export interface unitDTO {
 
 export const unitBodyValidation = checkSchema({
   complex: {
-    optional: true,
     isObject: true,
+    optional: true,
   },
   gatedCommunity: {
-    optional: true,
     isObject: true,
+    optional: true,
   },
   number: {
     errorMessage: "Field is required",

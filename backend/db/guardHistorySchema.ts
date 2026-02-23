@@ -1,17 +1,17 @@
 import mongoose from "mongoose";
 
 const guardHistory = new mongoose.Schema({
-  startShift: { type: Date, required: true, default: Date.now },
   guardOnShift: {
-    userId: { type: mongoose.Schema.Types.ObjectId, required: true, ref: "User" },
-    name: { type: String, required: true },
-    emailAddress: { type: String, required: true },
+    emailAddress: { required: true, type: String },
+    name: { required: true, type: String },
+    userId: { ref: "User", required: true, type: mongoose.Schema.Types.ObjectId },
   },
+  startShift: { default: Date.now, required: true, type: Date },
   station: {
-    type: { type: String, required: true, enum: ["gated", "complex"] },
-    gatedCommunityId: { type: mongoose.Schema.Types.ObjectId, required: false },
-    complexId: { type: mongoose.Schema.Types.ObjectId, required: false },
-    name: { type: String, required: true },
+    complexId: { required: false, type: mongoose.Schema.Types.ObjectId },
+    gatedCommunityId: { required: false, type: mongoose.Schema.Types.ObjectId },
+    name: { required: true, type: String },
+    type: { enum: ["gated", "complex"], required: true, type: String },
   },
 }, {
   timestamps: {
@@ -20,13 +20,17 @@ const guardHistory = new mongoose.Schema({
   },
   toJSON: {
     transform: (_doc, ret) => {
-      delete ret.updatedAt;
+      if ("updatedAt" in ret) {
+        delete (ret as Record<string, unknown>).updatedAt;
+      }
       return ret;
     },
   },
   toObject: {
     transform: (_doc, ret) => {
-      delete ret.updatedAt;
+      if ("updatedAt" in ret) {
+        delete (ret as Record<string, unknown>).updatedAt;
+      }
       return ret;
     },
   },

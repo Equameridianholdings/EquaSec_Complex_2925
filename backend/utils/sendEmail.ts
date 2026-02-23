@@ -1,52 +1,30 @@
 import nodemailer from "nodemailer";
 
-type SendCodeOptions = {
-  to: string;
+interface SendCodeOptions {
   code: string;
   companyName?: string;
-};
+  to: string;
+}
 
-type SmtpConfig = {
+interface SmtpConfig {
+  from: string;
   host: string;
+  pass: string;
   port: number;
   secure: boolean;
   user: string;
-  pass: string;
-  from: string;
-};
-
-function getSmtpConfig(): SmtpConfig {
-  const host = process.env.SMTP_HOST;
-  const portValue = process.env.SMTP_PORT;
-  const secureValue = process.env.SMTP_SECURE;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user;
-
-  if (!host || !portValue || !secureValue || !user || !pass || !from) {
-    throw new Error("Missing SMTP configuration");
-  }
-
-  return {
-    host,
-    port: Number.parseInt(portValue, 10),
-    secure: secureValue === "true",
-    user,
-    pass,
-    from,
-  };
 }
 
 export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise<boolean> {
   const smtp = getSmtpConfig();
   const transporter = nodemailer.createTransport({
+    auth: {
+      pass: smtp.pass,
+      user: smtp.user,
+    },
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure,
-    auth: {
-      user: smtp.user,
-      pass: smtp.pass,
-    },
   });
 
   const subject = "Your EquaSec login code";
@@ -67,11 +45,33 @@ export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise
 
   await transporter.sendMail({
     from: `EquaSec <${smtp.from}>`,
-    to: options.to,
+    html,
     subject,
     text,
-    html,
+    to: options.to,
   });
 
   return true;
+}
+
+function getSmtpConfig(): SmtpConfig {
+  const host = process.env.SMTP_HOST;
+  const portValue = process.env.SMTP_PORT;
+  const secureValue = process.env.SMTP_SECURE;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM ?? user;
+
+  if (!host || !portValue || !secureValue || !user || !pass || !from) {
+    throw new Error("Missing SMTP configuration");
+  }
+
+  return {
+    from,
+    host,
+    pass,
+    port: Number.parseInt(portValue, 10),
+    secure: secureValue === "true",
+    user,
+  };
 }

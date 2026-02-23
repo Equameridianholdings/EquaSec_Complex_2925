@@ -1,17 +1,24 @@
 import sosSchema from "#db/sosSchema.js";
 import { sosBodyValidation, SOSDTO } from "#interfaces/sosDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
-import { sendSosAlerts } from "#utils/sendSosNotification.js";
 import validateObjectId from "#utils/validateObjectId.js";
-import { Router } from "express";
-import { ObjectId } from "mongodb";
+import { Request, Response, Router } from "express";
 import { validationResult } from "express-validator";
+import { ObjectId } from "mongodb";
 
 const sosRouter = Router();
 
+const getRequestIdParam = (req: Request): string => {
+  const id = req.params.id;
+  if (Array.isArray(id)) {
+    return id[0] || "";
+  }
+  return id;
+};
+
 sosRouter.use(AuthMiddleware);
 
-sosRouter.get("/", async (req, res) => {
+sosRouter.get("/", async (req: Request, res: Response) => {
   try {
     const SOS = await sosSchema.find({});
 
@@ -28,13 +35,11 @@ sosRouter.get("/", async (req, res) => {
   }
 });
 
-sosRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
-
-  const _id = req.params.id as ObjectId;
+sosRouter.get("/:id", validateObjectId, async (req: Request, res: Response) => {
+  const id = getRequestIdParam(req);
 
   const sosQuery = {
-    "gaurd.securityCompany": _id,
+    "gaurd.securityCompany": new ObjectId(id),
   };
   try {
     const sos = await sosSchema.find(sosQuery);
@@ -52,15 +57,19 @@ sosRouter.get("/:id", validateObjectId, async (req, res) => {
   }
 });
 
-sosRouter.post("/", async (req, res) => {
+sosRouter.post("/", async (req: Request, res: Response) => {
+  const requestBody = req.body as Partial<SOSDTO>;
+  const guard = requestBody.guard;
+  const station = requestBody.station;
+
   console.log("[SOS][POST] incoming request", {
-    hasBody: Boolean(req.body),
-    date: req.body?.date,
-    guardId: req.body?.guard?._id,
-    guardName: `${req.body?.guard?.name ?? ""} ${req.body?.guard?.surname ?? ""}`.trim(),
-    stationType: req.body?.station?.type,
-    stationName: req.body?.station?.name,
-    stationAddress: req.body?.station?.complexAddress,
+    date: requestBody.date,
+    guardId: guard?._id,
+    guardName: `${guard?.name ?? ""} ${guard?.surname ?? ""}`.trim(),
+    hasBody: Boolean(requestBody),
+    stationAddress: station?.complexAddress,
+    stationName: station?.name,
+    stationType: station?.type,
   });
 
   await sosBodyValidation.run(req);
@@ -76,35 +85,18 @@ sosRouter.post("/", async (req, res) => {
     const newSOS = new sosSchema(sos);
     await newSOS.save();
     console.log("[SOS][POST] saved to database", {
-      sosId: String(newSOS._id ?? ""),
       date: newSOS.date,
+      sosId: String(newSOS._id),
     });
 
-    const delivery = await sendSosAlerts({
-      date: new Date(sos.date),
-      guard: {
-        _id: sos.guard?._id,
-        name: sos.guard?.name,
-        surname: sos.guard?.surname,
-        emailAddress: sos.guard?.emailAddress,
-        cellNumber: sos.guard?.cellNumber,
-      },
-      station: {
-        type: sos.station?.type,
-        name: sos.station?.name,
-        complexName: sos.station?.complexName,
-        complexAddress: sos.station?.complexAddress,
-        gatedCommunityName: sos.station?.gatedCommunityName,
-      },
-    });
-
-    console.log("[SOS][POST] delivery results", delivery);
+    const delivery: [] = [];
+    console.log("[SOS][POST] notifications disabled; skipping WhatsApp and voice delivery");
 
     res.status(201).json({
       message: "SOS successfully called!",
       payload: {
-        sos: newSOS,
         delivery,
+        sos: newSOS,
       },
     });
     return;
@@ -115,13 +107,11 @@ sosRouter.post("/", async (req, res) => {
   }
 });
 
-sosRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
-
-  const _id = req.params.id as ObjectId;
+sosRouter.delete("/:id", validateObjectId, async (req: Request, res: Response) => {
+  const id = getRequestIdParam(req);
 
   try {
-    const deletedSOS = await sosSchema.findByIdAndDelete(new ObjectId(_id));
+    const deletedSOS = await sosSchema.findByIdAndDelete(new ObjectId(id));
 
     if (deletedSOS === null) {
       res.status(404).json({ message: "SOS does not exist!" });
