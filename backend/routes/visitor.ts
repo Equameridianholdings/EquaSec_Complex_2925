@@ -7,7 +7,7 @@ import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import Code_Generator from "#utils/code_generator.js";
 import validateObjectId from "#utils/validateObjectId.js";
-import { ValidObjectId } from "#utils/ValidObjectId.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 import { isValidObjectId } from "mongoose";
