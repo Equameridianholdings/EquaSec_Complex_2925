@@ -21,12 +21,6 @@ sosRouter.use(AuthMiddleware);
 sosRouter.get("/", async (req: Request, res: Response) => {
   try {
     const SOS = await sosSchema.find({});
-
-    if (SOS.length === 0) {
-      res.status(404).json({ message: "No sos's found!" });
-      return;
-    }
-
     res.status(200).json(SOS);
     return;
   } catch {

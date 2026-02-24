@@ -124,7 +124,7 @@ const getRequestIdParam = (req: Request): string => {
   return id ?? "";
 };
 
-const resolveSecurityCompanyForUser = async (user: { emailAddress: string; securityCompany?: null | UserDTO["securityCompany"] }) => {
+const resolveSecurityCompanyForUser = async (user: { _id?: unknown; emailAddress: string; securityCompany?: null | UserDTO["securityCompany"] }) => {
   const linkedCompanyId = user?.securityCompany?._id;
 
   if (linkedCompanyId) {
@@ -132,6 +132,27 @@ const resolveSecurityCompanyForUser = async (user: { emailAddress: string; secur
     if (companyById) {
       return companyById;
     }
+  }
+
+  const managerUserId = String(user?._id ?? "").trim();
+  if (managerUserId) {
+    const companyByManagerUserId = await securityCompanySchema.findOne({ managerUserId }).lean();
+    if (companyByManagerUserId) {
+      return companyByManagerUserId;
+    }
+
+    if (ObjectId.isValid(managerUserId)) {
+      const companyByManagerObjectId = await securityCompanySchema.findOne({ managerUserId: new ObjectId(managerUserId) }).lean();
+      if (companyByManagerObjectId) {
+        return companyByManagerObjectId;
+      }
+    }
+  }
+
+  const normalizedManagerEmail = String(user.emailAddress ?? "").trim().toLowerCase();
+  const companyByNormalizedManagerEmail = await securityCompanySchema.findOne({ managerEmail: normalizedManagerEmail }).lean();
+  if (companyByNormalizedManagerEmail) {
+    return companyByNormalizedManagerEmail;
   }
 
   const companyByManagerEmail = await securityCompanySchema.findOne({ managerEmail: user.emailAddress }).lean();
@@ -489,6 +510,29 @@ const unlinkTenantFromUnit = async (
   const nextUsers = users.filter((entry: unknown) => String(entry) !== String(tenantId));
   unit.users = nextUsers;
   await unit.save();
+};
+
+const unlinkTenantFromAllUnits = async (tenantId: string): Promise<void> => {
+  const normalizedTenantId = String(tenantId ?? "").trim();
+  if (!normalizedTenantId) {
+    return;
+  }
+
+  const userIdVariants: (ObjectId | string)[] = [normalizedTenantId];
+  if (ObjectId.isValid(normalizedTenantId)) {
+    userIdVariants.push(new ObjectId(normalizedTenantId));
+  }
+
+  await unitSchema.updateMany(
+    {},
+    {
+      $pull: {
+        users: {
+          $in: userIdVariants,
+        },
+      },
+    }
+  ).exec();
 };
 
 //Register a new user
@@ -940,42 +984,16 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
     }
 
     const tenantUser = new userSchema({
-      address: trimmedAddress,
       cellNumber: body.cellNumber.trim(),
-      communityComplexId: communityComplexIdValue,
-      communityId: communityIdValue,
-      communityResidenceType: communityResidenceTypeValue,
-      complex: linkedComplex
-        ? {
-            _id: linkedComplex._id,
-            gatedCommunityName: linkedComplex.gatedCommunityName ?? "",
-            name: linkedComplex.name ?? "",
-          }
-        : null,
       emailAddress: normalizedEmail,
-      gatedCommunity: linkedGatedCommunity
-        ? {
-            _id: linkedGatedCommunity._id,
-            name: linkedGatedCommunity.name ?? "",
-          }
-        : null,
-      houseNumber: houseNumberValue,
       idNumber: body.idNumber?.trim() || undefined,
       movedOut: false,
       name: body.name.trim(),
       password: hashedPassword,
       profilePhoto: "",
-      residenceType: body.residenceType,
       salt,
-      securityCompany: linkedSecurityCompany
-        ? {
-            _id: linkedSecurityCompany._id,
-            name: linkedSecurityCompany.name,
-          }
-        : null,
       surname: body.surname.trim(),
       type: ["tenant"],
-      unitNumber: unitNumberValue,
     });
 
     try {
@@ -1117,10 +1135,6 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       vehicles?: { color?: string; make: string; model: string; reg: string; }[];
     };
 
-    const previousResidenceType = String(existingTenantProfile.residenceType ?? "") as "community" | "complex";
-    const previousAddress = String(existingTenantProfile.address ?? "");
-    const previousComplexId = String((existingTenantProfile.complex as null | undefined | { _id?: unknown })?._id ?? "");
-
     const normalizedEmail = body.emailAddress.trim().toLowerCase();
     const duplicateUser = await userSchema.findOne({ _id: { $ne: tenantId }, emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
     if (duplicateUser) {
@@ -1199,37 +1213,24 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       tenantId,
       {
         $set: {
-          address: trimmedAddress,
           cellNumber: body.cellNumber.trim(),
-          communityComplexId: communityComplexIdValue,
-          communityId: communityIdValue,
-          communityResidenceType: communityResidenceTypeValue,
-          complex: linkedComplex
-            ? {
-                _id: linkedComplex._id,
-                gatedCommunityName: linkedComplex.gatedCommunityName ?? "",
-                name: linkedComplex.name ?? "",
-              }
-            : null,
           emailAddress: normalizedEmail,
-          gatedCommunity: linkedGatedCommunity
-            ? {
-                _id: linkedGatedCommunity._id,
-                name: linkedGatedCommunity.name ?? "",
-              }
-            : null,
-          houseNumber: houseNumberValue,
           idNumber: body.idNumber?.trim() || undefined,
           name: body.name.trim(),
-          residenceType: body.residenceType,
-          securityCompany: linkedSecurityCompany
-            ? {
-                _id: linkedSecurityCompany._id,
-                name: linkedSecurityCompany.name,
-              }
-            : null,
           surname: body.surname.trim(),
-          unitNumber: unitNumberValue,
+        },
+        $unset: {
+          address: "",
+          communityComplexId: "",
+          communityId: "",
+          communityResidenceType: "",
+          complex: "",
+          gatedCommunity: "",
+          houseNumber: "",
+          residenceType: "",
+          securityCompany: "",
+          unitNumber: "",
+          vehicles: "",
         },
       },
       { new: true }
@@ -1239,9 +1240,6 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       return res.status(404).json({ message: "Tenant not found." });
     }
 
-    const previousUsesUnit =
-      previousResidenceType === "complex" ||
-      previousResidenceType === "community";
     const nextUsesUnit =
       body.residenceType === "complex" ||
       body.residenceType === "community";
@@ -1250,16 +1248,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
     const nextCommunityId = String(linkedGatedCommunity?._id ?? "");
     const nextAddress = trimmedAddress;
 
-    if (previousUsesUnit && (!nextUsesUnit || previousComplexId !== nextComplexId || previousAddress !== nextAddress)) {
-      await unlinkTenantFromUnit(
-        String(updatedTenant._id ?? ""),
-        {
-          complexId: previousComplexId,
-          gatedCommunityId: previousComplexId ? "" : String(existingTenantProfile.communityId ?? ""),
-        },
-        previousAddress,
-      );
-    }
+    await unlinkTenantFromAllUnits(String(updatedTenant._id ?? ""));
 
     if (nextUsesUnit) {
       await linkTenantToUnit(
@@ -1354,19 +1343,7 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
       return res.status(403).json({ message: "Tenant does not belong to your security company." });
     }
 
-    const tenantUsesUnit =
-      tenantProfile.residenceType === "complex" ||
-      tenantProfile.residenceType === "community";
-    if (tenantUsesUnit) {
-      await unlinkTenantFromUnit(
-        String(tenant._id ?? ""),
-        {
-          complexId: String((tenantProfile.complex as null | undefined | { _id?: unknown })?._id ?? ""),
-          gatedCommunityId: String(tenantProfile.communityId ?? ""),
-        },
-        String(tenantProfile.address ?? "")
-      );
-    }
+    await unlinkTenantFromAllUnits(String(tenant._id ?? ""));
 
     const residentFilter = tenantResident?._id
       ? { _id: tenantResident._id }
@@ -1803,12 +1780,25 @@ userRouter.patch("/update", AuthMiddleware, async (req, res) => {
 //Fetch user details
 userRouter.get("/current", AuthMiddleware, async (req, res) => {
   try {
-    //Update to validate user utility
-    if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request." });
+    const authReq = req as Request & { userEmail?: string };
+    const currentUserEmail = String(authReq.userEmail ?? "").trim();
+    if (!currentUserEmail) {
+      return res.status(401).json({ message: "Access Denied!" });
+    }
 
-    const _id = ValidObjectId(req.get("id") as unknown as string);
+    let user = null;
+    const idHeader = String(req.get("id") ?? "").trim();
+    if (idHeader.length > 0) {
+      if (!ObjectId.isValid(idHeader)) {
+        return res.status(400).json({ message: "Bad Request! Invalid Id" });
+      }
+      const _id = ValidObjectId(idHeader);
+      user = await userSchema.findById(_id).exec();
+    }
 
-    const user = await userSchema.findById(_id).exec();
+    if (!user) {
+      user = await userSchema.findOne({ emailAddress: currentUserEmail }).exec();
+    }
 
     if (user) {
       return res.status(200).json({message: "Successfully retrieved User!", payload: user});

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DataService } from '../services/data.service';
@@ -29,6 +29,7 @@ export class SecurityManager implements OnInit {
   private complexContractDates = new Map<string, { startDate: string; endDate: string }>();
   private communityContractDates = new Map<string, { startDate: string; endDate: string }>();
   private complexContractDisplayNames = new Map<string, string>();
+  private companyEmployeeAssignmentUserIds = new Set<string>();
   protected assignedComplexes: Array<{
     id: string;
     name: string;
@@ -236,12 +237,22 @@ export class SecurityManager implements OnInit {
   private availableCommunityComplexesKey = '';
   private availableCommunityUnitsCache: string[] = [];
   private availableCommunityUnitsKey = '';
+  private usersLoadPending: any[] | null = null;
+  private assignedComplexesLoaded = false;
+  private gatedCommunitiesLoaded = false;
 
   constructor(
     private readonly router: Router,
     private readonly dataService: DataService,
     private readonly storage: StorageService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
+
+  private refreshView(): void {
+    queueMicrotask(() => {
+      this.cdr.detectChanges();
+    });
+  }
 
   ngOnInit(): void {
     this.hydrateFromStoredUser();
@@ -284,6 +295,15 @@ export class SecurityManager implements OnInit {
     this.complexContractDates.clear();
     this.communityContractDates.clear();
     this.complexContractDisplayNames.clear();
+    this.companyEmployeeAssignmentUserIds.clear();
+
+    const employeeAssignments = Array.isArray(company?.employeeAssignments) ? company.employeeAssignments : [];
+    for (const assignment of employeeAssignments) {
+      const userId = String(assignment?.userId ?? '').trim();
+      if (userId) {
+        this.companyEmployeeAssignmentUserIds.add(userId);
+      }
+    }
 
     const contracts = company?.contract ?? [];
     for (const contract of contracts) {
@@ -319,6 +339,15 @@ export class SecurityManager implements OnInit {
   }
 
   private loadCompanyContracts(): void {
+    const initializeDashboardLoads = (): void => {
+      this.usersLoadPending = null;
+      this.assignedComplexesLoaded = false;
+      this.gatedCommunitiesLoaded = false;
+      this.loadAssignedComplexes();
+      this.loadGatedCommunities();
+      this.loadUsers();
+    };
+
     const loadFromCompanyList = (): void => {
       this.dataService.get<any[]>('securityCompany').subscribe({
         next: (companies) => {
@@ -334,13 +363,14 @@ export class SecurityManager implements OnInit {
           });
 
           this.applyCompanyContracts(company);
-          this.loadAssignedComplexes();
-          this.loadGatedCommunities();
-          this.loadUsers();
+          initializeDashboardLoads();
         },
         error: () => {
           this.assignedComplexes = [];
           this.gatedCommunities = [];
+          this.employees = [];
+          this.securityManagers = [];
+          this.tenants = [];
         },
       });
     };
@@ -349,9 +379,7 @@ export class SecurityManager implements OnInit {
       this.dataService.get<any>(`securityCompany/${this.managerSecurityCompanyId}`).subscribe({
         next: (company) => {
           this.applyCompanyContracts(company);
-          this.loadAssignedComplexes();
-          this.loadGatedCommunities();
-          this.loadUsers();
+          initializeDashboardLoads();
         },
         error: () => {
           loadFromCompanyList();
@@ -372,16 +400,24 @@ export class SecurityManager implements OnInit {
   private loadCurrentUser(): void {
     this.dataService.get<any>('user/current').subscribe({
       next: (user) => {
-        if (!user) {
+        const resolvedUser = user?.payload?.user ?? user?.payload ?? user;
+        if (!resolvedUser) {
           this.assignedComplexes = [];
           this.gatedCommunities = [];
           return;
         }
-        this.securityManagerName = `${user.name ?? ''} ${user.surname ?? ''}`.trim() || this.securityManagerName;
-        this.securityManagerEmail = user.emailAddress ?? this.securityManagerEmail;
-        this.currentManagerEmail = user.emailAddress ?? this.currentManagerEmail;
-        this.managerSecurityCompanyId = user.securityCompany?._id ?? '';
-        this.managerSecurityCompanyName = user.securityCompany?.name ?? '';
+
+        const resolvedName = `${resolvedUser.name ?? ''} ${resolvedUser.surname ?? ''}`.trim();
+        const resolvedEmail = resolvedUser.emailAddress ?? '';
+        const resolvedCompanyId = resolvedUser.securityCompany?._id ?? '';
+        const resolvedCompanyName = resolvedUser.securityCompany?.name ?? '';
+
+        this.securityManagerName = resolvedName || this.securityManagerName;
+        this.securityManagerEmail = resolvedEmail || this.securityManagerEmail;
+        this.currentManagerEmail = resolvedEmail || this.currentManagerEmail;
+        this.managerSecurityCompanyId = resolvedCompanyId || this.managerSecurityCompanyId;
+        this.managerSecurityCompanyName = resolvedCompanyName || this.managerSecurityCompanyName;
+
         this.loadCompanyContracts();
       },
       error: () => {
@@ -437,11 +473,17 @@ export class SecurityManager implements OnInit {
           });
 
         this.assignedComplexes = [...mappedComplexes, ...missingFromContracts];
+        this.assignedComplexesLoaded = true;
         this.refreshTenantLocationPaths();
+        this.tryBuildDashboardUsers();
+        this.refreshView();
       },
       error: () => {
         this.assignedComplexes = [];
+        this.assignedComplexesLoaded = true;
         this.refreshTenantLocationPaths();
+        this.tryBuildDashboardUsers();
+        this.refreshView();
       },
     });
   }
@@ -473,11 +515,17 @@ export class SecurityManager implements OnInit {
               complexesInCommunity: [],
             };
           });
+        this.gatedCommunitiesLoaded = true;
         this.refreshTenantLocationPaths();
+        this.tryBuildDashboardUsers();
+        this.refreshView();
       },
       error: () => {
         this.gatedCommunities = [];
+        this.gatedCommunitiesLoaded = true;
         this.refreshTenantLocationPaths();
+        this.tryBuildDashboardUsers();
+        this.refreshView();
       },
     });
   }
@@ -486,73 +534,137 @@ export class SecurityManager implements OnInit {
       next: (response) => {
         const users = Array.isArray(response) ? response : response?.payload ?? [];
 
-        const belongsToCurrentSecurityCompany = (user: any): boolean => {
-          const userCompanyId = user?.securityCompany?._id ? String(user.securityCompany._id) : '';
-          const userCompanyName = this.normalizeName(user?.securityCompany?.name);
+        this.dataService.get<any[]>('vehicle').subscribe({
+          next: (vehiclesResponse) => {
+            const vehicles = Array.isArray(vehiclesResponse) ? vehiclesResponse : [];
+            const vehiclesByUserId = new Map<string, any[]>();
 
-          const byId = this.managerSecurityCompanyId && userCompanyId === this.managerSecurityCompanyId;
-          const byName = this.managerSecurityCompanyName && userCompanyName === this.normalizeName(this.managerSecurityCompanyName);
-
-          return Boolean(byId || byName);
-        };
-
-        const hasContractAccessForCompany = (user: any): boolean => {
-          if (this.contractedComplexNames.size === 0 && this.contractedCommunityNames.size === 0) {
-            return true;
-          }
-
-          const employeeContracts = Array.isArray(user?.employeeContracts) ? user.employeeContracts : [];
-          const assignedComplexIdsInScope = new Set(this.assignedComplexes.map((complex) => String(complex.id)));
-          const assignedCommunityIdsInScope = new Set(this.gatedCommunities.map((community) => String(community.id)));
-          const assignedCommunityNamesInScope = new Set(this.gatedCommunities.map((community) => this.normalizeName(community.name)));
-
-          if (employeeContracts.length > 0) {
-            return employeeContracts.some((contract: any) => {
-              const contractCompanyId = contract?.securityCompany?._id ? String(contract.securityCompany._id) : '';
-              const contractCompanyName = this.normalizeName(contract?.securityCompany?.name);
-              const contractAssignedComplexes = Array.isArray(contract?.assignedComplexes)
-                ? contract.assignedComplexes.map((value: unknown) => String(value ?? '').trim()).filter((value: string) => value.length > 0)
-                : [];
-              const contractAssignedCommunities = Array.isArray(contract?.assignedCommunities)
-                ? contract.assignedCommunities.map((value: unknown) => String(value ?? '').trim()).filter((value: string) => value.length > 0)
-                : [];
-
-              const contractMatchesCompany =
-                (this.managerSecurityCompanyId && contractCompanyId === this.managerSecurityCompanyId) ||
-                (this.managerSecurityCompanyName && contractCompanyName === this.normalizeName(this.managerSecurityCompanyName));
-
-              if (!contractMatchesCompany) {
-                return false;
+            for (const vehicle of vehicles) {
+              const linkedUserId = String(vehicle?.user?._id ?? '').trim();
+              if (!linkedUserId) {
+                continue;
               }
 
-              if (contractAssignedComplexes.length === 0 && contractAssignedCommunities.length === 0) {
-                return true;
-              }
+              const mappedVehicle = {
+                color: String(vehicle?.color ?? ''),
+                make: String(vehicle?.make ?? ''),
+                model: String(vehicle?.model ?? ''),
+                reg: String(vehicle?.reg ?? vehicle?.registerationNumber ?? vehicle?.registrationNumber ?? ''),
+              };
 
-              const hasComplexInScope = contractAssignedComplexes.some((complexId: string) => assignedComplexIdsInScope.has(complexId));
-              const hasCommunityInScope = contractAssignedCommunities.some((community: string) => {
-                const normalized = this.normalizeName(community);
-                return assignedCommunityIdsInScope.has(community) || assignedCommunityNamesInScope.has(normalized);
-              });
+              const existing = vehiclesByUserId.get(linkedUserId) ?? [];
+              existing.push(mappedVehicle);
+              vehiclesByUserId.set(linkedUserId, existing);
+            }
 
-              return hasComplexInScope || hasCommunityInScope;
+            const mergedUsers = users.map((user: any) => {
+              const userId = String(user?._id ?? '').trim();
+              const linkedVehicles = userId ? (vehiclesByUserId.get(userId) ?? []) : [];
+
+              return {
+                ...user,
+                vehicles: linkedVehicles.length > 0 ? linkedVehicles : (Array.isArray(user?.vehicles) ? user.vehicles : []),
+              };
             });
+
+            this.usersLoadPending = mergedUsers;
+            this.tryBuildDashboardUsers();
+          },
+          error: () => {
+            this.usersLoadPending = users;
+            this.tryBuildDashboardUsers();
+          },
+        });
+      },
+      error: () => {
+        this.usersLoadPending = [];
+        this.tryBuildDashboardUsers();
+      },
+    });
+  }
+
+  private tryBuildDashboardUsers(): void {
+    if (!this.assignedComplexesLoaded || !this.gatedCommunitiesLoaded || this.usersLoadPending === null) {
+      return;
+    }
+
+    const users = this.usersLoadPending;
+    this.usersLoadPending = null;
+
+    const belongsToCurrentSecurityCompany = (user: any): boolean => {
+      const userCompanyId = user?.securityCompany?._id ? String(user.securityCompany._id) : '';
+      const userCompanyName = this.normalizeName(user?.securityCompany?.name);
+
+      const byId = this.managerSecurityCompanyId && userCompanyId === this.managerSecurityCompanyId;
+      const byName = this.managerSecurityCompanyName && userCompanyName === this.normalizeName(this.managerSecurityCompanyName);
+
+      return Boolean(byId || byName);
+    };
+
+    const hasContractAccessForCompany = (user: any): boolean => {
+      if (this.contractedComplexNames.size === 0 && this.contractedCommunityNames.size === 0) {
+        return true;
+      }
+
+      const isSecurityUser = this.hasRole(user, 'security');
+      const inCurrentCompany = belongsToCurrentSecurityCompany(user);
+
+      const employeeContracts = Array.isArray(user?.employeeContracts) ? user.employeeContracts : [];
+      const assignedComplexIdsInScope = new Set(this.assignedComplexes.map((complex) => String(complex.id)));
+      const assignedCommunityIdsInScope = new Set(this.gatedCommunities.map((community) => String(community.id)));
+      const assignedCommunityNamesInScope = new Set(this.gatedCommunities.map((community) => this.normalizeName(community.name)));
+
+      if (employeeContracts.length > 0) {
+        return employeeContracts.some((contract: any) => {
+          const contractCompanyId = contract?.securityCompany?._id ? String(contract.securityCompany._id) : '';
+          const contractCompanyName = this.normalizeName(contract?.securityCompany?.name);
+          const contractAssignedComplexes = Array.isArray(contract?.assignedComplexes)
+            ? contract.assignedComplexes.map((value: unknown) => String(value ?? '').trim()).filter((value: string) => value.length > 0)
+            : [];
+          const contractAssignedCommunities = Array.isArray(contract?.assignedCommunities)
+            ? contract.assignedCommunities.map((value: unknown) => String(value ?? '').trim()).filter((value: string) => value.length > 0)
+            : [];
+
+          const contractMatchesCompany =
+            (this.managerSecurityCompanyId && contractCompanyId === this.managerSecurityCompanyId) ||
+            (this.managerSecurityCompanyName && contractCompanyName === this.normalizeName(this.managerSecurityCompanyName));
+
+          if (!contractMatchesCompany) {
+            return false;
           }
 
-          const userComplexName = this.normalizeName(user?.complex?.name);
-          if (this.contractedComplexNames.has(userComplexName)) {
+          if (contractAssignedComplexes.length === 0 && contractAssignedCommunities.length === 0) {
             return true;
           }
 
-          const userComplexId = user?.complex?._id ? String(user.complex._id) : '';
-          if (userComplexId && this.assignedComplexes.some((complex) => complex.id === userComplexId)) {
-            return true;
-          }
+          const hasComplexInScope = contractAssignedComplexes.some((complexId: string) => assignedComplexIdsInScope.has(complexId));
+          const hasCommunityInScope = contractAssignedCommunities.some((community: string) => {
+            const normalized = this.normalizeName(community);
+            return assignedCommunityIdsInScope.has(community) || assignedCommunityNamesInScope.has(normalized);
+          });
 
-          return false;
-        };
+          return hasComplexInScope || hasCommunityInScope;
+        });
+      }
 
-        const resolveEmployeeStatusForCompany = (user: any): 'active' | 'inactive' => {
+      const userComplexName = this.normalizeName(user?.complex?.name);
+      if (this.contractedComplexNames.has(userComplexName)) {
+        return true;
+      }
+
+      const userComplexId = user?.complex?._id ? String(user.complex._id) : '';
+      if (userComplexId && this.assignedComplexes.some((complex) => complex.id === userComplexId)) {
+        return true;
+      }
+
+      if (isSecurityUser && inCurrentCompany) {
+        return true;
+      }
+
+      return false;
+    };
+
+      const resolveEmployeeStatusForCompany = (user: any): 'active' | 'inactive' => {
           const employeeContracts = Array.isArray(user?.employeeContracts) ? user.employeeContracts : [];
           const currentContract = employeeContracts.find((contract: any) => {
             const contractCompanyId = contract?.securityCompany?._id ? String(contract.securityCompany._id) : '';
@@ -574,10 +686,15 @@ export class SecurityManager implements OnInit {
           return user?.movedOut ? 'inactive' : 'active';
         };
 
-        this.employees = users
+      const isVisibleSecurityUser = (user: any): boolean => {
+        const userId = String(user?._id ?? '').trim();
+        const linkedByAssignment = userId.length > 0 && this.companyEmployeeAssignmentUserIds.has(userId);
+        return linkedByAssignment || belongsToCurrentSecurityCompany(user) || hasContractAccessForCompany(user);
+      };
+
+      this.employees = users
           .filter((user: any) => this.hasRole(user, 'security'))
-          .filter((user: any) => belongsToCurrentSecurityCompany(user))
-          .filter((user: any) => hasContractAccessForCompany(user))
+          .filter((user: any) => isVisibleSecurityUser(user))
           .map((user: any) => {
             const assignedComplexes = Array.isArray(user?.assignedComplexes)
               ? user.assignedComplexes.filter((value: unknown) => typeof value === 'string' && value.length > 0)
@@ -603,8 +720,7 @@ export class SecurityManager implements OnInit {
 
         this.securityManagers = users
           .filter((user: any) => this.hasRole(user, 'security'))
-          .filter((user: any) => belongsToCurrentSecurityCompany(user))
-          .filter((user: any) => hasContractAccessForCompany(user))
+          .filter((user: any) => isVisibleSecurityUser(user))
           .map((user: any) => {
             const assignedComplexes = Array.isArray(user?.assignedComplexes)
               ? user.assignedComplexes.filter((value: unknown) => typeof value === 'string' && value.length > 0)
@@ -628,9 +744,43 @@ export class SecurityManager implements OnInit {
             };
           });
 
-        this.tenants = users
-          .filter((user: any) => this.hasRole(user, 'tenant'))
+          const isTenantLikeUser = (user: any): boolean => {
+            if (this.hasRole(user, 'tenant') || this.hasRole(user, 'user')) {
+              return true;
+            }
+
+            if (this.hasRole(user, 'security') || this.hasRole(user, 'manager') || this.hasRole(user, 'admin')) {
+              return false;
+            }
+
+            const hasResidenceMarker =
+              String(user?.residenceType ?? '').trim().length > 0 ||
+              String(user?.communityId ?? '').trim().length > 0 ||
+              String(user?.communityComplexId ?? '').trim().length > 0 ||
+              String(user?.address ?? '').trim().length > 0 ||
+              Boolean(user?.complex?._id);
+
+            return hasResidenceMarker;
+          };
+
+          this.tenants = users
+                .filter((user: any) => isTenantLikeUser(user))
           .filter((user: any) => {
+                  const explicitTenantRole = this.hasRole(user, 'tenant') || this.hasRole(user, 'user');
+                  const hasEmbeddedLocation =
+                    Boolean(user?.complex?._id) ||
+                    String(user?.communityId ?? '').trim().length > 0 ||
+                    String(user?.communityComplexId ?? '').trim().length > 0 ||
+                    String(user?.address ?? '').trim().length > 0;
+
+                  if (belongsToCurrentSecurityCompany(user)) {
+                    return true;
+                  }
+
+                  if (explicitTenantRole && !hasEmbeddedLocation) {
+                    return true;
+                  }
+
             const userResidenceType: 'complex' | 'community' =
               user?.residenceType === 'community' || user?.residenceType === 'complex'
                 ? user.residenceType
@@ -695,23 +845,22 @@ export class SecurityManager implements OnInit {
             };
           });
 
-        this.refreshTenantLocationPaths();
-      },
-      error: () => {
-        this.employees = [];
-        this.securityManagers = [];
-        this.tenants = [];
-      },
-    });
+    this.refreshTenantLocationPaths();
+      this.refreshView();
   }
 
   private hasRole(user: any, role: string): boolean {
+    const normalizedRole = this.normalizeName(role);
+
     const type = user?.type;
     if (Array.isArray(type)) {
-      return type.includes(role);
+      return type
+        .map((entry: unknown) => this.normalizeName(String(entry ?? '')))
+        .some((entry: string) => entry === normalizedRole || entry.includes(normalizedRole));
     }
     if (typeof type === 'string') {
-      return type.includes(role);
+      const normalizedType = this.normalizeName(type);
+      return normalizedType === normalizedRole || normalizedType.includes(normalizedRole);
     }
     return false;
   }
@@ -905,7 +1054,7 @@ export class SecurityManager implements OnInit {
   }
 
   protected submitEmployeeForm(): void {
-    if (!this.employeeForm.name || !this.employeeForm.surname || !this.employeeForm.email || !this.employeeForm.phone) {
+    if (!this.employeeForm.name || !this.employeeForm.surname || !this.employeeForm.email || !this.employeeForm.phone || !this.employeeForm.position) {
       this.employeeError = 'Please fill in all required fields.';
       return;
     }
@@ -966,7 +1115,7 @@ export class SecurityManager implements OnInit {
           }, 1500);
         },
         error: (error) => {
-          this.employeeError = error?.error?.message || 'Unable to update employee.';
+          this.employeeError = this.resolveApiErrorMessage(error, 'Unable to update employee.');
         },
       });
       return;
@@ -1022,7 +1171,7 @@ export class SecurityManager implements OnInit {
           }, 1500);
         },
         error: (error) => {
-          this.employeeError = error?.error?.message || 'Unable to add employee.';
+          this.employeeError = this.resolveApiErrorMessage(error, 'Unable to add employee.');
         },
       });
       return;
@@ -1033,6 +1182,27 @@ export class SecurityManager implements OnInit {
       this.closeEmployeeModal();
     }, 1500);
   }
+
+  private resolveApiErrorMessage(error: any, fallbackMessage: string): string {
+    const baseMessage = error?.error?.message;
+    if (typeof baseMessage !== 'string' || baseMessage.trim().length === 0) {
+      return fallbackMessage;
+    }
+
+    const payloadMessages = Array.isArray(error?.error?.payload)
+      ? error.error.payload
+          .map((item: any) => (typeof item?.msg === 'string' ? item.msg.trim() : ''))
+          .filter((message: string) => message.length > 0)
+      : [];
+
+    if (payloadMessages.length === 0) {
+      return baseMessage;
+    }
+
+    const uniqueMessages = Array.from(new Set(payloadMessages));
+    return `${baseMessage}: ${uniqueMessages.join(', ')}`;
+  }
+
   protected openComplexDetails(complex: any): void {
     this.selectedComplex = complex;
     this.selectedComplexEmployees = this.employees.filter((employee) => {
@@ -1223,7 +1393,8 @@ export class SecurityManager implements OnInit {
   }
 
   protected get filteredEmployees(): any[] {
-    const key = `${this.searchTerm}|${this.filterStatus}|${this.employees.length}`;
+    const employeesIdentity = this.employees.map((emp) => `${emp.id}:${emp.status}:${emp.assignedComplex}`).join('|');
+    const key = `${this.searchTerm}|${this.filterStatus}|${employeesIdentity}`;
     if (this.filteredEmployeesKey === key) {
       return this.filteredEmployeesCache;
     }
@@ -1920,7 +2091,10 @@ export class SecurityManager implements OnInit {
   }
 
   protected get filteredTenants(): any[] {
-    const key = `${this.tenantSearchTerm}|${this.tenantFilterResidenceType}|${this.tenantFilterComplexId}|${this.tenantFilterCommunityId}|${this.tenantFilterCommunityResidenceType}|${this.tenantFilterCommunityComplexId}|${this.tenants.length}`;
+    const tenantsIdentity = this.tenants
+      .map((tenant: any) => `${tenant.id}:${tenant.residenceType}:${tenant.complexId ?? ''}:${tenant.communityId ?? ''}`)
+      .join('|');
+    const key = `${this.tenantSearchTerm}|${this.tenantFilterResidenceType}|${this.tenantFilterComplexId}|${this.tenantFilterCommunityId}|${this.tenantFilterCommunityResidenceType}|${this.tenantFilterCommunityComplexId}|${tenantsIdentity}`;
     if (this.filteredTenantsKey === key) {
       return this.filteredTenantsCache;
     }
