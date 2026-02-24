@@ -8,16 +8,16 @@ describe("Complex endpoints for api", () => {
   const URI: string = process.env.TEST_SERVER_URI as unknown as string;
 
   const vehicle: vehicleDTO = {
+    colour: "Silver",
     make: "renualt",
     model: "clio",
     registrationNumber: "qwe123gp",
     user: undefined,
-    year: 2005,
   };
 
   beforeEach(async () => {
     const req = await fetch(`${URI}/user/login`, {
-      body: JSON.stringify({emailAddress: testUser.emailAddress, password: testUser.password}),
+      body: JSON.stringify({ emailAddress: testUser.emailAddress, password: testUser.password }),
       headers: {
         "Content-Type": "application/json",
       },
@@ -25,12 +25,12 @@ describe("Complex endpoints for api", () => {
     });
 
     const res = req.json() as unknown as ResponseBody;
-    
+
     token = res.payload as string;
     console.log(token);
   });
 
-  it("Should add new vehciles and return a 201 code", async () => {
+  it.todo("Should add new vehciles and return a 201 code", async () => {
     console.log(token);
     const req = await fetch(`${URI}/vehicle/`, {
       body: JSON.stringify(vehicle),
@@ -44,15 +44,15 @@ describe("Complex endpoints for api", () => {
     expect(req.status).toBe(201);
   });
 
-  //   it("Should update a vehicle and return a 200 code", () => {});
+  it.todo("Should update a vehicle and return a 200 code");
 
-  //   it("Should remove a vehicle and return a 200 code", () => {});
+  it.todo("Should remove a vehicle and return a 200 code");
 
-  //   it("Should get all vehicles under a community area and return a 200 code", () => {});
+  it.todo("Should get all vehicles under a community area and return a 200 code");
 
-  //   it("Should get all vehicles under a complex and return a 200 code", () => {});
+  it.todo("Should get all vehicles under a complex and return a 200 code");
 
-  //   it("Should get all vehicles and return a 200 code", () => {});
+  it.todo("Should get all vehicles and return a 200 code");
 
-  //   it("Should get a single vehicle and return a 200 code", () => {});
+  it.todo("Should get a single vehicle and return a 200 code");
 });

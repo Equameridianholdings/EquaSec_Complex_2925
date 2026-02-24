@@ -1,5 +1,5 @@
+import { testUser } from "#__tests__/testUser.js";
 import { ResponseBody } from "#app.js";
-import { UserDTO } from "#interfaces/userDTO.js";
 import { Error } from "mongoose";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -13,7 +13,7 @@ describe("User endpoints flow", () => {
 
   it("Should register a new user and return a 201 response", async () => {
     const req = await fetch(`${URI}/user/register`, {
-      body: JSON.stringify(sampleUser),
+      body: JSON.stringify(testUser),
       headers: {
         "Content-Type": "application/json",
       },
@@ -43,8 +43,8 @@ describe("User endpoints flow", () => {
 
   it("Should login a user to the system and return a jwt bearer token and a 200 response", async () => {
     const loginUser = {
-      emailAddress: sampleUser.emailAddress,
-      password: sampleUser.password,
+      emailAddress: testUser.emailAddress,
+      password: testUser.password,
     };
 
     const req = await fetch(`${URI}/user/login`, {
@@ -78,18 +78,3 @@ describe("User endpoints flow", () => {
     expect(req.status).toBe(401);
   });
 });
-
-const sampleUser: UserDTO = {
-  cellNumber: "0987654322",
-  complex: undefined,
-  confirmPassword: "223456",
-  emailAddress: "test2@test.com",
-  idNumber: "",
-  movedOut: false,
-  name: "TestName2",
-  password: "223456",
-  profilePhoto: "",
-  salt: "",
-  surname: "TestSurname",
-  type: ["tenant"],
-};

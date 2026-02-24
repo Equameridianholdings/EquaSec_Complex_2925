@@ -4,10 +4,11 @@ import visitorShema from "#db/visitorSchema.js";
 import { UserDTO } from "#interfaces/userDTO.js";
 import { visitorBodyValidation, visitorDTO } from "#interfaces/visitorDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
+import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import Code_Generator from "#utils/code_generator.js";
 import validateObjectId from "#utils/validateObjectId.js";
 import { ValidObjectId } from "#utils/ValidObjectId.js";
-import { Router } from "express";
+import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 import { isValidObjectId } from "mongoose";
 
@@ -67,15 +68,15 @@ visitorRouter.get("/user/", validateObjectId, async (req, res) => {
   }
 });
 
-visitorRouter.post("/", async (req, res) => {
-  const validated = await visitorBodyValidation.run(req);
-  if (validated.length > 0) return res.status(400).json({ message: "Invalid details", payload: validated });
-
+visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Request, res: Response) => {
   try {
+    const user: UserDTO = await userSchema.findById(new ObjectId(req.get('id'))).exec() as unknown as UserDTO;
+
     const visitor: visitorDTO = {
       ...(req.body as visitorDTO),
       code: Code_Generator(),
       expiry: new Date(new Date().setHours(new Date().getHours() + 24)),
+      user: user,
     };
 
     //Add Id number encryptions
