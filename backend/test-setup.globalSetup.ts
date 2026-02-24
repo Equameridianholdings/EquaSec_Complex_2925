@@ -1,9 +1,7 @@
 import * as db from "#__tests__/integration/db.js";
 import app from "#app.js";
 import { Server } from "http";
-import { loadEnvFile } from "process";
 
-loadEnvFile();
 let server: Server;
 
 export default async function setup() {
