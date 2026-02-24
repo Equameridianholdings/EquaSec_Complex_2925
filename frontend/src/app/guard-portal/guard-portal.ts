@@ -286,9 +286,9 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.dataService.get<any>('guardHistory/active').pipe(
       catchError(() => of({ payload: null })),
     ).subscribe((response) => {
-      console.log('[GuardPortal][activeShift] response', response);
+     
       this.pendingActiveShift = response?.payload ?? null;
-      console.log('[GuardPortal][activeShift] pendingActiveShift', this.pendingActiveShift);
+      
       if (this.stationContextReady) {
         this.applyStationFromCurrentShiftState();
       }
@@ -384,24 +384,32 @@ export class GuardPortal implements OnInit, OnDestroy {
   }
 
   private hydrateGuardFromStorage(): void {
+    const currentUser = this.getStoredCurrentUser();
+    if (!currentUser) {
+      return;
+    }
+
+    const fullName = `${currentUser?.name ?? ''} ${currentUser?.surname ?? ''}`.trim();
+    if (fullName) {
+      this.guardName = fullName;
+    }
+    this.guardPhotoUrl = currentUser?.profilePhoto ?? this.guardPhotoUrl;
+    this.canRegisterTenant = this.isAdminGuard(currentUser);
+  }
+
+  private getStoredCurrentUser(): any | null {
     const rawUser =
       this.storage?.getItem?.('current-user') ??
       (isPlatformBrowser(this.platformId) ? window.localStorage.getItem('current-user') : null);
 
     if (!rawUser) {
-      return;
+      return null;
     }
 
     try {
-      const currentUser = JSON.parse(rawUser);
-      const fullName = `${currentUser?.name ?? ''} ${currentUser?.surname ?? ''}`.trim();
-      if (fullName) {
-        this.guardName = fullName;
-      }
-      this.guardPhotoUrl = currentUser?.profilePhoto ?? this.guardPhotoUrl;
-      this.canRegisterTenant = this.isAdminGuard(currentUser);
+      return JSON.parse(rawUser);
     } catch {
-      return;
+      return null;
     }
   }
 
@@ -409,7 +417,13 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.dataService
       .get<any>('user/current')
       .pipe(
-        switchMap((currentUser) => {
+        switchMap((currentUserResponse) => {
+          const currentUserPayload = currentUserResponse?.payload ?? currentUserResponse ?? null;
+          const storedCurrentUser = this.getStoredCurrentUser();
+          const currentUser = currentUserPayload && typeof currentUserPayload === 'object'
+            ? currentUserPayload
+            : (storedCurrentUser ?? null);
+
           if (currentUser) {
             this.guardName = `${currentUser.name ?? ''} ${currentUser.surname ?? ''}`.trim() || this.guardName;
             this.guardPhotoUrl = currentUser.profilePhoto ?? '';
@@ -419,19 +433,26 @@ export class GuardPortal implements OnInit, OnDestroy {
           this.assignedComplexIds = new Set(
             Array.isArray(currentUser?.assignedComplexes)
               ? currentUser.assignedComplexes.map((value: unknown) => String(value ?? '')).filter((value: string) => value.length > 0)
+              : Array.isArray(storedCurrentUser?.assignedComplexes)
+              ? storedCurrentUser.assignedComplexes.map((value: unknown) => String(value ?? '')).filter((value: string) => value.length > 0)
               : []
           );
           this.assignedCommunityIds = new Set(
             Array.isArray(currentUser?.assignedCommunities)
               ? currentUser.assignedCommunities.map((value: unknown) => String(value ?? '')).filter((value: string) => value.length > 0)
+              : Array.isArray(storedCurrentUser?.assignedCommunities)
+              ? storedCurrentUser.assignedCommunities.map((value: unknown) => String(value ?? '')).filter((value: string) => value.length > 0)
               : []
           );
 
           const guardId = currentUser?._id as string | undefined;
-          const visitors$ = guardId ? this.dataService.get<any[]>(`visitor/${guardId}`) : of([]);
+          const visitors$ = guardId
+            ? this.dataService.get<any[]>('visitor/security/', { headers: { id: guardId } })
+            : of([]);
           return forkJoin({
             gated: this.dataService.get<any[]>('gatedCommunity').pipe(catchError(() => of([]))),
             complexes: this.dataService.get<any[]>('complex').pipe(catchError(() => of([]))),
+            units: this.dataService.get<any[]>('unit').pipe(catchError(() => of([]))),
             users: this.dataService.get<any[]>('user').pipe(catchError(() => of([]))),
             vehicles: this.dataService.get<any[]>('vehicle').pipe(catchError(() => of([]))),
             visitors: visitors$.pipe(catchError(() => of([]))),
@@ -441,28 +462,24 @@ export class GuardPortal implements OnInit, OnDestroy {
           forkJoin({
             gated: of([]),
             complexes: of([]),
+            units: of([]),
             users: of([]),
             vehicles: of([]),
             visitors: of([]),
           })
         )
       )
-      .subscribe(({ gated, complexes, users, vehicles, visitors }) => {
+      .subscribe(({ gated, complexes, units, users, vehicles, visitors }) => {
         const gatedList = this.ensureArray<any>(gated);
         const complexList = this.ensureArray<any>(complexes);
+        const unitList = this.ensureArray<any>(units);
         const userList = this.ensureArray<any>(users);
         const vehicleList = this.ensureArray<any>(vehicles);
         const visitorList = this.ensureArray<any>(visitors);
 
-        console.log('[GuardPortal][data] raw payload summary', {
-          gatedCount: gatedList.length,
-          complexCount: complexList.length,
-          userCount: userList.length,
-          vehicleCount: vehicleList.length,
-          visitorCount: visitorList.length,
-          assignedComplexIds: Array.from(this.assignedComplexIds),
-          assignedCommunityIds: Array.from(this.assignedCommunityIds),
-        });
+        this.cdr.markForCheck();
+        this.stationContextReady = true;
+        this.applyStationFromCurrentShiftState();
 
         const allGatedCommunities = gatedList.map((community) => ({
           id: this.normalizeStationId(community._id ?? community.id),
@@ -505,12 +522,7 @@ export class GuardPortal implements OnInit, OnDestroy {
           Array.from(this.assignedCommunityIds).filter((id) => id.length > 0)
         );
 
-        console.log('[GuardPortal][data] allowed station scope', {
-          hasAssignments,
-          allowedComplexIds: Array.from(allowedComplexIdSet),
-          allowedGatedCommunityIds: Array.from(allowedGatedCommunityIds),
-          allowedComplexNames: allowedComplexes.map((complex) => complex.name),
-        });
+        this.ensureStationSelectionRequiredState();
 
         for (const complex of allowedComplexes) {
           const gatedName = this.normalizeName(complex.gatedCommunityName);
@@ -549,37 +561,6 @@ export class GuardPortal implements OnInit, OnDestroy {
 
         this.syncGatedComplexSelection();
 
-        this.residents = userList
-          .filter((user) => this.hasTenantRole(user?.type))
-          .map((user) => ({
-          name: `${user.name ?? ''} ${user.surname ?? ''}`.trim(),
-          unit: user.unit ?? user.address ?? user.unitNumber ?? user.houseNumber ?? '',
-          houseNumber: user.houseNumber ?? '',
-          cellphone: user.cellNumber ?? '',
-          email: user.emailAddress ?? '',
-          photoDataUrl: user.profilePhoto ?? '',
-          complexId: this.normalizeStationId(user.complex?._id ?? user.complex?.id),
-          gatedCommunityId: this.normalizeStationId(user.communityId ?? user.gatedCommunity?._id ?? user.gatedCommunity?.id),
-        }))
-          .filter((resident) => {
-            if (!hasAssignments) {
-              return false;
-            }
-            const inComplex = resident.complexId && allowedComplexIdSet.has(String(resident.complexId));
-            const inCommunity = resident.gatedCommunityId && allowedGatedCommunityIds.has(String(resident.gatedCommunityId));
-            return Boolean(inComplex || inCommunity);
-          });
-
-        console.log('[GuardPortal][data] tenants after filtering', {
-          count: this.residents.length,
-          sample: this.residents.slice(0, 5).map((resident) => ({
-            name: resident.name,
-            unit: resident.unit,
-            complexId: resident.complexId,
-            gatedCommunityId: resident.gatedCommunityId,
-          })),
-        });
-
         const tenantUserById = new Map<string, any>();
         for (const user of userList) {
           if (!this.hasTenantRole(user?.type)) {
@@ -592,14 +573,81 @@ export class GuardPortal implements OnInit, OnDestroy {
           tenantUserById.set(userId, user);
         }
 
+        const tenantLocationByUserId = new Map<string, {
+          complexId: string;
+          gatedCommunityId: string;
+          houseNumber: string;
+          unit: string;
+        }>();
+
+        for (const unit of unitList) {
+          const complexId = this.normalizeStationId(unit?.complex?._id ?? unit?.complex?.id);
+          const gatedCommunityId = this.normalizeStationId(unit?.gatedCommunity?._id ?? unit?.gatedCommunity?.id);
+          const unitNumberRaw = unit?.number;
+          const normalizedUnitNumber = String(unitNumberRaw ?? '').trim();
+
+          const linkedUsers = Array.isArray(unit?.users) ? unit.users : [];
+          for (const linkedUser of linkedUsers) {
+            const linkedUserId = String(
+              (linkedUser && typeof linkedUser === 'object')
+                ? (linkedUser as any)?._id ?? (linkedUser as any)?.id ?? ''
+                : linkedUser ?? ''
+            ).trim();
+
+            if (!linkedUserId) {
+              continue;
+            }
+
+            const previous = tenantLocationByUserId.get(linkedUserId);
+            const unitValue = normalizedUnitNumber || previous?.unit || '';
+            const houseNumberValue = (!complexId && normalizedUnitNumber) || previous?.houseNumber || '';
+
+            tenantLocationByUserId.set(linkedUserId, {
+              complexId: complexId || previous?.complexId || '',
+              gatedCommunityId: gatedCommunityId || previous?.gatedCommunityId || '',
+              houseNumber: houseNumberValue,
+              unit: unitValue,
+            });
+          }
+        }
+
+        this.residents = userList
+          .filter((user) => this.hasTenantRole(user?.type))
+          .map((user) => {
+            const userId = String(user?._id ?? user?.id ?? '').trim();
+            const linkedTenantLocation = userId ? tenantLocationByUserId.get(userId) : null;
+
+            return {
+              name: `${user.name ?? ''} ${user.surname ?? ''}`.trim(),
+              unit: linkedTenantLocation?.unit ?? user.unit ?? user.address ?? user.unitNumber ?? user.houseNumber ?? '',
+              houseNumber: linkedTenantLocation?.houseNumber ?? user.houseNumber ?? '',
+              cellphone: user.cellNumber ?? '',
+              email: user.emailAddress ?? '',
+              photoDataUrl: user.profilePhoto ?? '',
+              complexId: linkedTenantLocation?.complexId ?? this.normalizeStationId(user.complex?._id ?? user.complex?.id),
+              gatedCommunityId: linkedTenantLocation?.gatedCommunityId ?? this.normalizeStationId(user.communityId ?? user.gatedCommunity?._id ?? user.gatedCommunity?.id),
+            };
+          })
+          .filter((resident) => {
+            if (!hasAssignments) {
+              return false;
+            }
+            const inComplex = resident.complexId && allowedComplexIdSet.has(String(resident.complexId));
+            const inCommunity = resident.gatedCommunityId && allowedGatedCommunityIds.has(String(resident.gatedCommunityId));
+            return Boolean(inComplex || inCommunity);
+          });
+
+
         const tenantVehiclesFromUsers = userList
           .filter((user) => this.hasTenantRole(user?.type))
           .flatMap((user) => {
+            const userId = String(user?._id ?? user?.id ?? '').trim();
+            const linkedTenantLocation = userId ? tenantLocationByUserId.get(userId) : null;
             const ownerName = `${user?.name ?? ''} ${user?.surname ?? ''}`.trim();
-            const unit = user?.unit ?? user?.address ?? user?.unitNumber ?? user?.houseNumber ?? '';
-            const houseNumber = user?.houseNumber ?? '';
-            const complexId = this.normalizeStationId(user?.complex?._id ?? user?.complex?.id);
-            const gatedCommunityId = this.normalizeStationId(user?.communityId ?? user?.gatedCommunity?._id ?? user?.gatedCommunity?.id);
+            const unit = linkedTenantLocation?.unit ?? user?.unit ?? user?.address ?? user?.unitNumber ?? user?.houseNumber ?? '';
+            const houseNumber = linkedTenantLocation?.houseNumber ?? user?.houseNumber ?? '';
+            const complexId = linkedTenantLocation?.complexId ?? this.normalizeStationId(user?.complex?._id ?? user?.complex?.id);
+            const gatedCommunityId = linkedTenantLocation?.gatedCommunityId ?? this.normalizeStationId(user?.communityId ?? user?.gatedCommunity?._id ?? user?.gatedCommunity?.id);
 
             const userVehicles = Array.isArray(user?.vehicles) ? user.vehicles : [];
             return userVehicles.map((vehicle: any) => ({
@@ -618,8 +666,10 @@ export class GuardPortal implements OnInit, OnDestroy {
         const vehiclesFromVehicleCollection = vehicleList.map((vehicle) => {
           const linkedUserId = String(vehicle?.user?._id ?? vehicle?.user?.id ?? '').trim();
           const linkedTenant = linkedUserId ? tenantUserById.get(linkedUserId) : null;
+          const linkedTenantLocation = linkedUserId ? tenantLocationByUserId.get(linkedUserId) : null;
 
           const resolvedUnit =
+            linkedTenantLocation?.unit ??
             linkedTenant?.unit ??
             linkedTenant?.address ??
             linkedTenant?.unitNumber ??
@@ -632,6 +682,7 @@ export class GuardPortal implements OnInit, OnDestroy {
             '';
 
           const resolvedHouseNumber =
+            linkedTenantLocation?.houseNumber ??
             linkedTenant?.houseNumber ??
             vehicle?.user?.houseNumber ??
             '';
@@ -647,8 +698,8 @@ export class GuardPortal implements OnInit, OnDestroy {
             unit: resolvedUnit,
             houseNumber: resolvedHouseNumber,
             owner: resolvedOwner,
-            complexId: this.normalizeStationId(linkedTenant?.complex?._id ?? linkedTenant?.complex?.id ?? vehicle?.user?.complex?._id ?? vehicle?.user?.complex?.id),
-            gatedCommunityId: this.normalizeStationId(linkedTenant?.communityId ?? linkedTenant?.gatedCommunity?._id ?? linkedTenant?.gatedCommunity?.id ?? vehicle?.user?.communityId ?? vehicle?.user?.gatedCommunity?._id ?? vehicle?.user?.gatedCommunity?.id),
+            complexId: linkedTenantLocation?.complexId ?? this.normalizeStationId(linkedTenant?.complex?._id ?? linkedTenant?.complex?.id ?? vehicle?.user?.complex?._id ?? vehicle?.user?.complex?.id),
+            gatedCommunityId: linkedTenantLocation?.gatedCommunityId ?? this.normalizeStationId(linkedTenant?.communityId ?? linkedTenant?.gatedCommunity?._id ?? linkedTenant?.gatedCommunity?.id ?? vehicle?.user?.communityId ?? vehicle?.user?.gatedCommunity?._id ?? vehicle?.user?.gatedCommunity?.id),
           };
         });
 
@@ -684,18 +735,6 @@ export class GuardPortal implements OnInit, OnDestroy {
             return Boolean(inComplex || inCommunity);
           });
 
-        console.log('[GuardPortal][data] registered vehicles after filtering', {
-          count: this.vehicles.length,
-          fromVehicleCollection: vehiclesFromVehicleCollection.length,
-          fromTenantProfiles: tenantVehiclesFromUsers.length,
-          sample: this.vehicles.slice(0, 5).map((vehicle) => ({
-            regNumber: vehicle.regNumber,
-            unit: vehicle.unit,
-            owner: vehicle.owner,
-            complexId: vehicle.complexId,
-            gatedCommunityId: vehicle.gatedCommunityId,
-          })),
-        });
 
         this.activeCodes = visitorList.map((visitor) => ({
           code: String(visitor.code ?? ''),
@@ -725,10 +764,6 @@ export class GuardPortal implements OnInit, OnDestroy {
             return Boolean(inComplex || inCommunity);
           });
 
-        console.log('[GuardPortal][data] visitor codes after filtering', {
-          count: this.activeCodes.length,
-          drivingCount: this.activeCodes.filter((code) => code.isDriving).length,
-        });
 
         this.stationContextReady = true;
         this.applyStationFromCurrentShiftState();
@@ -748,37 +783,28 @@ export class GuardPortal implements OnInit, OnDestroy {
   }
 
   private applyStationFromCurrentShiftState(): void {
-    console.log('[GuardPortal][stationState] applyStationFromCurrentShiftState', {
-      pendingActiveShift: this.pendingActiveShift,
-      stationContextReady: this.stationContextReady,
-    });
+    this.restoreStationSelection();
+    this.applyActiveShiftStation(this.pendingActiveShift);
+    this.ensureStationSelectionRequiredState();
 
     if (this.pendingActiveShift === undefined) {
-      console.log('[GuardPortal][stationState] pendingActiveShift undefined, restoring local station cache');
       this.restoreStationSelection();
       return;
     }
 
     if (this.pendingActiveShift) {
-      console.log('[GuardPortal][stationState] applying active shift from GuardHistory');
       this.restoreStationSelection();
       this.applyActiveShiftStation(this.pendingActiveShift);
       return;
     }
 
     this.restoreStationSelection();
-    console.log('[GuardPortal][stationState] active shift missing, restored cache state', {
-      hasValidStationSelection: this.hasValidStationSelection(),
-      currentShiftStartAt: this.currentShiftStartAt,
-    });
     if (this.hasValidStationSelection() && this.isWithinShiftWindow(this.currentShiftStartAt)) {
-      console.log('[GuardPortal][stationState] using cached station within shift window');
       this.stationLocked = true;
       this.showStationPrompt = false;
       return;
     }
 
-    console.log('[GuardPortal][stationState] no active station, forcing station selection modal');
     this.activeShiftId = '';
     this.activeShiftStationName = '';
     this.currentShiftStartAt = null;
@@ -851,15 +877,6 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.persistStationSelection();
     this.ensureStationSelectionRequiredState();
 
-    console.log('[GuardPortal][stationState] applied active shift station', {
-      activeShiftId: this.activeShiftId,
-      stationType: this.stationType,
-      selectedGatedCommunity: this.filtersForm.selectedGatedCommunity,
-      selectedComplex: this.filtersForm.selectedComplex,
-      activeShiftStationName: this.activeShiftStationName,
-      currentShiftStartAt: this.currentShiftStartAt,
-      showStationPrompt: this.showStationPrompt,
-    });
   }
 
   private resolveGatedStationSelectionFromName(stationName: string): { gatedCommunityId: string; complexId: string } {
@@ -1584,13 +1601,6 @@ export class GuardPortal implements OnInit, OnDestroy {
       this.showStationPrompt = false;
       this.stationLocked = true;
 
-      console.log('[GuardPortal][stationCache] restored', {
-        stationType: this.stationType,
-        selectedGatedCommunity: this.filtersForm.selectedGatedCommunity,
-        selectedComplex: this.filtersForm.selectedComplex,
-        activeShiftId: this.activeShiftId,
-        currentShiftStartAt: this.currentShiftStartAt,
-      });
     } catch {
       this.clearStationSelection();
     }
@@ -1977,15 +1987,26 @@ export class GuardPortal implements OnInit, OnDestroy {
   private isAdminGuard(user: any): boolean {
     const normalize = (value: unknown): string => this.normalizeName(String(value ?? ''));
 
+    const typeEntries = Array.isArray(user?.type) ? user.type : [user?.type];
+    const normalizedTypes = typeEntries
+      .map((value: unknown) => normalize(value))
+      .filter((value: string) => value.length > 0);
+
+    const hasAdminType = normalizedTypes.some((value: string) => value === 'admin' || value === 'adminguard');
+    const hasGuardType = normalizedTypes.some((value: string) => value === 'security' || value === 'guard');
+    if (hasAdminType && hasGuardType) {
+      return true;
+    }
+
     const directPosition = normalize(user?.position);
-    if (directPosition === 'adminguard') {
+    if (directPosition === 'adminguard' || directPosition === 'admin' || directPosition === 'securityadmin') {
       return true;
     }
 
     const contracts = Array.isArray(user?.employeeContracts) ? user.employeeContracts : [];
     for (const contract of contracts) {
       const contractPosition = normalize(contract?.position);
-      if (contractPosition === 'adminguard') {
+      if (contractPosition === 'adminguard' || contractPosition === 'admin' || contractPosition === 'securityadmin') {
         return true;
       }
     }
@@ -2075,10 +2096,8 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     this.dataService.post<any>('sos', payload).subscribe({
       next: (response) => {
-        console.log('[GuardPortal][SOS] alert sent', response?.payload?.delivery ?? response);
       },
       error: (error) => {
-        console.error('[GuardPortal][SOS] alert failed', error);
       },
     });
   }
@@ -2138,7 +2157,6 @@ export class GuardPortal implements OnInit, OnDestroy {
       const reader = new FileReader();
       reader.onload = (e: ProgressEvent<FileReader>) => {
         this.guardPhotoData = e.target?.result as string;
-        console.log('Photo captured:', this.guardPhotoData);
       };
       reader.readAsDataURL(file);
     }

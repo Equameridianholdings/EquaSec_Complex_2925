@@ -11,8 +11,8 @@ export class DataService {
 
   constructor(private http: HttpClient) {}
 
-  get<T>(endpoint: string): Observable<T> {
-    return this.http.get<T>(`${this.apiUrl}/${endpoint}`);
+  get<T>(endpoint: string, options?: { headers?: Record<string, string>; params?: Record<string, string | number | boolean> }): Observable<T> {
+    return this.http.get<T>(`${this.apiUrl}/${endpoint}`, options);
   }
 
   post<T>(endpoint: string, data: any): Observable<T> {

@@ -42,6 +42,17 @@ unitRouter.post("/", unitBodyValidation, validateSchema, async (req: Request, re
   }
 });
 
+unitRouter.get("/", async (req: Request, res: Response) => {
+  try {
+    const units = await unitSchema.find({});
+    res.status(200).json(units);
+    return;
+  } catch {
+    res.status(500).json({ message: "Internal Server Error!" });
+    return;
+  }
+});
+
 unitRouter.get("/complex/:name", async (req, res) => {
   try {
     const stationName = req.params.name;
