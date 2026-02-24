@@ -2,7 +2,7 @@ import jsonwebtoken from "jsonwebtoken";
 
 export interface UserPayload {
     email: string;
-    role: string[] | string;
+    role: string | string[];
 }
 
 export default function VerifyToken(token: string) {

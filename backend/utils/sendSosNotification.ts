@@ -1,39 +1,69 @@
-type SosAlertInput = {
+interface SosAlertInput {
   date: Date;
   guard: {
     _id?: string;
+    cellNumber?: string;
+    emailAddress?: string;
     name?: string;
     surname?: string;
-    emailAddress?: string;
-    cellNumber?: string;
   };
   station?: {
-    type?: string;
-    name?: string;
+    complexAddress?: null | string;
     complexName?: string;
-    complexAddress?: string | null;
     gatedCommunityName?: string;
+    name?: string;
+    type?: string;
   };
-};
+}
 
-type SosDeliveryResult = {
+interface SosDeliveryResult {
+  call: "failed" | "sent" | "skipped";
+  callError?: string;
   to: string;
-  whatsapp: "sent" | "failed" | "skipped";
-  call: "sent" | "failed" | "skipped";
+  whatsapp: "failed" | "sent" | "skipped";
+  whatsappError?: string;
   whatsappSid?: string;
   whatsappStatus?: string;
-  whatsappError?: string;
-  callError?: string;
-};
+}
 
-type TwilioApiResult = {
-  ok: boolean;
+interface TwilioApiResult {
   error?: string;
+  ok: boolean;
   sid?: string;
   status?: string;
+}
+
+interface TwilioParsedResponse {
+  code?: number | string;
+  message?: string;
+  sid?: string;
+  status?: string;
+}
+
+const parseTwilioResponse = (responseText: string): null | TwilioParsedResponse => {
+  if (!responseText) {
+    return null;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(responseText);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    const record = parsed as Record<string, unknown>;
+    return {
+      code: typeof record.code === "string" || typeof record.code === "number" ? record.code : undefined,
+      message: typeof record.message === "string" ? record.message : undefined,
+      sid: typeof record.sid === "string" ? record.sid : undefined,
+      status: typeof record.status === "string" ? record.status : undefined,
+    };
+  } catch {
+    return null;
+  }
 };
 
-const getEnv = (key: string): string => String(process.env[key] ?? "").trim();
+const getEnv = (key: string): string => (process.env[key] ?? "").trim();
 
 const getEnvBoolean = (key: string, defaultValue: boolean): boolean => {
   const value = getEnv(key).toLowerCase();
@@ -41,11 +71,11 @@ const getEnvBoolean = (key: string, defaultValue: boolean): boolean => {
     return defaultValue;
   }
 
-  if (["true", "1", "yes", "on"].includes(value)) {
+  if (["1", "on", "true", "yes"].includes(value)) {
     return true;
   }
 
-  if (["false", "0", "no", "off"].includes(value)) {
+  if (["0", "false", "no", "off"].includes(value)) {
     return false;
   }
 
@@ -77,7 +107,7 @@ const getAlertRecipients = (): string[] => {
     .filter((entry) => entry.length > 0);
 };
 
-const getTwilioAuthHeaders = (): { Authorization: string } | null => {
+const getTwilioAuthHeaders = (): null | { Authorization: string } => {
   const accountSid = getEnv("TWILIO_ACCOUNT_SID");
   const authToken = getEnv("TWILIO_AUTH_TOKEN");
 
@@ -91,14 +121,14 @@ const getTwilioAuthHeaders = (): { Authorization: string } | null => {
 };
 
 const buildSosMessage = (input: SosAlertInput): string => {
-  const guardName = `${input.guard?.name ?? ""} ${input.guard?.surname ?? ""}`.trim() || "Unknown Guard";
-  const guardPhone = String(input.guard?.cellNumber ?? "").trim();
-  const guardEmail = String(input.guard?.emailAddress ?? "").trim();
-  const stationType = String(input.station?.type ?? "").trim().toLowerCase();
-  const stationName = String(input.station?.name ?? "").trim();
-  const complexName = String(input.station?.complexName ?? "").trim();
-  const complexAddress = String(input.station?.complexAddress ?? "").trim();
-  const gatedCommunityName = String(input.station?.gatedCommunityName ?? "").trim();
+  const guardName = `${input.guard.name ?? ""} ${input.guard.surname ?? ""}`.trim() || "Unknown Guard";
+  const guardPhone = (input.guard.cellNumber ?? "").trim();
+  const guardEmail = (input.guard.emailAddress ?? "").trim();
+  const stationType = (input.station?.type ?? "").trim().toLowerCase();
+  const stationName = (input.station?.name ?? "").trim();
+  const complexName = (input.station?.complexName ?? "").trim();
+  const complexAddress = (input.station?.complexAddress ?? "").trim();
+  const gatedCommunityName = (input.station?.gatedCommunityName ?? "").trim();
 
   const stationLabel = stationType === "gated"
     ? "Gated Community"
@@ -135,38 +165,33 @@ const sendWhatsApp = async (to: string, body: string): Promise<TwilioApiResult> 
   const authHeaders = getTwilioAuthHeaders();
 
   if (!accountSid || !fromWhatsApp || !authHeaders) {
-    return { ok: false, error: "Missing Twilio WhatsApp config" };
+    return { error: "Missing Twilio WhatsApp config", ok: false };
   }
 
   const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const payload = new URLSearchParams({
-    To: `whatsapp:${to}`,
-    From: `whatsapp:${fromWhatsApp}`,
     Body: body,
+    From: `whatsapp:${fromWhatsApp}`,
+    To: `whatsapp:${to}`,
   });
 
   try {
     const response = await fetch(endpoint, {
-      method: "POST",
+      body: payload,
       headers: {
         ...authHeaders,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: payload,
+      method: "POST",
     });
 
     const responseText = await response.text();
-    let parsed: any = null;
-    try {
-      parsed = responseText ? JSON.parse(responseText) : null;
-    } catch {
-      parsed = null;
-    }
+    const parsed = parseTwilioResponse(responseText);
 
     if (!response.ok) {
-      const errorMessage = parsed?.message || responseText || `Twilio WhatsApp error ${response.status}`;
-      const errorCode = parsed?.code ? ` (code ${parsed.code})` : "";
-      return { ok: false, error: `${errorMessage}${errorCode}` };
+      const errorMessage = parsed?.message ?? (responseText || `Twilio WhatsApp error ${String(response.status)}`);
+      const errorCode = parsed?.code ? ` (code ${String(parsed.code)})` : "";
+      return { error: `${errorMessage}${errorCode}`, ok: false };
     }
 
     return {
@@ -175,13 +200,13 @@ const sendWhatsApp = async (to: string, body: string): Promise<TwilioApiResult> 
       status: parsed?.status,
     };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Unknown WhatsApp error" };
+    return { error: error instanceof Error ? error.message : "Unknown WhatsApp error", ok: false };
   }
 };
 
 const makeTwimlMessage = (body: string): string => {
   const spoken = body.replace(/\n/g, ". ");
-  return `<Response><Say voice=\"alice\">${spoken}</Say></Response>`;
+  return `<Response><Say voice="alice">${spoken}</Say></Response>`;
 };
 
 const sendCall = async (to: string, body: string): Promise<TwilioApiResult> => {
@@ -190,38 +215,33 @@ const sendCall = async (to: string, body: string): Promise<TwilioApiResult> => {
   const authHeaders = getTwilioAuthHeaders();
 
   if (!accountSid || !fromVoice || !authHeaders) {
-    return { ok: false, error: "Missing Twilio voice config" };
+    return { error: "Missing Twilio voice config", ok: false };
   }
 
   const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`;
   const payload = new URLSearchParams({
-    To: to,
     From: fromVoice,
+    To: to,
     Twiml: makeTwimlMessage(body),
   });
 
   try {
     const response = await fetch(endpoint, {
-      method: "POST",
+      body: payload,
       headers: {
         ...authHeaders,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: payload,
+      method: "POST",
     });
 
     const responseText = await response.text();
-    let parsed: any = null;
-    try {
-      parsed = responseText ? JSON.parse(responseText) : null;
-    } catch {
-      parsed = null;
-    }
+    const parsed = parseTwilioResponse(responseText);
 
     if (!response.ok) {
-      const errorMessage = parsed?.message || responseText || `Twilio call error ${response.status}`;
-      const errorCode = parsed?.code ? ` (code ${parsed.code})` : "";
-      return { ok: false, error: `${errorMessage}${errorCode}` };
+      const errorMessage = parsed?.message ?? (responseText || `Twilio call error ${String(response.status)}`);
+      const errorCode = parsed?.code ? ` (code ${String(parsed.code)})` : "";
+      return { error: `${errorMessage}${errorCode}`, ok: false };
     }
 
     return {
@@ -230,7 +250,7 @@ const sendCall = async (to: string, body: string): Promise<TwilioApiResult> => {
       status: parsed?.status,
     };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Unknown call error" };
+    return { error: error instanceof Error ? error.message : "Unknown call error", ok: false };
   }
 };
 
@@ -240,13 +260,13 @@ export const sendSosAlerts = async (input: SosAlertInput): Promise<SosDeliveryRe
   const voiceEnabled = getEnvBoolean("SOS_VOICE_ENABLED", true);
 
   console.log("[SOS][Notifier] preparing alerts", {
-    recipientCount: recipients.length,
-    whatsappEnabled,
-    voiceEnabled,
     hasTwilioSid: Boolean(getEnv("TWILIO_ACCOUNT_SID")),
     hasTwilioToken: Boolean(getEnv("TWILIO_AUTH_TOKEN")),
-    hasWhatsappFrom: Boolean(getEnv("TWILIO_WHATSAPP_FROM")),
     hasVoiceFrom: Boolean(getEnv("TWILIO_VOICE_FROM")),
+    hasWhatsappFrom: Boolean(getEnv("TWILIO_WHATSAPP_FROM")),
+    recipientCount: recipients.length,
+    voiceEnabled,
+    whatsappEnabled,
   });
 
   if (recipients.length === 0) {
@@ -270,7 +290,7 @@ export const sendSosAlerts = async (input: SosAlertInput): Promise<SosDeliveryRe
       if (!whatsappEnabled) {
         console.log("[SOS][Notifier] whatsapp skipped by SOS_WHATSAPP_ENABLED=false", { recipient });
       } else if (!whatsapp.ok) {
-        console.error("[SOS][Notifier] whatsapp failed", { recipient, error: whatsapp.error });
+        console.error("[SOS][Notifier] whatsapp failed", { error: whatsapp.error, recipient });
       } else {
         console.log("[SOS][Notifier] whatsapp accepted", {
           recipient,
@@ -282,7 +302,7 @@ export const sendSosAlerts = async (input: SosAlertInput): Promise<SosDeliveryRe
       if (!voiceEnabled) {
         console.log("[SOS][Notifier] call skipped by SOS_VOICE_ENABLED=false", { recipient });
       } else if (!call.ok) {
-        console.error("[SOS][Notifier] call failed", { recipient, error: call.error });
+        console.error("[SOS][Notifier] call failed", { error: call.error, recipient });
       } else {
         console.log("[SOS][Notifier] call accepted", {
           recipient,
@@ -296,13 +316,13 @@ export const sendSosAlerts = async (input: SosAlertInput): Promise<SosDeliveryRe
       }
 
       return {
+        call: voiceEnabled ? (call.ok ? "sent" : "failed") : "skipped",
+        callError: call.ok ? undefined : call.error,
         to: recipient,
         whatsapp: whatsappEnabled ? (whatsapp.ok ? "sent" : "failed") : "skipped",
-        call: voiceEnabled ? (call.ok ? "sent" : "failed") : "skipped",
+        whatsappError: whatsapp.ok ? undefined : whatsapp.error,
         whatsappSid: whatsapp.sid,
         whatsappStatus: whatsapp.status,
-        whatsappError: whatsapp.ok ? undefined : whatsapp.error,
-        callError: call.ok ? undefined : call.error,
       } as SosDeliveryResult;
     }),
   );

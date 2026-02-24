@@ -1,5 +1,5 @@
-import gatedCommunitySchema from "#db/gatedCommunity.js";
 import complexSchema from "#db/complexSchema.js";
+import gatedCommunitySchema from "#db/gatedCommunity.js";
 import securityCompanySchema from "#db/securityCompanySchema.js";
 import unitSchema from "#db/unitSchema.js";
 import { gatedCommunityBodyValidation, gatedCommunityDTO } from "#interfaces/gatedCommunityDTO.js";
@@ -12,34 +12,73 @@ import { ObjectId } from "mongodb";
 
 const gatedCommunityRouter = Router();
 
-const syncUnitsForGatedCommunity = async (gatedCommunity: any): Promise<void> => {
-  if (!gatedCommunity?._id) {
+interface ExistingCommunityUnit {
+  _id?: unknown;
+  gatedCommunity?: {
+    _id?: string;
+    name?: string;
+  };
+  number?: unknown;
+  save: () => Promise<unknown>;
+  users?: unknown;
+}
+
+interface GatedCommunityLike {
+  _id?: unknown;
+  name?: string;
+  numberOfHouses?: unknown;
+}
+
+const toObjectIdString = (value: unknown): string => {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value instanceof ObjectId) {
+    return value.toHexString();
+  }
+  return "";
+};
+
+const getRouteId = (value: string | string[]): string => (Array.isArray(value) ? value[0] ?? "" : value);
+
+const syncUnitsForGatedCommunity = async (gatedCommunity: GatedCommunityLike): Promise<void> => {
+  if (!gatedCommunity._id) {
     return;
   }
 
-  const gatedCommunityId = String(gatedCommunity._id);
-  const gatedCommunityIdVariants: Array<string | ObjectId> = [gatedCommunityId];
+  const gatedCommunityId = toObjectIdString(gatedCommunity._id);
+  if (!gatedCommunityId) {
+    return;
+  }
+  const gatedCommunityIdVariants: (ObjectId | string)[] = [gatedCommunityId];
   if (ObjectId.isValid(gatedCommunityId)) {
     gatedCommunityIdVariants.push(new ObjectId(gatedCommunityId));
   }
 
-  const name = String(gatedCommunity?.name ?? "").trim();
-  const numberOfHouses = Number(gatedCommunity?.numberOfHouses);
+  const name = (gatedCommunity.name ?? "").trim();
+  const numberOfHouses = Number(gatedCommunity.numberOfHouses);
   const targetCount = Number.isFinite(numberOfHouses) && numberOfHouses > 0 ? Math.floor(numberOfHouses) : 0;
 
   const existingUnits = await unitSchema.find({
     "gatedCommunity._id": { $in: gatedCommunityIdVariants },
   }).exec();
 
-  const existingByNumber = new Map<number, any>();
+  const existingByNumber = new Map<number, ExistingCommunityUnit>();
   for (const unit of existingUnits) {
-    const unitNumber = Number(unit?.number);
+    const candidate = unit as ExistingCommunityUnit;
+    const unitNumber = Number(candidate.number);
     if (Number.isFinite(unitNumber)) {
-      existingByNumber.set(unitNumber, unit);
+      existingByNumber.set(unitNumber, candidate);
     }
   }
 
-  const createDocs: Array<any> = [];
+  const createDocs: {
+    complex: null;
+    gatedCommunity: { _id: string; name: string };
+    number: number;
+    numberOfParkingBays: number;
+    users: unknown[];
+  }[] = [];
   for (let unitNumber = 1; unitNumber <= targetCount; unitNumber++) {
     const existing = existingByNumber.get(unitNumber);
     if (!existing) {
@@ -56,7 +95,7 @@ const syncUnitsForGatedCommunity = async (gatedCommunity: any): Promise<void> =>
       continue;
     }
 
-    const currentName = String(existing?.gatedCommunity?.name ?? "").trim();
+    const currentName = (existing.gatedCommunity?.name ?? "").trim();
     if (currentName !== name) {
       existing.gatedCommunity = {
         _id: gatedCommunityId,
@@ -71,12 +110,14 @@ const syncUnitsForGatedCommunity = async (gatedCommunity: any): Promise<void> =>
   }
 
   const removableUnitIds = existingUnits
-    .filter((unit: any) => {
-      const unitNumber = Number(unit?.number);
-      const users = Array.isArray(unit?.users) ? unit.users : [];
+    .filter((unit) => {
+      const candidate = unit as ExistingCommunityUnit;
+      const unitNumber = Number(candidate.number);
+      const users = Array.isArray(candidate.users) ? candidate.users : [];
       return Number.isFinite(unitNumber) && unitNumber > targetCount && users.length === 0;
     })
-    .map((unit: any) => unit._id);
+    .map((unit) => (unit as ExistingCommunityUnit)._id)
+    .filter((id): id is unknown => id !== undefined);
 
   if (removableUnitIds.length > 0) {
     await unitSchema.deleteMany({ _id: { $in: removableUnitIds } });
@@ -87,9 +128,10 @@ gatedCommunityRouter.use(AuthMiddleware);
 
 gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
-    const gatedCommunity = req.body as gatedCommunityDTO;
-    delete (req.body as any).unitStart;
-    delete (req.body as any).unitEnd;
+    const requestBody = req.body as Partial<gatedCommunityDTO> & { unitEnd?: unknown; unitStart?: unknown };
+    const gatedCommunity = requestBody as gatedCommunityDTO;
+    delete requestBody.unitStart;
+    delete requestBody.unitEnd;
 
     console.log("[gatedCommunity] create request", {
       name: gatedCommunity.name,
@@ -106,7 +148,7 @@ gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), valida
       return;
     }
 
-    const newGatedCommunity = new gatedCommunitySchema(req.body);
+    const newGatedCommunity = new gatedCommunitySchema(requestBody);
     await newGatedCommunity.save();
     await syncUnitsForGatedCommunity(newGatedCommunity);
     console.log("[gatedCommunity] created", { id: newGatedCommunity._id, name: newGatedCommunity.name });
@@ -120,10 +162,8 @@ gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), valida
   }
 });
 
-gatedCommunityRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
-
-  const _id = req.params.id as ObjectId;
+gatedCommunityRouter.get("/:id", validateObjectId, async (req: Request, res: Response) => {
+  const _id = new ObjectId(getRouteId(req.params.id));
 
   try {
     const gatedCommunity = await gatedCommunitySchema.findById(_id);
@@ -141,7 +181,7 @@ gatedCommunityRouter.get("/:id", validateObjectId, async (req, res) => {
   }
 });
 
-gatedCommunityRouter.get("/", async (req, res) => {
+gatedCommunityRouter.get("/", async (req: Request, res: Response) => {
   try {
     const gatedCommunities = await gatedCommunitySchema.find({});
 
@@ -158,19 +198,18 @@ gatedCommunityRouter.get("/", async (req, res) => {
   }
 });
 
-gatedCommunityRouter.patch("/:id", validateObjectId, async (req, res) => {
-  delete (req.body as any).unitStart;
-  delete (req.body as any).unitEnd;
+gatedCommunityRouter.patch("/:id", validateObjectId, async (req: Request, res: Response) => {
+  const body = req.body as Partial<gatedCommunityDTO> & { unitEnd?: unknown; unitStart?: unknown };
+  delete body.unitStart;
+  delete body.unitEnd;
 
   const gatedCommunityQuery = {
-    $set: req.body as object,
+    $set: body as object,
   };
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+  const _id = new ObjectId(getRouteId(req.params.id));
 
   try {
-    console.log("[gatedCommunity] update request", { id: _id, body: req.body });
+    console.log("[gatedCommunity] update request", { body, id: _id });
     const existingGatedCommunity = await gatedCommunitySchema.findById(_id);
     if (existingGatedCommunity === null) {
       res.status(404).json({ message: "Gated Community does not exist!" });
@@ -187,7 +226,7 @@ gatedCommunityRouter.patch("/:id", validateObjectId, async (req, res) => {
     await syncUnitsForGatedCommunity(updatedGatedCommunity);
 
     const previousName = existingGatedCommunity.name;
-    const nextName = typeof req.body?.name === "string" ? req.body.name : previousName;
+    const nextName = typeof body.name === "string" ? body.name : previousName;
     if (previousName !== nextName) {
       await complexSchema.updateMany(
         { gatedCommunityName: previousName },
@@ -211,10 +250,8 @@ gatedCommunityRouter.patch("/:id", validateObjectId, async (req, res) => {
   }
 });
 
-gatedCommunityRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
-
-  const _id = req.params.id as ObjectId;
+gatedCommunityRouter.delete("/:id", validateObjectId, async (req: Request, res: Response) => {
+  const _id = new ObjectId(getRouteId(req.params.id));
 
   try {
     console.log("[gatedCommunity] delete request", { id: _id });

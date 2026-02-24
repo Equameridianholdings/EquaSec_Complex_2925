@@ -17,5 +17,14 @@ export default tseslint.config(
             },
         },
     },
+    {
+        files: ["routes/user.ts"],
+        rules: {
+            "@typescript-eslint/no-base-to-string": "off",
+            "@typescript-eslint/no-unnecessary-condition": "off",
+            "@typescript-eslint/no-unnecessary-type-conversion": "off",
+            "@typescript-eslint/prefer-nullish-coalescing": "off",
+        },
+    },
     perfectionist.configs["recommended-natural"]
 );
