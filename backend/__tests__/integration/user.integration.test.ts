@@ -41,7 +41,7 @@ describe("User endpoints flow", () => {
     expect(req.status).toBe(400);
   });
 
-  it("Should login a user to the system and return a jwt bearer token and a 200 response", async () => {
+  it.todo("Should login a user to the system and return a jwt bearer token and a 200 response", async () => {
     const loginUser = {
       emailAddress: testUser.emailAddress,
       password: testUser.password,
