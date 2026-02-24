@@ -46,21 +46,21 @@ visitorRouter.get("/security/", validateObjectId, async (req, res) => {
   }
 });
 
-visitorRouter.get("/user/", validateObjectId, async (req, res) => {
-  if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request." });
+visitorRouter.get("/user/", async (req, res) => {
+  if (!res.get("email")) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
-  const _id = ValidObjectId(req.get("id") as unknown as string);
+  const email = res.get("email") as unknown as string;
 
   try {
-    const visitorQuery = { "user._id": _id };
+    const visitorQuery = { "user.emailAddress": email };
     const visitors = await visitorShema.find<visitorDTO>(visitorQuery).select({}).exec();
 
     if (visitors.length == 0) {
-      res.status(200).json([]);
+      res.status(200).json({message: "No visitors today!", payload: []});
       return;
     }
 
-    res.status(200).json(visitors);
+    res.status(200).json({message: "Successfully loaded visitors", payload: visitors});
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error!" });
@@ -70,13 +70,14 @@ visitorRouter.get("/user/", validateObjectId, async (req, res) => {
 
 visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Request, res: Response) => {
   try {
-    const user: UserDTO = await userSchema.findById(new ObjectId(req.get('id'))).exec() as unknown as UserDTO;
+    const user: UserDTO = await userSchema.findOne({emailAddress: res.get('email')}).exec() as unknown as UserDTO;
 
     const visitor: visitorDTO = {
       ...(req.body as visitorDTO),
       code: Code_Generator(),
       expiry: new Date(new Date().setHours(new Date().getHours() + 24)),
       user: user,
+      validity: true,
     };
 
     //Add Id number encryptions

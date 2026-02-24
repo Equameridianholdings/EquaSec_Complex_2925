@@ -22,10 +22,10 @@
         <p><strong>Transport:</strong> {{ !visitor.driving ? 'Walking' : 'Vehicle' }}</p>
         @if (visitor.driving) {
           <ng-container>
-            <p><strong>Make:</strong> {{ visitor.vehicle.make }}</p>
-            <p><strong>Model:</strong> {{ visitor.vehicle.model }}</p>
-            <p><strong>Registration:</strong> {{ visitor.vehicle.registrationNumber }}</p>
-            <p><strong>Colour:</strong> {{ visitor.vehicle.colour }}</p>
+            <p><strong>Make:</strong> {{ visitor.vehicle?.make }}</p>
+            <p><strong>Model:</strong> {{ visitor.vehicle?.model }}</p>
+            <p><strong>Registration:</strong> {{ visitor.vehicle?.registrationNumber }}</p>
+            <p><strong>Colour:</strong> {{ visitor.vehicle?.colour }}</p>
           </ng-container>
         }
       </div>

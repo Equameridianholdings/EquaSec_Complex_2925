@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { getHours, shareCode, visitorDTO } from '../../interfaces/visitorDTO';
 
 @Component({
@@ -7,9 +7,13 @@ import { getHours, shareCode, visitorDTO } from '../../interfaces/visitorDTO';
   templateUrl: './visitor-card.html',
   styleUrl: '../../dashboard/dashboard.css',
 })
-export class VisitorCard {
-  @Input({ required: true }) visitor!: visitorDTO;
-  hours: number = getHours(this.visitor);
+export class VisitorCard implements OnInit{
+  @Input() visitor!: visitorDTO;
+  hours!: number;
+
+  ngOnInit(): void {
+    this.hours = getHours(this.visitor);
+  }
   
   shareVisitorCode() {
     shareCode(this.visitor);

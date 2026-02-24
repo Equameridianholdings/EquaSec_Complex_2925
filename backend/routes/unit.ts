@@ -15,7 +15,7 @@ unitRouter.post("/", unitBodyValidation, validateSchema, async (req: Request, re
   try {
     const unit = req.body as unitDTO;
 
-    const hasComplex = Boolean(unit.complex?._id);
+    const hasComplex = Boolean(unit.complex._id);
     const hasGatedCommunity = Boolean(unit.gatedCommunity?._id);
     if (!hasComplex && !hasGatedCommunity) {
       res.status(400).json({ message: "Invalid details. Unit must link to a complex or gated community." });
@@ -23,7 +23,7 @@ unitRouter.post("/", unitBodyValidation, validateSchema, async (req: Request, re
     }
 
     const allUnitsQuery = hasComplex
-      ? { "complex._id": new ObjectId(String(unit.complex?._id)) }
+      ? { "complex._id": new ObjectId(String(unit.complex._id)) }
       : { "gatedCommunity._id": new ObjectId(String(unit.gatedCommunity?._id)) };
     const allUnits = await unitSchema.find(allUnitsQuery);
 

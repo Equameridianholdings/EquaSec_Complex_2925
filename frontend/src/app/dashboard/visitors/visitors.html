@@ -2,12 +2,10 @@
   <h3>Active Access Codes</h3>
 </div>
 
-@if (visitors.length > 0) {
-  <div>
-    @for (visitor of visitors; track $index) {
-      <app-visitor-card [visitor]="visitor" />
-    }
-  </div>
-} @else {
-  <div>No visitors today!</div>
-}
+<div class="grid grid-cols-3 gap-2 p-5">
+  @for (visitor of visitors(); track $index) {
+    <app-visitor-card [visitor]="visitor" />
+  } @empty {
+    <div class="col-span-3">No visitors today!</div>
+  }
+</div>

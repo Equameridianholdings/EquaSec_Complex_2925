@@ -34,7 +34,7 @@ export class ConfirmVisitor {
         this.dialogRef.close();
       },
       error: (err) => {
-        console.error(err.message);
+        console.error(err);
       },
     });
   }

@@ -12,7 +12,6 @@ import { validateSchema } from "#middleware/validateSchema.middleware.js";
 // import { encrypt } from "#utils/encryption.js";
 import GenerateJWT from "#utils/generateJWT.js";
 import { sendSecurityCompanyCode } from "#utils/sendEmail.js";
-import { ValidObjectId } from "#utils/validObjectId.js";
 import VerifyToken from "#utils/verifyToken.js";
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
@@ -149,7 +148,9 @@ const resolveSecurityCompanyForUser = async (user: { _id?: unknown; emailAddress
     }
   }
 
-  const normalizedManagerEmail = String(user.emailAddress ?? "").trim().toLowerCase();
+  const normalizedManagerEmail = String(user.emailAddress ?? "")
+    .trim()
+    .toLowerCase();
   const companyByNormalizedManagerEmail = await securityCompanySchema.findOne({ managerEmail: normalizedManagerEmail }).lean();
   if (companyByNormalizedManagerEmail) {
     return companyByNormalizedManagerEmail;
@@ -164,13 +165,7 @@ const normalizeStringList = (values: unknown): string[] => {
     return [];
   }
 
-  return Array.from(
-    new Set(
-      values
-        .filter((value) => typeof value === "string" && value.trim().length > 0)
-        .map((value) => String(value).trim())
-    )
-  );
+  return Array.from(new Set(values.filter((value) => typeof value === "string" && value.trim().length > 0).map((value) => String(value).trim())));
 };
 
 const normalizeTenantVehicles = (vehicles: unknown): TenantVehicle[] => {
@@ -180,8 +175,7 @@ const normalizeTenantVehicles = (vehicles: unknown): TenantVehicle[] => {
 
   return vehicles
     .map((vehicle): TenantVehicle => {
-      const candidate: TenantVehicleInput =
-        vehicle && typeof vehicle === "object" ? (vehicle as TenantVehicleInput) : {};
+      const candidate: TenantVehicleInput = vehicle && typeof vehicle === "object" ? (vehicle as TenantVehicleInput) : {};
 
       return {
         color: String(candidate.color ?? "").trim() || undefined,
@@ -194,7 +188,7 @@ const normalizeTenantVehicles = (vehicles: unknown): TenantVehicle[] => {
 };
 
 const syncTenantVehiclesForUser = async (
-  user: { _id?: unknown; cellNumber?: string; emailAddress?: string; name?: string; surname?: string; },
+  user: { _id?: unknown; cellNumber?: string; emailAddress?: string; name?: string; surname?: string },
   vehicles: unknown,
 ): Promise<void> => {
   const userId = String(user?._id ?? "").trim();
@@ -290,7 +284,10 @@ const findCompanyAssignmentForUser = (company: CompanyWithAssignments | null, us
   return match ?? null;
 };
 
-const resolveUserAssignments = (user: TenantUserLike, company: CompanyWithAssignments | null): { assignedCommunities: string[]; assignedComplexes: string[]; } => {
+const resolveUserAssignments = (
+  user: TenantUserLike,
+  company: CompanyWithAssignments | null,
+): { assignedCommunities: string[]; assignedComplexes: string[] } => {
   const assignment = findCompanyAssignmentForUser(company, String(user._id ?? ""));
 
   if (assignment) {
@@ -341,7 +338,7 @@ const upsertCompanyEmployeeAssignment = async (
     position?: string;
     status?: "active" | "inactive";
     userId: string;
-  }
+  },
 ): Promise<void> => {
   const userId = String(assignment.userId ?? "").trim();
   if (!companyId || !userId) {
@@ -358,21 +355,20 @@ const upsertCompanyEmployeeAssignment = async (
     .map((item) => sanitizeCompanyEmployeeAssignment(item));
   const previous = findCompanyAssignmentForUser(company, userId);
 
-  assignments.push(sanitizeCompanyEmployeeAssignment({
-    assignedCommunities: normalizeStringList(assignment.assignedCommunities ?? previous?.assignedCommunities),
-    assignedComplexes: normalizeStringList(assignment.assignedComplexes ?? previous?.assignedComplexes),
-    contractEndDate: assignment.contractEndDate ?? previous?.contractEndDate ?? null,
-    contractStartDate: assignment.contractStartDate ?? previous?.contractStartDate ?? null,
-    createdBy: assignment.createdBy ?? previous?.createdBy,
-    position: assignment.position ?? previous?.position,
-    status: assignment.status ?? previous?.status,
-    userId,
-  }));
+  assignments.push(
+    sanitizeCompanyEmployeeAssignment({
+      assignedCommunities: normalizeStringList(assignment.assignedCommunities ?? previous?.assignedCommunities),
+      assignedComplexes: normalizeStringList(assignment.assignedComplexes ?? previous?.assignedComplexes),
+      contractEndDate: assignment.contractEndDate ?? previous?.contractEndDate ?? null,
+      contractStartDate: assignment.contractStartDate ?? previous?.contractStartDate ?? null,
+      createdBy: assignment.createdBy ?? previous?.createdBy,
+      position: assignment.position ?? previous?.position,
+      status: assignment.status ?? previous?.status,
+      userId,
+    }),
+  );
 
-  await securityCompanySchema.updateOne(
-    { _id: companyId },
-    { $set: { employeeAssignments: assignments } }
-  ).exec();
+  await securityCompanySchema.updateOne({ _id: companyId }, { $set: { employeeAssignments: assignments } }).exec();
 };
 
 const removeCompanyEmployeeAssignment = async (companyId: string, userId: string): Promise<void> => {
@@ -380,10 +376,7 @@ const removeCompanyEmployeeAssignment = async (companyId: string, userId: string
     return;
   }
 
-  await securityCompanySchema.updateOne(
-    { _id: companyId },
-    { $pull: { employeeAssignments: { userId: String(userId) } } }
-  ).exec();
+  await securityCompanySchema.updateOne({ _id: companyId }, { $pull: { employeeAssignments: { userId: String(userId) } } }).exec();
 };
 
 const extractUnitNumber = (address: string): null | number => {
@@ -401,13 +394,13 @@ const extractUnitNumber = (address: string): null | number => {
 };
 
 const normalizeName = (value: null | string | undefined): string => {
-  return String(value ?? "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 };
 
-const findUnitByLocationAndAddress = async (
-  location: { complexId?: string; gatedCommunityId?: string },
-  address: string,
-) => {
+const findUnitByLocationAndAddress = async (location: { complexId?: string; gatedCommunityId?: string }, address: string) => {
   const complexId = String(location?.complexId ?? "").trim();
   const gatedCommunityId = String(location?.gatedCommunityId ?? "").trim();
 
@@ -426,10 +419,12 @@ const findUnitByLocationAndAddress = async (
       complexIdVariants.push(new ObjectId(String(complexId)));
     }
 
-    const unit = await unitSchema.findOne({
-      "complex._id": { $in: complexIdVariants },
-      number: unitNumber,
-    }).exec();
+    const unit = await unitSchema
+      .findOne({
+        "complex._id": { $in: complexIdVariants },
+        number: unitNumber,
+      })
+      .exec();
 
     return unit;
   }
@@ -439,10 +434,12 @@ const findUnitByLocationAndAddress = async (
     gatedCommunityIdVariants.push(new ObjectId(String(gatedCommunityId)));
   }
 
-  const unit = await unitSchema.findOne({
-    "gatedCommunity._id": { $in: gatedCommunityIdVariants },
-    number: unitNumber,
-  }).exec();
+  const unit = await unitSchema
+    .findOne({
+      "gatedCommunity._id": { $in: gatedCommunityIdVariants },
+      number: unitNumber,
+    })
+    .exec();
 
   return unit;
 };
@@ -450,7 +447,7 @@ const findUnitByLocationAndAddress = async (
 const linkTenantToUnit = async (
   tenantId: string,
   location: {
-    complex?: null | { _id?: string; address?: string; name?: string; };
+    complex?: null | { _id?: string; address?: string; name?: string };
     gatedCommunity?: null | { _id?: string; name?: string };
   },
   address: string,
@@ -496,22 +493,6 @@ const linkTenantToUnit = async (
   await unit.save();
 };
 
-const unlinkTenantFromUnit = async (
-  tenantId: string,
-  location: { complexId?: string; gatedCommunityId?: string },
-  address: string,
-) => {
-  const unit = await findUnitByLocationAndAddress(location, address);
-  if (!unit) {
-    return;
-  }
-
-  const users = Array.isArray(unit.users) ? unit.users : [];
-  const nextUsers = users.filter((entry: unknown) => String(entry) !== String(tenantId));
-  unit.users = nextUsers;
-  await unit.save();
-};
-
 const unlinkTenantFromAllUnits = async (tenantId: string): Promise<void> => {
   const normalizedTenantId = String(tenantId ?? "").trim();
   if (!normalizedTenantId) {
@@ -523,16 +504,18 @@ const unlinkTenantFromAllUnits = async (tenantId: string): Promise<void> => {
     userIdVariants.push(new ObjectId(normalizedTenantId));
   }
 
-  await unitSchema.updateMany(
-    {},
-    {
-      $pull: {
-        users: {
-          $in: userIdVariants,
+  await unitSchema
+    .updateMany(
+      {},
+      {
+        $pull: {
+          users: {
+            $in: userIdVariants,
+          },
         },
       },
-    }
-  ).exec();
+    )
+    .exec();
 };
 
 //Register a new user
@@ -592,7 +575,7 @@ const loginBodyValidation: Schema = {
     isLength: {
       errorMessage: "Incorrect password length",
       options: {
-        max: 6,
+        max: 7,
         min: 6,
       },
     },
@@ -715,120 +698,126 @@ const securityAssignmentBodyValidation: Schema = {
   },
 };
 
-userRouter.post("/security-employee", AuthMiddleware, checkSchema(securityEmployeeBodyValidation), validateSchema, async (req: Request, res: Response) => {
-  try {
-    const authReq = req as Request & { userEmail?: string };
-    const managerEmail = authReq.userEmail;
-
-    if (!managerEmail) {
-      return res.status(401).json({ message: "Access Denied!" });
-    }
-
-    const managerUser = await userSchema.findOne<UserDTO>({ emailAddress: managerEmail }).select({}).exec();
-    if (!managerUser) {
-      return res.status(404).json({ message: "Manager user not found!" });
-    }
-
-    const managerRoles = Array.isArray(managerUser.type) ? managerUser.type : [];
-    if (!managerRoles.includes("manager")) {
-      return res.status(403).json({ message: "Access Forbidden!" });
-    }
-
-    const linkedSecurityCompany = await resolveSecurityCompanyForUser(managerUser);
-    if (!linkedSecurityCompany) {
-      return res.status(400).json({ message: "Manager is not linked to a security company." });
-    }
-
-    const body = req.body as {
-      assignedComplexId?: string;
-      assignedComplexName?: string;
-      assignedGatedCommunityName?: string;
-      cellNumber: string;
-      contractEndDate?: string;
-      contractStartDate?: string;
-      emailAddress: string;
-      name: string;
-      position: string;
-      status?: "active" | "inactive";
-      surname: string;
-    };
-
-    const normalizedPosition = (body.position ?? "").toLowerCase().replace(/[^a-z]/g, "");
-    const isAdminGuard = normalizedPosition.includes("admin");
-    const employeePosition: "admin-Guard" | "Guard" = isAdminGuard ? "admin-Guard" : "Guard";
-
-    const normalizedEmail = body.emailAddress.trim().toLowerCase();
-    const existingUser = await userSchema.findOne({ emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
-    if (existingUser) {
-      return res.status(409).json({ message: "User with this email already exists." });
-    }
-
-    const temporaryPin = String(Math.floor(100000 + Math.random() * 900000));
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(temporaryPin, salt);
-
-    const employeeUser = new userSchema({
-      cellNumber: body.cellNumber,
-      complex: body.assignedComplexId
-        ? {
-            _id: body.assignedComplexId,
-            name: body.assignedComplexName ?? "",
-          }
-        : null,
-      emailAddress: normalizedEmail,
-      movedOut: (body.status ?? "active") === "inactive",
-      name: body.name,
-      password: hashedPassword,
-      profilePhoto: "",
-      salt,
-      securityCompany: {
-        _id: linkedSecurityCompany._id,
-        name: linkedSecurityCompany.name,
-      },
-      surname: body.surname,
-      type: isAdminGuard ? ["security", "admin"] : ["security"],
-    });
-
-    await employeeUser.save();
-
-    const initialAssignedComplexes = body.assignedComplexId ? [String(body.assignedComplexId)] : [];
-    const initialAssignedCommunities = body.assignedGatedCommunityName ? [String(body.assignedGatedCommunityName)] : [];
-
-    await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
-      assignedCommunities: initialAssignedCommunities,
-      assignedComplexes: initialAssignedComplexes,
-      contractEndDate: body.contractEndDate ? new Date(body.contractEndDate) : null,
-      contractStartDate: body.contractStartDate ? new Date(body.contractStartDate) : new Date(),
-      createdBy: managerEmail,
-      position: employeePosition,
-      status: body.status ?? "active",
-      userId: String(employeeUser._id),
-    });
-
+userRouter.post(
+  "/security-employee",
+  AuthMiddleware,
+  checkSchema(securityEmployeeBodyValidation),
+  validateSchema,
+  async (req: Request, res: Response) => {
     try {
-      await sendSecurityCompanyCode({
-        code: temporaryPin,
-        companyName: linkedSecurityCompany.name,
-        to: normalizedEmail,
+      const authReq = req as Request & { userEmail?: string };
+      const managerEmail = authReq.userEmail;
+
+      if (!managerEmail) {
+        return res.status(401).json({ message: "Access Denied!" });
+      }
+
+      const managerUser = await userSchema.findOne<UserDTO>({ emailAddress: managerEmail }).select({}).exec();
+      if (!managerUser) {
+        return res.status(404).json({ message: "Manager user not found!" });
+      }
+
+      const managerRoles = Array.isArray(managerUser.type) ? managerUser.type : [];
+      if (!managerRoles.includes("manager")) {
+        return res.status(403).json({ message: "Access Forbidden!" });
+      }
+
+      const linkedSecurityCompany = await resolveSecurityCompanyForUser(managerUser);
+      if (!linkedSecurityCompany) {
+        return res.status(400).json({ message: "Manager is not linked to a security company." });
+      }
+
+      const body = req.body as {
+        assignedComplexId?: string;
+        assignedComplexName?: string;
+        assignedGatedCommunityName?: string;
+        cellNumber: string;
+        contractEndDate?: string;
+        contractStartDate?: string;
+        emailAddress: string;
+        name: string;
+        position: string;
+        status?: "active" | "inactive";
+        surname: string;
+      };
+
+      const normalizedPosition = (body.position ?? "").toLowerCase().replace(/[^a-z]/g, "");
+      const isAdminGuard = normalizedPosition.includes("admin");
+      const employeePosition: "admin-Guard" | "Guard" = isAdminGuard ? "admin-Guard" : "Guard";
+
+      const normalizedEmail = body.emailAddress.trim().toLowerCase();
+      const existingUser = await userSchema.findOne({ emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
+      if (existingUser) {
+        return res.status(409).json({ message: "User with this email already exists." });
+      }
+
+      const temporaryPin = String(Math.floor(100000 + Math.random() * 900000));
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(temporaryPin, salt);
+
+      const employeeUser = new userSchema({
+        cellNumber: body.cellNumber,
+        complex: body.assignedComplexId
+          ? {
+              _id: body.assignedComplexId,
+              name: body.assignedComplexName ?? "",
+            }
+          : null,
+        emailAddress: normalizedEmail,
+        movedOut: (body.status ?? "active") === "inactive",
+        name: body.name,
+        password: hashedPassword,
+        profilePhoto: "",
+        salt,
+        securityCompany: {
+          _id: linkedSecurityCompany._id,
+          name: linkedSecurityCompany.name,
+        },
+        surname: body.surname,
+        type: isAdminGuard ? ["security", "admin"] : ["security"],
+      });
+
+      await employeeUser.save();
+
+      const initialAssignedComplexes = body.assignedComplexId ? [String(body.assignedComplexId)] : [];
+      const initialAssignedCommunities = body.assignedGatedCommunityName ? [String(body.assignedGatedCommunityName)] : [];
+
+      await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
+        assignedCommunities: initialAssignedCommunities,
+        assignedComplexes: initialAssignedComplexes,
+        contractEndDate: body.contractEndDate ? new Date(body.contractEndDate) : null,
+        contractStartDate: body.contractStartDate ? new Date(body.contractStartDate) : new Date(),
+        createdBy: managerEmail,
+        position: employeePosition,
+        status: body.status ?? "active",
+        userId: String(employeeUser._id),
+      });
+
+      try {
+        await sendSecurityCompanyCode({
+          code: temporaryPin,
+          companyName: linkedSecurityCompany.name,
+          to: normalizedEmail,
+        });
+      } catch {
+        await removeCompanyEmployeeAssignment(String(linkedSecurityCompany._id), String(employeeUser._id));
+        await userSchema.findByIdAndDelete(employeeUser._id);
+        return res.status(500).json({ message: "Unable to send employee credentials email." });
+      }
+
+      return res.status(201).json({
+        message: "Security employee added successfully!",
+        payload: {
+          emailSent: true,
+          temporaryPin,
+          user: employeeUser,
+        },
       });
     } catch {
-      await removeCompanyEmployeeAssignment(String(linkedSecurityCompany._id), String(employeeUser._id));
-      await userSchema.findByIdAndDelete(employeeUser._id);
-      return res.status(500).json({ message: "Unable to send employee credentials email." });
+      return res.status(500).json({ message: "Internal Server Error" });
     }
-
-    return res.status(201).json({
-      message: "Security employee added successfully!",
-      payload: {
-        emailSent: true,
-        temporaryPin,
-        user: employeeUser,
-      },
-    });
-  } catch {
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+  },
+);
 
 userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
@@ -840,9 +829,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
     }
 
     const actorUser = await userSchema.findOne<UserDTO>({ emailAddress: actorEmail }).select({}).exec();
-    const actorRoles = Array.isArray(actorUser?.type)
-      ? actorUser.type.map((role) => normalizeName(String(role ?? "")))
-      : [];
+    const actorRoles = Array.isArray(actorUser?.type) ? actorUser.type.map((role) => normalizeName(String(role ?? ""))) : [];
     const isManager = actorRoles.includes("manager");
     const isSecurity = actorRoles.includes("security");
 
@@ -865,7 +852,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
       name: string;
       residenceType: "community" | "complex";
       surname: string;
-      vehicles?: { color?: string; make: string; model: string; reg: string; }[];
+      vehicles?: { color?: string; make: string; model: string; reg: string }[];
     };
 
     const normalizedEmail = body.emailAddress.trim().toLowerCase();
@@ -881,11 +868,6 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
     const trimmedAddress = body.address.trim();
     let linkedComplex: null | { _id: unknown; address?: string; gatedCommunityName?: null | string; name?: string } = null;
     let linkedGatedCommunity: null | { _id: unknown; name?: string } = null;
-    let communityIdValue = "";
-    let communityResidenceTypeValue = "";
-    let communityComplexIdValue = "";
-    let unitNumberValue = "";
-    let houseNumberValue = "";
 
     if (body.residenceType === "complex") {
       if (!body.complexId || !ObjectId.isValid(body.complexId)) {
@@ -896,8 +878,6 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
       if (!linkedComplex) {
         return res.status(404).json({ message: "Complex not found." });
       }
-
-      unitNumberValue = trimmedAddress;
     }
 
     if (body.residenceType === "community") {
@@ -910,31 +890,26 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
         return res.status(404).json({ message: "Gated community not found." });
       }
 
-      communityIdValue = String(linkedGatedCommunity._id);
-      communityResidenceTypeValue = body.communityResidenceType ?? "house";
-
-      if (communityResidenceTypeValue === "complex") {
-        if (!body.communityComplexId || !ObjectId.isValid(body.communityComplexId)) {
-          return res.status(400).json({ message: "Valid gated community complex is required." });
-        }
-
-        const communityComplex = await complexSchema.findById(body.communityComplexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
-        if (!communityComplex) {
-          return res.status(404).json({ message: "Community complex not found." });
-        }
-
-        const complexCommunityName = String(communityComplex.gatedCommunityName ?? "").trim().toLowerCase();
-        const selectedCommunityName = String(linkedGatedCommunity.name ?? "").trim().toLowerCase();
-        if (!complexCommunityName || complexCommunityName !== selectedCommunityName) {
-          return res.status(400).json({ message: "Selected complex does not belong to the selected gated community." });
-        }
-
-        linkedComplex = communityComplex;
-        communityComplexIdValue = String(communityComplex._id);
-        unitNumberValue = trimmedAddress;
-      } else {
-        houseNumberValue = trimmedAddress;
+      if (!body.communityComplexId || !ObjectId.isValid(body.communityComplexId)) {
+        return res.status(400).json({ message: "Valid gated community complex is required." });
       }
+
+      const communityComplex = await complexSchema.findById(body.communityComplexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
+      if (!communityComplex) {
+        return res.status(404).json({ message: "Community complex not found." });
+      }
+
+      const complexCommunityName = String(communityComplex.gatedCommunityName ?? "")
+        .trim()
+        .toLowerCase();
+      const selectedCommunityName = String(linkedGatedCommunity.name ?? "")
+        .trim()
+        .toLowerCase();
+      if (!complexCommunityName || complexCommunityName !== selectedCommunityName) {
+        return res.status(400).json({ message: "Selected complex does not belong to the selected gated community." });
+      }
+
+      linkedComplex = communityComplex;
     }
 
     if (isSecurity) {
@@ -948,7 +923,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
         assignedCommunitiesRaw
           .filter((value) => !ObjectId.isValid(value))
           .map((value) => normalizeName(value))
-          .filter((value) => value.length > 0)
+          .filter((value) => value.length > 0),
       );
 
       if (assignedCommunityIds.size > 0) {
@@ -974,9 +949,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
         (linkedCommunityId.length > 0 && assignedCommunityIds.has(linkedCommunityId)) ||
         (linkedCommunityName.length > 0 && assignedCommunityNames.has(linkedCommunityName));
 
-      const hasScopeAccess = body.residenceType === "complex"
-        ? (hasComplexScope || hasCommunityScope)
-        : hasCommunityScope;
+      const hasScopeAccess = body.residenceType === "complex" ? hasComplexScope || hasCommunityScope : hasCommunityScope;
 
       if (!hasScopeAccess) {
         return res.status(403).json({ message: "Access Forbidden! You can only register tenants within your assigned station scope." });
@@ -1019,9 +992,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
     }
 
     try {
-      const usesUnit =
-        body.residenceType === "complex" ||
-        body.residenceType === "community";
+      const usesUnit = body.residenceType === "complex" || body.residenceType === "community";
       if (usesUnit) {
         await linkTenantToUnit(
           String(tenantUser._id ?? ""),
@@ -1112,7 +1083,6 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
     }
 
     const existingResident = await resolveResidentForTenantUser(existingTenant);
-    const existingTenantProfile = resolveTenantProfile(existingTenant as UserDTO & UserTenantFields, existingResident);
 
     const tenantCompanyId = resolveCompanyIdFromTenantContext(existingTenant, existingResident);
     if (tenantCompanyId && tenantCompanyId !== String(linkedSecurityCompany._id)) {
@@ -1132,20 +1102,26 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       name: string;
       residenceType: "community" | "complex";
       surname: string;
-      vehicles?: { color?: string; make: string; model: string; reg: string; }[];
+      vehicles?: { color?: string; make: string; model: string; reg: string }[];
     };
 
     const normalizedEmail = body.emailAddress.trim().toLowerCase();
-    const duplicateUser = await userSchema.findOne({ _id: { $ne: tenantId }, emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
+    const duplicateUser = await userSchema
+      .findOne({ _id: { $ne: tenantId }, emailAddress: normalizedEmail })
+      .select({ _id: 1 })
+      .lean();
     if (duplicateUser) {
       return res.status(409).json({ message: "User with this email already exists." });
     }
 
-    const duplicateResident = await residentSchema.findOne({
-      _id: { $ne: existingResident?._id ?? null },
-      emailAddress: normalizedEmail,
-      userId: { $ne: tenantId },
-    }).select({ _id: 1 }).lean();
+    const duplicateResident = await residentSchema
+      .findOne({
+        _id: { $ne: existingResident?._id ?? null },
+        emailAddress: normalizedEmail,
+        userId: { $ne: tenantId },
+      })
+      .select({ _id: 1 })
+      .lean();
     if (duplicateResident) {
       return res.status(409).json({ message: "Resident with this email already exists." });
     }
@@ -1153,11 +1129,6 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
     const trimmedAddress = body.address.trim();
     let linkedComplex: null | { _id: unknown; address?: string; gatedCommunityName?: null | string; name?: string } = null;
     let linkedGatedCommunity: null | { _id: unknown; name?: string } = null;
-    let communityIdValue = "";
-    let communityResidenceTypeValue = "";
-    let communityComplexIdValue = "";
-    let unitNumberValue = "";
-    let houseNumberValue = "";
 
     if (body.residenceType === "complex") {
       if (!body.complexId || !ObjectId.isValid(body.complexId)) {
@@ -1168,8 +1139,6 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       if (!linkedComplex) {
         return res.status(404).json({ message: "Complex not found." });
       }
-
-      unitNumberValue = trimmedAddress;
     }
 
     if (body.residenceType === "community") {
@@ -1182,67 +1151,63 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
         return res.status(404).json({ message: "Gated community not found." });
       }
 
-      communityIdValue = String(linkedGatedCommunity._id);
-      communityResidenceTypeValue = body.communityResidenceType ?? "house";
-
-      if (communityResidenceTypeValue === "complex") {
-        if (!body.communityComplexId || !ObjectId.isValid(body.communityComplexId)) {
-          return res.status(400).json({ message: "Valid gated community complex is required." });
-        }
-
-        const communityComplex = await complexSchema.findById(body.communityComplexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
-        if (!communityComplex) {
-          return res.status(404).json({ message: "Community complex not found." });
-        }
-
-        const complexCommunityName = String(communityComplex.gatedCommunityName ?? "").trim().toLowerCase();
-        const selectedCommunityName = String(linkedGatedCommunity.name ?? "").trim().toLowerCase();
-        if (!complexCommunityName || complexCommunityName !== selectedCommunityName) {
-          return res.status(400).json({ message: "Selected complex does not belong to the selected gated community." });
-        }
-
-        linkedComplex = communityComplex;
-        communityComplexIdValue = String(communityComplex._id);
-        unitNumberValue = trimmedAddress;
-      } else {
-        houseNumberValue = trimmedAddress;
+      if (!body.communityComplexId || !ObjectId.isValid(body.communityComplexId)) {
+        return res.status(400).json({ message: "Valid gated community complex is required." });
       }
+
+      const communityComplex = await complexSchema.findById(body.communityComplexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
+      if (!communityComplex) {
+        return res.status(404).json({ message: "Community complex not found." });
+      }
+
+      const complexCommunityName = String(communityComplex.gatedCommunityName ?? "")
+        .trim()
+        .toLowerCase();
+      const selectedCommunityName = String(linkedGatedCommunity.name ?? "")
+        .trim()
+        .toLowerCase();
+      if (!complexCommunityName || complexCommunityName !== selectedCommunityName) {
+        return res.status(400).json({ message: "Selected complex does not belong to the selected gated community." });
+      }
+
+      linkedComplex = communityComplex;
     }
 
-    const updatedTenant = await userSchema.findByIdAndUpdate(
-      tenantId,
-      {
-        $set: {
-          cellNumber: body.cellNumber.trim(),
-          emailAddress: normalizedEmail,
-          idNumber: body.idNumber?.trim() || undefined,
-          name: body.name.trim(),
-          surname: body.surname.trim(),
+    const updatedTenant = await userSchema
+      .findByIdAndUpdate(
+        tenantId,
+        {
+          $set: {
+            cellNumber: body.cellNumber.trim(),
+            emailAddress: normalizedEmail,
+            idNumber: body.idNumber?.trim() || undefined,
+            name: body.name.trim(),
+            surname: body.surname.trim(),
+          },
+          $unset: {
+            address: "",
+            communityComplexId: "",
+            communityId: "",
+            communityResidenceType: "",
+            complex: "",
+            gatedCommunity: "",
+            houseNumber: "",
+            residenceType: "",
+            securityCompany: "",
+            unitNumber: "",
+            vehicles: "",
+          },
         },
-        $unset: {
-          address: "",
-          communityComplexId: "",
-          communityId: "",
-          communityResidenceType: "",
-          complex: "",
-          gatedCommunity: "",
-          houseNumber: "",
-          residenceType: "",
-          securityCompany: "",
-          unitNumber: "",
-          vehicles: "",
-        },
-      },
-      { new: true }
-    ).select({}).exec();
+        { new: true },
+      )
+      .select({})
+      .exec();
 
     if (!updatedTenant) {
       return res.status(404).json({ message: "Tenant not found." });
     }
 
-    const nextUsesUnit =
-      body.residenceType === "complex" ||
-      body.residenceType === "community";
+    const nextUsesUnit = body.residenceType === "complex" || body.residenceType === "community";
 
     const nextComplexId = String(linkedComplex?._id ?? "");
     const nextCommunityId = String(linkedGatedCommunity?._id ?? "");
@@ -1272,9 +1237,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       );
     }
 
-    const updatedResident = existingResident
-      ? await residentSchema.findById(existingResident._id).exec()
-      : null;
+    const updatedResident = existingResident ? await residentSchema.findById(existingResident._id).exec() : null;
 
     await syncTenantVehiclesForUser(
       {
@@ -1336,7 +1299,6 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
     }
 
     const tenantResident = await resolveResidentForTenantUser(tenant);
-    const tenantProfile = resolveTenantProfile(tenant as UserDTO & UserTenantFields, tenantResident);
 
     const tenantCompanyId = resolveCompanyIdFromTenantContext(tenant, tenantResident);
     if (tenantCompanyId && tenantCompanyId !== String(linkedSecurityCompany._id)) {
@@ -1348,10 +1310,7 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
     const residentFilter = tenantResident?._id
       ? { _id: tenantResident._id }
       : {
-          $or: [
-            { userId: tenantId },
-            { emailAddress: tenant.emailAddress },
-          ],
+          $or: [{ userId: tenantId }, { emailAddress: tenant.emailAddress }],
         };
 
     const deletedResident = await residentSchema.findOneAndDelete(residentFilter).exec();
@@ -1370,237 +1329,255 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
   }
 });
 
-userRouter.patch("/security-assignment/:id", AuthMiddleware, checkSchema(securityAssignmentBodyValidation), validateSchema, async (req: Request, res: Response) => {
-  try {
-    const requestId = getRequestIdParam(req);
-    const authReq = req as Request & { userEmail?: string };
-    const managerEmail = authReq.userEmail;
+userRouter.patch(
+  "/security-assignment/:id",
+  AuthMiddleware,
+  checkSchema(securityAssignmentBodyValidation),
+  validateSchema,
+  async (req: Request, res: Response) => {
+    try {
+      const requestId = getRequestIdParam(req);
+      const authReq = req as Request & { userEmail?: string };
+      const managerEmail = authReq.userEmail;
 
-    if (!managerEmail) {
-      return res.status(401).json({ message: "Access Denied!" });
-    }
+      if (!managerEmail) {
+        return res.status(401).json({ message: "Access Denied!" });
+      }
 
-    if (!ObjectId.isValid(requestId)) {
-      return res.status(400).json({ message: "Invalid employee id." });
-    }
+      if (!ObjectId.isValid(requestId)) {
+        return res.status(400).json({ message: "Invalid employee id." });
+      }
 
-    const managerUser = await userSchema.findOne<UserDTO>({ emailAddress: managerEmail }).select({}).exec();
-    if (!managerUser || !(Array.isArray(managerUser.type) && managerUser.type.includes("manager"))) {
-      return res.status(403).json({ message: "Access Forbidden!" });
-    }
+      const managerUser = await userSchema.findOne<UserDTO>({ emailAddress: managerEmail }).select({}).exec();
+      if (!managerUser || !(Array.isArray(managerUser.type) && managerUser.type.includes("manager"))) {
+        return res.status(403).json({ message: "Access Forbidden!" });
+      }
 
-    const linkedSecurityCompany = await resolveSecurityCompanyForUser(managerUser);
-    if (!linkedSecurityCompany) {
-      return res.status(400).json({ message: "Manager is not linked to a security company." });
-    }
+      const linkedSecurityCompany = await resolveSecurityCompanyForUser(managerUser);
+      if (!linkedSecurityCompany) {
+        return res.status(400).json({ message: "Manager is not linked to a security company." });
+      }
 
-    const employeeId = new ObjectId(requestId);
-    const employee = await userSchema.findById<UserDTO>(employeeId).select({}).exec();
-    if (!employee) {
-      return res.status(404).json({ message: "Employee not found." });
-    }
+      const employeeId = new ObjectId(requestId);
+      const employee = await userSchema.findById<UserDTO>(employeeId).select({}).exec();
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found." });
+      }
 
-    const employeeCompanyId = employee?.securityCompany?._id ? String(employee.securityCompany._id) : "";
-    if (employeeCompanyId && employeeCompanyId !== String(linkedSecurityCompany._id)) {
-      return res.status(403).json({ message: "Employee does not belong to your security company." });
-    }
+      const employeeCompanyId = employee?.securityCompany?._id ? String(employee.securityCompany._id) : "";
+      if (employeeCompanyId && employeeCompanyId !== String(linkedSecurityCompany._id)) {
+        return res.status(403).json({ message: "Employee does not belong to your security company." });
+      }
 
-    if (!Array.isArray(employee.type) || !employee.type.includes("security")) {
-      return res.status(400).json({ message: "Selected record is not a security employee." });
-    }
+      if (!Array.isArray(employee.type) || !employee.type.includes("security")) {
+        return res.status(400).json({ message: "Selected record is not a security employee." });
+      }
 
-    const body = req.body as { assignedCommunities?: string[]; assignedComplexes?: string[]; };
-    const companyAssignment = findCompanyAssignmentForUser(linkedSecurityCompany, String(employee._id ?? ""));
-    const assignedComplexes = Array.isArray(body.assignedComplexes)
-      ? normalizeStringList(body.assignedComplexes)
-      : normalizeStringList(companyAssignment?.assignedComplexes);
+      const body = req.body as { assignedCommunities?: string[]; assignedComplexes?: string[] };
+      const companyAssignment = findCompanyAssignmentForUser(linkedSecurityCompany, String(employee._id ?? ""));
+      const assignedComplexes = Array.isArray(body.assignedComplexes)
+        ? normalizeStringList(body.assignedComplexes)
+        : normalizeStringList(companyAssignment?.assignedComplexes);
 
-    const assignedCommunities = Array.isArray(body.assignedCommunities)
-      ? normalizeStringList(body.assignedCommunities)
-      : normalizeStringList(companyAssignment?.assignedCommunities);
+      const assignedCommunities = Array.isArray(body.assignedCommunities)
+        ? normalizeStringList(body.assignedCommunities)
+        : normalizeStringList(companyAssignment?.assignedCommunities);
 
-    await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
-      assignedCommunities,
-      assignedComplexes,
-      contractEndDate: companyAssignment?.contractEndDate ?? null,
-      contractStartDate: companyAssignment?.contractStartDate ?? null,
-      createdBy: companyAssignment?.createdBy ?? managerEmail,
-      position: companyAssignment?.position,
-      status: companyAssignment?.status,
-      userId: String(employee._id),
-    });
+      await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
+        assignedCommunities,
+        assignedComplexes,
+        contractEndDate: companyAssignment?.contractEndDate ?? null,
+        contractStartDate: companyAssignment?.contractStartDate ?? null,
+        createdBy: companyAssignment?.createdBy ?? managerEmail,
+        position: companyAssignment?.position,
+        status: companyAssignment?.status,
+        userId: String(employee._id),
+      });
 
-    const updatedEmployee = await userSchema.findByIdAndUpdate(
-      employeeId,
-      {
-        $set: {
-          complex: assignedComplexes.length > 0
-            ? {
-                _id: assignedComplexes[0],
-                name: employee?.complex?.name ?? "",
-              }
-            : null,
-          securityCompany: {
-            _id: linkedSecurityCompany._id,
-            name: linkedSecurityCompany.name,
+      const updatedEmployee = await userSchema
+        .findByIdAndUpdate(
+          employeeId,
+          {
+            $set: {
+              complex:
+                assignedComplexes.length > 0
+                  ? {
+                      _id: assignedComplexes[0],
+                      name: employee?.complex?.name ?? "",
+                    }
+                  : null,
+              securityCompany: {
+                _id: linkedSecurityCompany._id,
+                name: linkedSecurityCompany.name,
+              },
+            },
+            $unset: {
+              assignedCommunities: "",
+              assignedComplexes: "",
+              employeeContracts: "",
+            },
           },
+          { new: true },
+        )
+        .select({})
+        .exec();
+
+      const responsePayload = updatedEmployee
+        ? {
+            ...updatedEmployee.toObject(),
+            assignedCommunities,
+            assignedComplexes,
+          }
+        : null;
+
+      return res.status(200).json({
+        message: "Security assignment updated successfully!",
+        payload: responsePayload,
+      });
+    } catch {
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
+);
+
+userRouter.patch(
+  "/security-employee/:id",
+  AuthMiddleware,
+  checkSchema(securityEmployeeBodyValidation),
+  validateSchema,
+  async (req: Request, res: Response) => {
+    try {
+      const requestId = getRequestIdParam(req);
+      const authReq = req as Request & { userEmail?: string };
+      const managerEmail = authReq.userEmail;
+
+      if (!managerEmail) {
+        return res.status(401).json({ message: "Access Denied!" });
+      }
+
+      if (!ObjectId.isValid(requestId)) {
+        return res.status(400).json({ message: "Invalid employee id." });
+      }
+
+      const managerUser = await userSchema.findOne<UserDTO>({ emailAddress: managerEmail }).select({}).exec();
+      if (!managerUser || !(Array.isArray(managerUser.type) && managerUser.type.includes("manager"))) {
+        return res.status(403).json({ message: "Access Forbidden!" });
+      }
+
+      const linkedSecurityCompany = await resolveSecurityCompanyForUser(managerUser);
+      if (!linkedSecurityCompany) {
+        return res.status(400).json({ message: "Manager is not linked to a security company." });
+      }
+
+      const employeeId = new ObjectId(requestId);
+      const existingEmployee = await userSchema.findById<UserDTO>(employeeId).select({}).exec();
+      if (!existingEmployee) {
+        return res.status(404).json({ message: "Employee not found." });
+      }
+
+      const employeeCompanyId = existingEmployee?.securityCompany?._id ? String(existingEmployee.securityCompany._id) : "";
+      if (employeeCompanyId && employeeCompanyId !== String(linkedSecurityCompany._id)) {
+        return res.status(403).json({ message: "Employee does not belong to your security company." });
+      }
+
+      const body = req.body as {
+        assignedComplexId?: string;
+        assignedComplexName?: string;
+        assignedGatedCommunityName?: string;
+        cellNumber: string;
+        contractEndDate?: string;
+        contractStartDate?: string;
+        emailAddress: string;
+        name: string;
+        position: string;
+        status?: "active" | "inactive";
+        surname: string;
+      };
+
+      const normalizedEmail = body.emailAddress.trim().toLowerCase();
+      const duplicateUser = await userSchema
+        .findOne({ _id: { $ne: employeeId }, emailAddress: normalizedEmail })
+        .select({ _id: 1 })
+        .lean();
+      if (duplicateUser) {
+        return res.status(409).json({ message: "User with this email already exists." });
+      }
+
+      const normalizedPosition = (body.position ?? "").toLowerCase().replace(/[^a-z]/g, "");
+      const isAdminGuard = normalizedPosition.includes("admin");
+      const employeePosition: "admin-Guard" | "Guard" = isAdminGuard ? "admin-Guard" : "Guard";
+
+      const existingCompanyAssignment = findCompanyAssignmentForUser(linkedSecurityCompany, String(employeeId));
+
+      const updatedContract = {
+        contractEndDate: body.contractEndDate ? new Date(body.contractEndDate) : (existingCompanyAssignment?.contractEndDate ?? null),
+        contractStartDate: body.contractStartDate ? new Date(body.contractStartDate) : (existingCompanyAssignment?.contractStartDate ?? new Date()),
+        createdBy: existingCompanyAssignment?.createdBy ?? managerEmail,
+        position: employeePosition,
+        securityCompany: {
+          _id: linkedSecurityCompany._id,
+          name: linkedSecurityCompany.name,
         },
-        $unset: {
-          assignedCommunities: "",
-          assignedComplexes: "",
-          employeeContracts: "",
-        },
-      },
-      { new: true }
-    ).select({}).exec();
+        status: body.status ?? "active",
+      };
 
-    const responsePayload = updatedEmployee
-      ? {
-          ...updatedEmployee.toObject(),
-          assignedCommunities,
-          assignedComplexes,
-        }
-      : null;
-
-    return res.status(200).json({
-      message: "Security assignment updated successfully!",
-      payload: responsePayload,
-    });
-  } catch {
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-});
-
-userRouter.patch("/security-employee/:id", AuthMiddleware, checkSchema(securityEmployeeBodyValidation), validateSchema, async (req: Request, res: Response) => {
-  try {
-    const requestId = getRequestIdParam(req);
-    const authReq = req as Request & { userEmail?: string };
-    const managerEmail = authReq.userEmail;
-
-    if (!managerEmail) {
-      return res.status(401).json({ message: "Access Denied!" });
-    }
-
-    if (!ObjectId.isValid(requestId)) {
-      return res.status(400).json({ message: "Invalid employee id." });
-    }
-
-    const managerUser = await userSchema.findOne<UserDTO>({ emailAddress: managerEmail }).select({}).exec();
-    if (!managerUser || !(Array.isArray(managerUser.type) && managerUser.type.includes("manager"))) {
-      return res.status(403).json({ message: "Access Forbidden!" });
-    }
-
-    const linkedSecurityCompany = await resolveSecurityCompanyForUser(managerUser);
-    if (!linkedSecurityCompany) {
-      return res.status(400).json({ message: "Manager is not linked to a security company." });
-    }
-
-    const employeeId = new ObjectId(requestId);
-    const existingEmployee = await userSchema.findById<UserDTO>(employeeId).select({}).exec();
-    if (!existingEmployee) {
-      return res.status(404).json({ message: "Employee not found." });
-    }
-
-    const employeeCompanyId = existingEmployee?.securityCompany?._id ? String(existingEmployee.securityCompany._id) : "";
-    if (employeeCompanyId && employeeCompanyId !== String(linkedSecurityCompany._id)) {
-      return res.status(403).json({ message: "Employee does not belong to your security company." });
-    }
-
-    const body = req.body as {
-      assignedComplexId?: string;
-      assignedComplexName?: string;
-      assignedGatedCommunityName?: string;
-      cellNumber: string;
-      contractEndDate?: string;
-      contractStartDate?: string;
-      emailAddress: string;
-      name: string;
-      position: string;
-      status?: "active" | "inactive";
-      surname: string;
-    };
-
-    const normalizedEmail = body.emailAddress.trim().toLowerCase();
-    const duplicateUser = await userSchema.findOne({ _id: { $ne: employeeId }, emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
-    if (duplicateUser) {
-      return res.status(409).json({ message: "User with this email already exists." });
-    }
-
-    const normalizedPosition = (body.position ?? "").toLowerCase().replace(/[^a-z]/g, "");
-    const isAdminGuard = normalizedPosition.includes("admin");
-    const employeePosition: "admin-Guard" | "Guard" = isAdminGuard ? "admin-Guard" : "Guard";
-
-    const existingCompanyAssignment = findCompanyAssignmentForUser(linkedSecurityCompany, String(employeeId));
-
-    const updatedContract = {
-      contractEndDate: body.contractEndDate
-        ? new Date(body.contractEndDate)
-        : (existingCompanyAssignment?.contractEndDate ?? null),
-      contractStartDate: body.contractStartDate
-        ? new Date(body.contractStartDate)
-        : (existingCompanyAssignment?.contractStartDate ?? new Date()),
-      createdBy: existingCompanyAssignment?.createdBy ?? managerEmail,
-      position: employeePosition,
-      securityCompany: {
-        _id: linkedSecurityCompany._id,
-        name: linkedSecurityCompany.name,
-      },
-      status: body.status ?? "active",
-    };
-
-    const updatedEmployee = await userSchema.findByIdAndUpdate(
-      employeeId,
-      {
-        $set: {
-          cellNumber: body.cellNumber.trim(),
-          complex: body.assignedComplexId
-            ? {
-                _id: body.assignedComplexId,
-                name: body.assignedComplexName ?? "",
-              }
-            : null,
-          emailAddress: normalizedEmail,
-          movedOut: (body.status ?? "active") === "inactive",
-          name: body.name.trim(),
-          securityCompany: {
-            _id: linkedSecurityCompany._id,
-            name: linkedSecurityCompany.name,
+      const updatedEmployee = await userSchema
+        .findByIdAndUpdate(
+          employeeId,
+          {
+            $set: {
+              cellNumber: body.cellNumber.trim(),
+              complex: body.assignedComplexId
+                ? {
+                    _id: body.assignedComplexId,
+                    name: body.assignedComplexName ?? "",
+                  }
+                : null,
+              emailAddress: normalizedEmail,
+              movedOut: (body.status ?? "active") === "inactive",
+              name: body.name.trim(),
+              securityCompany: {
+                _id: linkedSecurityCompany._id,
+                name: linkedSecurityCompany.name,
+              },
+              surname: body.surname.trim(),
+              type: isAdminGuard ? ["security", "admin"] : ["security"],
+            },
+            $unset: {
+              assignedCommunities: "",
+              assignedComplexes: "",
+              employeeContracts: "",
+            },
           },
-          surname: body.surname.trim(),
-          type: isAdminGuard ? ["security", "admin"] : ["security"],
-        },
-        $unset: {
-          assignedCommunities: "",
-          assignedComplexes: "",
-          employeeContracts: "",
-        },
-      },
-      { new: true }
-    ).select({}).exec();
+          { new: true },
+        )
+        .select({})
+        .exec();
 
-    const nextAssignedComplexes = body.assignedComplexId
-      ? [String(body.assignedComplexId)]
-      : normalizeStringList(existingCompanyAssignment?.assignedComplexes);
-    const nextAssignedCommunities = body.assignedGatedCommunityName
-      ? [String(body.assignedGatedCommunityName)]
-      : normalizeStringList(existingCompanyAssignment?.assignedCommunities);
+      const nextAssignedComplexes = body.assignedComplexId
+        ? [String(body.assignedComplexId)]
+        : normalizeStringList(existingCompanyAssignment?.assignedComplexes);
+      const nextAssignedCommunities = body.assignedGatedCommunityName
+        ? [String(body.assignedGatedCommunityName)]
+        : normalizeStringList(existingCompanyAssignment?.assignedCommunities);
 
-    await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
-      assignedCommunities: nextAssignedCommunities,
-      assignedComplexes: nextAssignedComplexes,
-      contractEndDate: updatedContract.contractEndDate ?? null,
-      contractStartDate: updatedContract.contractStartDate ?? null,
-      createdBy: updatedContract.createdBy,
-      position: employeePosition,
-      status: body.status ?? "active",
-      userId: String(employeeId),
-    });
+      await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
+        assignedCommunities: nextAssignedCommunities,
+        assignedComplexes: nextAssignedComplexes,
+        contractEndDate: updatedContract.contractEndDate ?? null,
+        contractStartDate: updatedContract.contractStartDate ?? null,
+        createdBy: updatedContract.createdBy,
+        position: employeePosition,
+        status: body.status ?? "active",
+        userId: String(employeeId),
+      });
 
-    return res.status(200).json({ message: "Employee updated successfully!", payload: updatedEmployee });
-  } catch {
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+      return res.status(200).json({ message: "Employee updated successfully!", payload: updatedEmployee });
+    } catch {
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
+);
 
 userRouter.delete("/security-employee/:id", AuthMiddleware, async (req: Request, res: Response) => {
   try {
@@ -1648,21 +1625,25 @@ userRouter.delete("/security-employee/:id", AuthMiddleware, async (req: Request,
 userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
     const body = req.body as { emailAddress: string; password: string };
-    const normalizedEmail = String(body.emailAddress ?? "").trim().toLowerCase();
+
+    const normalizedEmail = String(body.emailAddress ?? "")
+      .trim()
+      .toLowerCase();
 
     const user = await userSchema
       .findOne<UserDTO>({
         emailAddress: normalizedEmail,
       })
-      .select({})
       .exec();
 
     if (!user) return res.status(401).json({ message: "Invalid login details!" });
 
-    const isValidPassword = await bcrypt.compare(body.password, user.password as unknown as string);
+    const password = await bcrypt.hash(body.password, user.salt as unknown as string);
+    const isValidPassword = password === user.password;
 
     if (!isValidPassword) return res.status(401).json({ message: "Invalid login details" });
 
+    console.log(isValidPassword);
     const token = GenerateJWT(user.emailAddress, user.type);
 
     if (VerifyToken(token)) {
@@ -1673,9 +1654,7 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
       const isTenant = userRoles.includes("tenant") || userRoles.includes("user");
       const tenantResident = isTenant ? await resolveResidentForTenantUser(user) : null;
       const tenantProfile = resolveTenantProfile(user as UserDTO & UserTenantFields, tenantResident);
-      const tenantVehicles = isTenant
-        ? await vehicleSchema.find({ "user._id": { $in: [String(user._id ?? ""), user._id] } }).lean()
-        : [];
+      const tenantVehicles = isTenant ? await vehicleSchema.find({ "user._id": { $in: [String(user._id ?? ""), user._id] } }).lean() : [];
       const normalizedTenantVehicles = normalizeTenantVehicles(tenantVehicles).map((vehicle) => ({
         color: vehicle.color ?? "",
         make: vehicle.make,
@@ -1683,7 +1662,7 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
         reg: vehicle.reg,
       }));
       const nonTenantUser = user as UserDTO & UserTenantFields;
-      
+
       return res.status(200).json({
         message: "Logged in successfully",
         payload: {
@@ -1709,14 +1688,14 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
             securityCompany: isTenant
               ? null
               : linkedSecurityCompany
-              ? {
-                  _id: linkedSecurityCompany._id,
-                  contactNumber: linkedSecurityCompany.contactNumber,
-                  contract: linkedSecurityCompany.contract ?? [],
-                  email: linkedSecurityCompany.email,
-                  name: linkedSecurityCompany.name,
-                }
-              : (user.securityCompany ?? null),
+                ? {
+                    _id: linkedSecurityCompany._id,
+                    contactNumber: linkedSecurityCompany.contactNumber,
+                    contract: linkedSecurityCompany.contract ?? [],
+                    email: linkedSecurityCompany.email,
+                    name: linkedSecurityCompany.name,
+                  }
+                : (user.securityCompany ?? null),
             surname: user.surname,
             type: user.type,
             unitNumber: isTenant ? (tenantProfile.unitNumber ?? "") : (nonTenantUser.unitNumber ?? ""),
@@ -1754,59 +1733,43 @@ userRouter.delete("/deactivate/:id", AuthMiddleware, async (req, res) => {
 //Update profile
 userRouter.patch("/update", AuthMiddleware, async (req, res) => {
   try {
-    const authReq = req as Request & { userEmail?: string };
-    const email = authReq.userEmail;
+    const email = res.get("email");
+
     if (!email) {
-      return res.status(401).send("Access Denied!");
+      return res.status(401).json({message: "Access Denied!"});
     }
 
     const updatePayload = req.body as Partial<UserDTO>;
-    const user = await userSchema.findOneAndUpdate(
-      { emailAddress: email },
-      { $set: updatePayload },
-      { new: true }
-    ).lean();
+    const user = await userSchema.findOneAndUpdate({ emailAddress: email }, { $set: updatePayload }, { new: true }).lean().exec();
 
     if (!user) {
-      return res.status(404).send("User details not found!");
+      return res.status(404).json({message: "User details not found!"});
     }
 
     return res.status(200).json({ message: "User details updated", payload: user });
   } catch {
-    return res.status(500).send("Internal Server Error");
+    return res.status(500).json({message: "Internal Server Error"});
   }
 });
 
 //Fetch user details
 userRouter.get("/current", AuthMiddleware, async (req, res) => {
   try {
-    const authReq = req as Request & { userEmail?: string };
-    const currentUserEmail = String(authReq.userEmail ?? "").trim();
+    const currentUserEmail = res.get("email");
+
     if (!currentUserEmail) {
       return res.status(401).json({ message: "Access Denied!" });
     }
 
-    let user = null;
-    const idHeader = String(req.get("id") ?? "").trim();
-    if (idHeader.length > 0) {
-      if (!ObjectId.isValid(idHeader)) {
-        return res.status(400).json({ message: "Bad Request! Invalid Id" });
-      }
-      const _id = ValidObjectId(idHeader);
-      user = await userSchema.findById(_id).exec();
-    }
-
-    if (!user) {
-      user = await userSchema.findOne({ emailAddress: currentUserEmail }).exec();
-    }
+    const user = (await userSchema.findOne({ emailAddress: currentUserEmail }).exec()) as unknown as UserDTO;
 
     if (user) {
-      return res.status(200).json({message: "Successfully retrieved User!", payload: user});
+      return res.status(200).json({ message: "Successfully retrieved User!", payload: user });
     } else {
-      return res.status(404).json({message: "User details not found!"});
+      return res.status(404).json({ message: "User details not found!" });
     }
   } catch {
-    return res.status(500).json({message: "Internal Server Error"});
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -1827,5 +1790,43 @@ userRouter.get(
     }
   },
 );
+
+userRouter.patch("/changePin", AuthMiddleware, async (req, res) => {
+  try {
+    const email = res.get("email");
+
+    if (!email) {
+      return res.status(401).json({message: "Access Denied!"});
+    }
+
+    const user = await userSchema.findOne({ emailAddress: email }).exec();
+
+    if (!user) {
+      return res.status(404).json({message: "User details not found!"});
+    }
+    
+    const updatePayload = req.body as {
+      confirmedPin: string;
+      currentPin: string;
+      newPin: string;
+    };
+    
+    const newPassword = await bcrypt.hash(updatePayload.confirmedPin, user.salt);
+
+    const updateQuery = {
+      $set: { password: newPassword}
+    }
+
+    const updatedUser = await userSchema.findOneAndUpdate({ emailAddress: email }, updateQuery, { new: true }).lean().exec();
+    
+    if (!updatedUser) {
+      return res.status(404).json({message: "User details not found!"});
+    }
+
+    return res.status(200).json({ message: "User details updated", payload: user });
+  } catch {
+    return res.status(500).json({message: "Internal Server Error"});
+  }
+});
 
 export default userRouter;

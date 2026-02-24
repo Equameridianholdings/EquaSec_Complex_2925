@@ -43,11 +43,6 @@ export const visitorBodyValidation = checkSchema({
     isBoolean: true,
     isEmpty: false,
   },
-  expiry: {
-    errorMessage: "Field is required",
-    isDate: true,
-    isEmpty: false,
-  },
   name: {
     errorMessage: "Field is required",
     isEmpty: false,
@@ -67,20 +62,5 @@ export const visitorBodyValidation = checkSchema({
         max: 255,
       },
     },
-  },
-  user: {
-    errorMessage: "Field is required",
-    isEmpty: false,
-    isObject: true,
-  },
-  validiity: {
-    errorMessage: "Field is required",
-    isBoolean: true,
-    isEmpty: false,
-  },
-  vehicle: {
-    errorMessage: "Field is required",
-    isEmpty: false,
-    isObject: true,
   },
 });

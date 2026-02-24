@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UserDTO } from '../interfaces/userDTO';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
@@ -17,14 +17,24 @@ export class UpdateProfile implements OnInit {
   service = inject(DataService);
   dialogRef = inject(MatDialogRef<UpdateProfile>);
   dialog = inject(MatDialog);
-  user!: UserDTO;
+  user = signal<UserDTO>({
+    cellNumber: '',
+    confirmPassword: '',
+    emailAddress: '',
+    movedOut: false,
+    name: '',
+    password: '',
+    profilePhoto: '',
+    surname: '',
+    type: []
+  });
   updatedUser: any = {};
 
   ngOnInit(): void {
     this.service.get<ResponseBody>('user/current').subscribe({
       next: (res) => {
         console.log(res.message);
-        this.user = res.payload as UserDTO;
+        this.user.set(res.payload as UserDTO);
       },
       error: (err) => {
         console.error(err.message);
@@ -60,7 +70,7 @@ export class UpdateProfile implements OnInit {
   saveChanges() {
     // TODO: Validations on data
     
-    this.service.put<ResponseBody>('user/', this.updatedUser).subscribe({
+    this.service.put<ResponseBody>('user/update', this.updatedUser).subscribe({
       next: (res) => {
         console.log(res.message);
         this.closeModal();

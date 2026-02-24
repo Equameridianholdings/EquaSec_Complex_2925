@@ -19,9 +19,8 @@ const AuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
         const decoded = VerifyToken(token);
         
         if (decoded) {
-            const authReq = req as Request & { userEmail?: string; userRoles?: string[] };
-            authReq.userEmail = decoded.email;
-            authReq.userRoles = Array.isArray(decoded.role) ? decoded.role : [decoded.role];
+            res.set('email', decoded.email);
+            res.set('role', decoded.role);
         } else {
             res.status(400).json({ message: "Invalid Token!"});
             return;

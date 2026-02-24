@@ -1,4 +1,4 @@
-POST http://localhost:3000/user/admin-portal 
+POST http://localhost:3000/user/login 
 Content-Type: application/json
 # Authorization: eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InN1cGVyQGVxdWFzZWMuY29tIiwicm9sZSI6WyJhZG1pbiIsInNlY3VyaXR5IiwibWFuYWdlciIsInRlbmFudCJdLCJpYXQiOjE3NzE1MDAxNTksImV4cCI6MTc3MTU4NjU1OX0.8_HKxo0JVXNxpdXBZ4Gfqghi9EqYl9VcVrIgshoKvAUmooCTP8PPATFuULardN2pEqZXcegnVmrUrPnagbj6zw
 
@@ -8,10 +8,10 @@ Content-Type: application/json
 #     "numberOfComplexs": 0
 # }
 
-# {
-#     "emailAddress": "super@equasec.com",
-#     "password": "123456"
-# }
+{
+    "emailAddress": "super@equasec.com",
+    "password": "123456"
+}
 
 # {
 #     "cellNumber": "0123456789",

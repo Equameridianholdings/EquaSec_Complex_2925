@@ -11,13 +11,12 @@
 }
 
 .dashboard-container {
-  max-width: 980px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 32px 16px 48px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  height: 100vh;
 }
 
 .welcome-section {

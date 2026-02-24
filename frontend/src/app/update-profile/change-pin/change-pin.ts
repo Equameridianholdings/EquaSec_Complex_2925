@@ -42,10 +42,10 @@ export class ChangePin implements AfterViewInit {
   }
 
   saveChanges() {
-    const oldP = this.oldPassword.join();
-    const newP = this.newPassword.join();
-    const confirmedP = this.confirmPassword.join();
-    const isValid = newP === confirmedP;
+    const oldP = this.oldPassword.join().replaceAll(",", "");
+    const newP = this.newPassword.join().replaceAll(",", "");
+    const confirmedP = this.confirmPassword.join().replaceAll(",", "");
+    const isValid = newP == confirmedP;
 
     // Validate all PINs are 6 digits
     if (oldP.length !== 6 || !/^\d+$/.test(oldP)) {
@@ -67,7 +67,7 @@ export class ChangePin implements AfterViewInit {
     }
 
     // Validate PIN confirmation
-    if (isValid) {
+    if (!isValid) {
       this.changePinError = 'New PINs do not match.';
       this.changePinSuccess = '';
       return;
@@ -93,6 +93,7 @@ export class ChangePin implements AfterViewInit {
       .subscribe({
         next: (res) => {
           console.log(res.message);
+          this.dialogRef.close();
         },
         error: (err) => {
           console.log(err.message);

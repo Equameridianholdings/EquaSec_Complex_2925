@@ -4,6 +4,7 @@ import { visitorDTO } from '../../../interfaces/visitorDTO';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { ConfirmVisitor } from '../confirm-visitor/confirm-visitor';
 import { DataService } from '../../../services/data.service';
+import { vehicleDTO } from '../../../interfaces/vehicleDTO';
 
 @Component({
   selector: 'app-book-visitor',
@@ -17,13 +18,19 @@ export class BookVisitor {
   dialog = inject(MatDialog);
 
   visitorIdNumber: string = '' //Encryption still in dev
+  newVehicle: vehicleDTO = {
+    colour: '',
+    make: '',
+    model: '',
+    registrationNumber: ''
+  }; 
   newVisitor: visitorDTO = {
-    access: false,
+    access: true,
     contact: '',
     driving: false,
     name: '',
     surname: '',
-    validity: false,
+    validity: true,
     vehicle: {
       make: '',
       model: '',
@@ -37,6 +44,10 @@ export class BookVisitor {
   }
 
   openConfirmationModal() {
+    if (!this.newVisitor.driving) 
+      this.newVisitor.vehicle = undefined;
+    else
+      this.newVisitor.vehicle = this.newVehicle;
     this.dialog.open(ConfirmVisitor, {
       data: this.newVisitor,
     });
