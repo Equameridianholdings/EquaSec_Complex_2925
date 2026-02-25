@@ -13,8 +13,6 @@ import visitorRouter from "#routes/visitor.js";
 import cors, { CorsOptions } from "cors";
 import express from "express";
 import helmet from "helmet";
-import { createServer } from "http";
-import { Server, Socket } from "socket.io";
 
 export interface ResponseBody {
   message: string;
@@ -22,15 +20,6 @@ export interface ResponseBody {
 }
 
 const app = express();
-const server = createServer(app);
-const io = new Server(server, {
-  cors: {
-    methods: ["GET", "POST"],
-    origin: "*", // Allow all origins for simplicity. Restrict this in production.
-  },
-});
-
-app.set("Socket", io);
 
 // Define your list of allowed origins
 const allowedOrigins = ["http://localhost:4200", "http://localhost:8100"]; // Replace with your frontend URLs
@@ -72,14 +61,5 @@ app.use("/sos", sosRouter);
 app.use("/vehicle", vehicleRouter);
 app.use("/gatedCommunity", gatedCommunityRouter);
 app.use("/guardHistory", guardHistoryRouter);
-
-// Web Socket
-io.on("connection", (socket: Socket) => {
-  console.log(`User connected: ${socket.id}`);
-
-  socket.on("disconnect", () => {
-    console.log(`User ${socket.id} disconnected`);
-  });
-});
 
 export default app;

@@ -42,6 +42,5 @@ db.once('open', () => {
 const PORT = Number.parseInt(process.env.PORT as unknown as string) || 3000
 
 app.listen(PORT, () => {
-    console.log(`Running server on http://localhost:${PORT as unknown as string}`);
-    
+    console.log(`Live server running on http://localhost:${PORT as unknown as string}`);
 });

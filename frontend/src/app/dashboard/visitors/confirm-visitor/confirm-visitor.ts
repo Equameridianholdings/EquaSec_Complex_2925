@@ -4,6 +4,7 @@ import { shareCode, visitorDTO } from '../../../interfaces/visitorDTO';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { DataService } from '../../../services/data.service';
 import { ResponseBody } from '../../../interfaces/ResponseBody';
+import { SocketService } from '../../../services/socket.service';
 
 @Component({
   selector: 'app-confirm-visitor',
@@ -12,6 +13,7 @@ import { ResponseBody } from '../../../interfaces/ResponseBody';
   styleUrl: '../../dashboard.css',
 })
 export class ConfirmVisitor {
+  socket = inject(SocketService);
   service = inject(DataService);
   readonly dialogRef = inject(MatDialogRef<ConfirmVisitor>);
   visitor: visitorDTO = inject(MAT_DIALOG_DATA);
@@ -32,6 +34,7 @@ export class ConfirmVisitor {
       next: (res) => {
         console.log(res.message);
         this.dialogRef.close();
+        this.socket.newVisitor();
       },
       error: (err) => {
         console.error(err);
