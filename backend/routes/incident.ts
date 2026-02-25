@@ -27,7 +27,7 @@ incidentRouter.get("/", async (req, res) => {
 });
 
 incidentRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
   const incidentQuery = {
@@ -54,7 +54,7 @@ incidentRouter.post("/", async (req, res) => {
   const validated = await incidentBodyValidation.run(req);
 
   if (validated.length > 0) return res.status(400).json({ message: "Invalid details", payload: validated });
-  
+
   const incident = req.body as incidentDTO;
 
   try {
@@ -70,7 +70,7 @@ incidentRouter.post("/", async (req, res) => {
 });
 
 incidentRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 

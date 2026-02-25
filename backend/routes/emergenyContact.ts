@@ -27,7 +27,7 @@ emergencyContactRouter.get("/", async (req, res) => {
 });
 
 emergencyContactRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 
@@ -70,7 +70,7 @@ emergencyContactRouter.post("/", async (req, res) => {
 });
 
 emergencyContactRouter.patch("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 
@@ -94,7 +94,7 @@ emergencyContactRouter.patch("/:id", validateObjectId, async (req, res) => {
 });
 
 emergencyContactRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 

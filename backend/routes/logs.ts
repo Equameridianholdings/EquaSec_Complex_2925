@@ -28,7 +28,7 @@ logsRouter.get("/", async (req, res) => {
 });
 
 logsRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 

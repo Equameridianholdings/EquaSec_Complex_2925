@@ -18,24 +18,29 @@ export class Visitors implements OnInit {
   service = inject(DataService);
   visitors = signal<visitorDTO[]>([]);
 
+  getVisitors() {
+    if (this.visitors().length > 0) this.visitors.update(() => []); // Handles for constant updates
+
+    this.service.get<ResponseBody>('visitor/user').subscribe({
+      next: (res) => {
+        console.log(res.message);
+        const AllVisitors = res.payload as visitorDTO[];
+
+        AllVisitors.map((value: visitorDTO) => {
+          this.visitors.update((arr) => [...arr, value]);
+        });
+      },
+      error: (err) => {
+        console.error(err.message);
+      },
+    });
+  }
+
   ngOnInit(): void {
-    this.socket.newVisitor();
+    this.getVisitors();
+
     this.socket.getVisitors(() => {
-      this.service.get<ResponseBody>('visitor/user').subscribe({
-        next: (res) => {
-          console.log(res.message);
-          const AllVisitors = res.payload as visitorDTO[];
-
-          if (this.visitors.length > 0) this.visitors.update(() => []); // Handles for constant updates
-
-          AllVisitors.map((value: visitorDTO) => {
-            this.visitors.update((arr) => [...arr, value]);
-          });
-        },
-        error: (err) => {
-          console.error(err.message);
-        },
-      });
+      this.getVisitors();
     });
   }
 }

@@ -4,11 +4,11 @@ import { ObjectId } from "mongodb";
 import { isValidObjectId } from "mongoose";
 
 const validateUser = async (_id: string) => {
-    if (!isValidObjectId(_id)) return null;
+  if (!isValidObjectId(_id)) return null;
 
-    const id = new ObjectId(_id);
+  const id = new ObjectId(_id);
 
-    return userSchema.findById<UserDTO>(id).exec();
+  return userSchema.findById<UserDTO>(id).exec();
 };
 
 export default validateUser;

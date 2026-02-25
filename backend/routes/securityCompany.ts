@@ -56,7 +56,7 @@ securityCompanyRouter.get("/", async (req, res) => {
 });
 
 securityCompanyRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 
@@ -76,7 +76,7 @@ securityCompanyRouter.get("/:id", validateObjectId, async (req, res) => {
   }
 });
 
-securityCompanyRouter.post("/", securityCompanyBodyValidation, validateSchema, async (req: Request, res: Response) => {  
+securityCompanyRouter.post("/", securityCompanyBodyValidation, validateSchema, async (req: Request, res: Response) => {
   const securityCompany = req.body as SecurityCompanyDTO;
   try {
     console.log("[securityCompany] create request", {
@@ -152,7 +152,7 @@ securityCompanyRouter.post("/", securityCompanyBodyValidation, validateSchema, a
 });
 
 securityCompanyRouter.patch("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 
@@ -176,7 +176,7 @@ securityCompanyRouter.patch("/:id", validateObjectId, async (req, res) => {
 });
 
 securityCompanyRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 
@@ -189,10 +189,7 @@ securityCompanyRouter.delete("/:id", validateObjectId, async (req, res) => {
 
     await securityCompanySchema.deleteOne({ _id: existingCompany._id });
 
-    await userSchema.updateMany(
-      { "securityCompany._id": existingCompany._id },
-      { $set: { securityCompany: null } }
-    );
+    await userSchema.updateMany({ "securityCompany._id": existingCompany._id }, { $set: { securityCompany: null } });
 
     if (existingCompany.managerUserId) {
       await userSchema.findByIdAndDelete(existingCompany.managerUserId);

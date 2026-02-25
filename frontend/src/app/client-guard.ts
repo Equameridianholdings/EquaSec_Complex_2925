@@ -1,21 +1,17 @@
-import { CanActivateFn } from '@angular/router';
-// import jsonwebtoken from 'jsonwebtoken';
-import { environment } from '../environments/environment';
+import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
 import { StorageService } from './services/storage.service';
 
 export const clientGuard: CanActivateFn = (route, state) => {
-  // const { verify } = jsonwebtoken;
+  const router = inject(Router);
   let storage = inject(StorageService);
 
-  const token = storage.getItem("bearer-token");
+  const token = storage.getItem('bearer-token');
 
   if (token) {
-    // const decoded = verify(token as string, environment.SECRET_KEY);
-    // console.log(decoded);
-    // if (decoded) return true;
     return true;
   }
 
+  router.navigate(['/login']);
   return false;
 };

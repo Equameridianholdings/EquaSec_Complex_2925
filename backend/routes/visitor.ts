@@ -56,11 +56,11 @@ visitorRouter.get("/user/", async (req, res) => {
     const visitors = await visitorShema.find<visitorDTO>(visitorQuery).select({}).exec();
 
     if (visitors.length == 0) {
-      res.status(200).json({message: "No visitors today!", payload: []});
+      res.status(200).json({ message: "No visitors today!", payload: [] });
       return;
     }
 
-    res.status(200).json({message: "Successfully loaded visitors", payload: visitors});
+    res.status(200).json({ message: "Successfully loaded visitors", payload: visitors });
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error!" });
@@ -70,7 +70,7 @@ visitorRouter.get("/user/", async (req, res) => {
 
 visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Request, res: Response) => {
   try {
-    const user: UserDTO = await userSchema.findOne({emailAddress: res.get('email')}).exec() as unknown as UserDTO;
+    const user: UserDTO = (await userSchema.findOne({ emailAddress: res.get("email") }).exec()) as unknown as UserDTO;
 
     const visitor: visitorDTO = {
       ...(req.body as visitorDTO),

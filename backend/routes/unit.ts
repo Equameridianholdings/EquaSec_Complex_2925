@@ -58,10 +58,7 @@ unitRouter.get("/complex/:name", async (req, res) => {
     const stationName = req.params.name;
 
     const unitsQuery = {
-      $or: [
-        { "complex.name": stationName },
-        { "gatedCommunity.name": stationName },
-      ],
+      $or: [{ "complex.name": stationName }, { "gatedCommunity.name": stationName }],
     };
     const units = await unitSchema.find(unitsQuery);
 
@@ -79,13 +76,13 @@ unitRouter.get("/complex/:name", async (req, res) => {
 });
 
 unitRouter.patch("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
 
   const unitQuery = {
     $set: req.body as object,
-  }
+  };
   try {
     const updatedUnit = await unitSchema.findByIdAndUpdate(_id, unitQuery, { new: true });
 
@@ -103,13 +100,13 @@ unitRouter.patch("/:id", validateObjectId, async (req, res) => {
 });
 
 unitRouter.get("/user/", async (req, res) => {
-  if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = ValidObjectId(req.get("id") as unknown as string);
 
   const unitQuery = {
     "users._id": _id,
-  }
+  };
   try {
     const Unit = await unitSchema.findOne(_id, unitQuery, { new: true }).exec();
 
@@ -127,7 +124,7 @@ unitRouter.get("/user/", async (req, res) => {
 });
 
 unitRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request."});
+  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
 
   const _id = req.params.id as ObjectId;
   try {

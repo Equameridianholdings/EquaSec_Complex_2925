@@ -1736,19 +1736,19 @@ userRouter.patch("/update", AuthMiddleware, async (req, res) => {
     const email = res.get("email");
 
     if (!email) {
-      return res.status(401).json({message: "Access Denied!"});
+      return res.status(401).json({ message: "Access Denied!" });
     }
 
     const updatePayload = req.body as Partial<UserDTO>;
     const user = await userSchema.findOneAndUpdate({ emailAddress: email }, { $set: updatePayload }, { new: true }).lean().exec();
 
     if (!user) {
-      return res.status(404).json({message: "User details not found!"});
+      return res.status(404).json({ message: "User details not found!" });
     }
 
     return res.status(200).json({ message: "User details updated", payload: user });
   } catch {
-    return res.status(500).json({message: "Internal Server Error"});
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -1796,36 +1796,36 @@ userRouter.patch("/changePin", AuthMiddleware, async (req, res) => {
     const email = res.get("email");
 
     if (!email) {
-      return res.status(401).json({message: "Access Denied!"});
+      return res.status(401).json({ message: "Access Denied!" });
     }
 
     const user = await userSchema.findOne({ emailAddress: email }).exec();
 
     if (!user) {
-      return res.status(404).json({message: "User details not found!"});
+      return res.status(404).json({ message: "User details not found!" });
     }
-    
+
     const updatePayload = req.body as {
       confirmedPin: string;
       currentPin: string;
       newPin: string;
     };
-    
+
     const newPassword = await bcrypt.hash(updatePayload.confirmedPin, user.salt);
 
     const updateQuery = {
-      $set: { password: newPassword}
-    }
+      $set: { password: newPassword },
+    };
 
     const updatedUser = await userSchema.findOneAndUpdate({ emailAddress: email }, updateQuery, { new: true }).lean().exec();
-    
+
     if (!updatedUser) {
-      return res.status(404).json({message: "User details not found!"});
+      return res.status(404).json({ message: "User details not found!" });
     }
 
     return res.status(200).json({ message: "User details updated", payload: user });
   } catch {
-    return res.status(500).json({message: "Internal Server Error"});
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 });
 

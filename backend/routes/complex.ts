@@ -63,7 +63,7 @@ const toObjectIdString = (value: unknown): string => {
 
 const asString = (value: unknown): string => (typeof value === "string" ? value : "");
 
-const getRouteId = (value: string | string[]): string => (Array.isArray(value) ? value[0] ?? "" : value);
+const getRouteId = (value: string | string[]): string => (Array.isArray(value) ? (value[0] ?? "") : value);
 
 const getUnitNumbersFromComplex = (complex: ComplexLike): number[] => {
   const blocks = Array.isArray(complex.blocks) ? complex.blocks : [];
@@ -121,10 +121,10 @@ const getParkingBaysForUnit = (
   complex: ComplexLike,
   unitNumber: number,
   payloadPerUnitParking: Map<number, number>,
-  existingPerUnitParking: Map<number, number>
+  existingPerUnitParking: Map<number, number>,
 ): number => {
-  const mode = (complex.parkingMode ?? '').toLowerCase();
-  if (mode === 'per-unit') {
+  const mode = (complex.parkingMode ?? "").toLowerCase();
+  if (mode === "per-unit") {
     if (payloadPerUnitParking.has(unitNumber)) {
       return payloadPerUnitParking.get(unitNumber) ?? 0;
     }
@@ -181,8 +181,8 @@ const syncUnitsForComplex = async (complex: ComplexLike, unitParkingConfig?: unk
   const docs = unitNumbers.map((unitNumber) => ({
     complex: {
       _id: complexId,
-      address: complex.address ?? '',
-      name: complex.name ?? '',
+      address: complex.address ?? "",
+      name: complex.name ?? "",
     },
     number: unitNumber,
     numberOfParkingBays: getParkingBaysForUnit(complex, unitNumber, payloadPerUnitParking, existingPerUnitParking),
@@ -211,15 +211,15 @@ complexRouter.post("/", complexBodyValidation, validateSchema, async (req: Reque
 
     const rawBlocks: BlockLike[] = Array.isArray(requestBody.blocks) ? requestBody.blocks : [];
     if (rawBlocks.length > 0) {
-      const normalizedBlocks: NormalizedBlock[] = rawBlocks.map((block) => {
-        const name = asString(block.name).trim();
-        const countFromPayload = Number(block.numberOfUnits);
+      const normalizedBlocks: NormalizedBlock[] = rawBlocks
+        .map((block) => {
+          const name = asString(block.name).trim();
+          const countFromPayload = Number(block.numberOfUnits);
 
-        const normalizedCount = Number.isFinite(countFromPayload) && countFromPayload > 0
-          ? countFromPayload
-          : 0;
-        return { name, numberOfUnits: normalizedCount };
-      }).filter((block) => block.name.length > 0 && Number.isFinite(block.numberOfUnits) && block.numberOfUnits > 0);
+          const normalizedCount = Number.isFinite(countFromPayload) && countFromPayload > 0 ? countFromPayload : 0;
+          return { name, numberOfUnits: normalizedCount };
+        })
+        .filter((block) => block.name.length > 0 && Number.isFinite(block.numberOfUnits) && block.numberOfUnits > 0);
 
       if (normalizedBlocks.length > 0) {
         const numberOfUnits = normalizedBlocks.reduce((total: number, block: NormalizedBlock) => total + block.numberOfUnits, 0);
@@ -235,9 +235,7 @@ complexRouter.post("/", complexBodyValidation, validateSchema, async (req: Reque
     delete requestBody.unitEnd;
     delete requestBody.unitParkingConfig;
 
-    const gatedCommunityName = typeof complex.gatedCommunityName === "string"
-      ? complex.gatedCommunityName.trim()
-      : "";
+    const gatedCommunityName = typeof complex.gatedCommunityName === "string" ? complex.gatedCommunityName.trim() : "";
     if (gatedCommunityName) {
       complex.gatedCommunityName = gatedCommunityName;
       requestBody.gatedCommunityName = gatedCommunityName;
@@ -281,7 +279,7 @@ complexRouter.get("/:id", validateObjectId, async (req: Request, res: Response) 
   const _id = new ObjectId(getRouteId(req.params.id));
 
   try {
-    const complex = await complexSchema.findById(_id).select('-unitParkingConfig');
+    const complex = await complexSchema.findById(_id).select("-unitParkingConfig");
 
     if (complex === null) {
       res.status(404).json({ message: "Complex not found!" });
@@ -292,7 +290,7 @@ complexRouter.get("/:id", validateObjectId, async (req: Request, res: Response) 
     if (complexName) {
       await securityCompanySchema.updateMany(
         { $or: [{ "contract.complex.name": complexName }, { "contract.complexName": complexName }] },
-        { $pull: { contract: { $or: [{ "complex.name": complexName }, { complexName: complexName }] } } }
+        { $pull: { contract: { $or: [{ "complex.name": complexName }, { complexName: complexName }] } } },
       );
     }
 
@@ -306,7 +304,7 @@ complexRouter.get("/:id", validateObjectId, async (req: Request, res: Response) 
 
 complexRouter.get("/", async (req: Request, res: Response) => {
   try {
-    const complexes = await complexSchema.find({}).select('-unitParkingConfig');
+    const complexes = await complexSchema.find({}).select("-unitParkingConfig");
 
     if (complexes.length === 0) {
       res.status(200).json([]);
@@ -332,12 +330,10 @@ complexRouter.patch("/:id", validateObjectId, async (req: Request, res: Response
       return;
     }
 
-    const previousGatedCommunityName = (existingComplex.gatedCommunityName ?? '').trim();
+    const previousGatedCommunityName = (existingComplex.gatedCommunityName ?? "").trim();
 
-    if (Object.prototype.hasOwnProperty.call(patchBody, 'gatedCommunityName')) {
-      const requestedCommunityName = typeof patchBody.gatedCommunityName === 'string'
-        ? patchBody.gatedCommunityName.trim()
-        : '';
+    if (Object.prototype.hasOwnProperty.call(patchBody, "gatedCommunityName")) {
+      const requestedCommunityName = typeof patchBody.gatedCommunityName === "string" ? patchBody.gatedCommunityName.trim() : "";
 
       if (requestedCommunityName) {
         const targetCommunity = await gatedCommunitySchema.findOne({ name: requestedCommunityName });
@@ -347,7 +343,7 @@ complexRouter.patch("/:id", validateObjectId, async (req: Request, res: Response
         }
         patchBody.gatedCommunityName = requestedCommunityName;
       } else {
-        patchBody.gatedCommunityName = '';
+        patchBody.gatedCommunityName = "";
       }
     }
 
@@ -384,7 +380,7 @@ complexRouter.patch("/:id", validateObjectId, async (req: Request, res: Response
 
     await syncUnitsForComplex(updatedComplex, unitParkingConfig);
 
-    const nextGatedCommunityName = (updatedComplex.gatedCommunityName ?? '').trim();
+    const nextGatedCommunityName = (updatedComplex.gatedCommunityName ?? "").trim();
     if (previousGatedCommunityName !== nextGatedCommunityName) {
       await syncGatedCommunityComplexCount(previousGatedCommunityName);
       await syncGatedCommunityComplexCount(nextGatedCommunityName);
@@ -412,7 +408,7 @@ complexRouter.delete("/:id", validateObjectId, async (req: Request, res: Respons
     }
 
     await unitSchema.deleteMany({ "complex._id": { $in: [toObjectIdString(_id), _id] } });
-    await syncGatedCommunityComplexCount(deletedComplex.gatedCommunityName ?? '');
+    await syncGatedCommunityComplexCount(deletedComplex.gatedCommunityName ?? "");
 
     res.status(200).json({ message: "Complex successfully deleted!" });
     return;

@@ -93,12 +93,8 @@ const getEffectiveCutoffDate = (): Date => {
 
 guardHistoryRouter.post(
   "/start",
-  body("selectedGatedCommunity")
-    .optional({ nullable: true })
-    .isString(),
-  body("selectedComplex")
-    .optional({ nullable: true })
-    .isString(),
+  body("selectedGatedCommunity").optional({ nullable: true }).isString(),
+  body("selectedComplex").optional({ nullable: true }).isString(),
   checkSchema(startShiftValidation),
   validateSchema,
   async (req: Request, res: Response) => {
@@ -146,10 +142,7 @@ guardHistoryRouter.post(
       const effectiveCutoff = getEffectiveCutoffDate();
       const existingActiveShift = await guardHistorySchema
         .findOne({
-          $or: [
-            { "guardOnShift.userId": user._id },
-            { "guardOnShift.emailAddress": emailAddress },
-          ],
+          $or: [{ "guardOnShift.userId": user._id }, { "guardOnShift.emailAddress": emailAddress }],
           startShift: { $gte: effectiveCutoff },
         })
         .sort({ startShift: -1 });
@@ -207,7 +200,7 @@ guardHistoryRouter.post(
       console.error("[GuardHistory][start] error", error);
       return res.status(500).json({ message: "Internal Server Error" });
     }
-  }
+  },
 );
 
 guardHistoryRouter.get("/mine", async (req: Request, res: Response) => {
@@ -239,12 +232,8 @@ guardHistoryRouter.get("/mine", async (req: Request, res: Response) => {
 
 guardHistoryRouter.patch(
   "/active/station",
-  body("selectedGatedCommunity")
-    .optional({ nullable: true })
-    .isString(),
-  body("selectedComplex")
-    .optional({ nullable: true })
-    .isString(),
+  body("selectedGatedCommunity").optional({ nullable: true }).isString(),
+  body("selectedComplex").optional({ nullable: true }).isString(),
   checkSchema(startShiftValidation),
   validateSchema,
   async (req: Request, res: Response) => {
@@ -293,10 +282,7 @@ guardHistoryRouter.patch(
 
       const activeShift = await guardHistorySchema
         .findOne({
-          $or: [
-            { "guardOnShift.userId": user._id },
-            { "guardOnShift.emailAddress": emailAddress },
-          ],
+          $or: [{ "guardOnShift.userId": user._id }, { "guardOnShift.emailAddress": emailAddress }],
           startShift: { $gte: effectiveCutoff },
         })
         .sort({ startShift: -1 });
@@ -333,7 +319,7 @@ guardHistoryRouter.patch(
       console.error("[GuardHistory][active/station] error", error);
       return res.status(500).json({ message: "Internal Server Error" });
     }
-  }
+  },
 );
 
 guardHistoryRouter.get("/active", async (req: Request, res: Response) => {
@@ -360,10 +346,7 @@ guardHistoryRouter.get("/active", async (req: Request, res: Response) => {
 
     const activeShift = await guardHistorySchema
       .findOne({
-        $or: [
-          { "guardOnShift.userId": user._id },
-          { "guardOnShift.emailAddress": emailAddress },
-        ],
+        $or: [{ "guardOnShift.userId": user._id }, { "guardOnShift.emailAddress": emailAddress }],
         startShift: { $gte: effectiveCutoff },
       })
       .select("-updatedAt")

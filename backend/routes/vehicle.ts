@@ -63,7 +63,7 @@ vehicleRouter.post("/", checkSchema(vehicleBodyValidation), validateSchema, asyn
     if (!user) return res.status(401).json("Access Denied!");
 
     const vehicle = req.body as vehicleDTO;
-    
+
     const newVehicle = new vehicleSchema(vehicle);
     await newVehicle.save();
 

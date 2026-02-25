@@ -39,7 +39,7 @@ const toObjectIdString = (value: unknown): string => {
   return "";
 };
 
-const getRouteId = (value: string | string[]): string => (Array.isArray(value) ? value[0] ?? "" : value);
+const getRouteId = (value: string | string[]): string => (Array.isArray(value) ? (value[0] ?? "") : value);
 
 const syncUnitsForGatedCommunity = async (gatedCommunity: GatedCommunityLike): Promise<void> => {
   if (!gatedCommunity._id) {
@@ -59,9 +59,11 @@ const syncUnitsForGatedCommunity = async (gatedCommunity: GatedCommunityLike): P
   const numberOfHouses = Number(gatedCommunity.numberOfHouses);
   const targetCount = Number.isFinite(numberOfHouses) && numberOfHouses > 0 ? Math.floor(numberOfHouses) : 0;
 
-  const existingUnits = await unitSchema.find({
-    "gatedCommunity._id": { $in: gatedCommunityIdVariants },
-  }).exec();
+  const existingUnits = await unitSchema
+    .find({
+      "gatedCommunity._id": { $in: gatedCommunityIdVariants },
+    })
+    .exec();
 
   const existingByNumber = new Map<number, ExistingCommunityUnit>();
   for (const unit of existingUnits) {
@@ -142,7 +144,7 @@ gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), valida
       name: gatedCommunity.name,
     };
     const gatedCommunities = await gatedCommunitySchema.findOne(gatedCommunityQuery);
-    
+
     if (gatedCommunities !== null) {
       res.status(400).json({ message: "Bad Request! Gated Community already exists!" });
       return;
@@ -228,14 +230,11 @@ gatedCommunityRouter.patch("/:id", validateObjectId, async (req: Request, res: R
     const previousName = existingGatedCommunity.name;
     const nextName = typeof body.name === "string" ? body.name : previousName;
     if (previousName !== nextName) {
-      await complexSchema.updateMany(
-        { gatedCommunityName: previousName },
-        { $set: { gatedCommunityName: nextName } }
-      );
+      await complexSchema.updateMany({ gatedCommunityName: previousName }, { $set: { gatedCommunityName: nextName } });
       await securityCompanySchema.updateMany(
         { "contract.gatedCommunityName": previousName },
         { $set: { "contract.$[elem].gatedCommunityName": nextName } },
-        { arrayFilters: [{ "elem.gatedCommunityName": previousName }] }
+        { arrayFilters: [{ "elem.gatedCommunityName": previousName }] },
       );
     }
 
@@ -268,7 +267,7 @@ gatedCommunityRouter.delete("/:id", validateObjectId, async (req: Request, res: 
       await unitSchema.deleteMany({ "gatedCommunity._id": { $in: [String(deletedGatedCommunity._id), deletedGatedCommunity._id] } });
       await securityCompanySchema.updateMany(
         { "contract.gatedCommunityName": gatedName },
-        { $pull: { contract: { gatedCommunityName: gatedName } } }
+        { $pull: { contract: { gatedCommunityName: gatedName } } },
       );
     }
 

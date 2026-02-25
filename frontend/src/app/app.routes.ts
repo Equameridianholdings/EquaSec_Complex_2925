@@ -10,6 +10,7 @@ import { Visitors } from './dashboard/visitors/visitors';
 import { AllUnits } from './dashboard/all-units/all-units';
 import { Vehicles } from './dashboard/vehicles/vehicles';
 import { Notfound } from './notfound/notfound';
+import { clientGuard } from './client-guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -40,9 +41,10 @@ export const routes: Routes = [
         component: Notfound,
       },
     ],
+    canActivate: [clientGuard],
   },
-  { path: 'guard-portal', component: GuardPortal },
-  { path: 'admin-portal', component: AdminPortal },
-  { path: 'security-manager', component: SecurityManager },
+  { path: 'guard-portal', component: GuardPortal, canActivate: [clientGuard] },
+  { path: 'admin-portal', component: AdminPortal, canActivate: [clientGuard] },
+  { path: 'security-manager', component: SecurityManager, canActivate: [clientGuard] },
   { path: '**', component: Notfound },
 ];
