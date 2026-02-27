@@ -324,8 +324,7 @@ guardHistoryRouter.patch(
 
 guardHistoryRouter.get("/active", async (req: Request, res: Response) => {
   try {
-    const authReq = req as Request & { userEmail?: string };
-    const emailAddress = authReq.userEmail;
+    const emailAddress = res.get('email');
 
     if (!emailAddress) {
       return res.status(401).json({ message: "Access Denied!" });

@@ -5,7 +5,7 @@ import securityCompanySchema from "#db/securityCompanySchema.js";
 import unitSchema from "#db/unitSchema.js";
 import userSchema from "#db/userSchema.js";
 import vehicleSchema from "#db/vehicleSchema.js";
-import { complexDTO } from "#interfaces/complexDTO.js";
+// import { complexDTO } from "#interfaces/complexDTO.js";
 import { userBodyValidation, UserDTO } from "#interfaces/userDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
@@ -19,7 +19,7 @@ import { Router } from "express";
 import { checkSchema, Schema } from "express-validator/lib/middlewares/schema.js";
 import { body } from "express-validator/lib/middlewares/validation-chain-builders.js";
 import { ObjectId } from "mongodb";
-import { isKeyObject } from "util/types";
+// import { isKeyObject } from "util/types";
 
 const userRouter = Router();
 
@@ -532,13 +532,13 @@ userRouter.post(
   //     return checkID(value);
   //   })
   //   .withMessage("Invalid Id number!"),
-  body("complex")
-    .custom((value) => {
-      if (!isKeyObject(value)) return {};
+  // body("complex")
+  //   .custom((value) => {
+  //     if (!isKeyObject(value)) return {};
 
-      return value as unknown as complexDTO;
-    })
-    .withMessage("Invalid object!"),
+  //     return value as unknown as complexDTO;
+  //   })
+  //   .withMessage("Invalid object!"),
   checkSchema(userBodyValidation),
   validateSchema,
   async (req: Request, res: Response) => {
@@ -546,7 +546,7 @@ userRouter.post(
     try {
       user.salt = await bcrypt.genSalt(10);
       const hashPassword = await bcrypt.hash(user.password as unknown as string, user.salt);
-
+      
       user.password = hashPassword;
 
       // Add Id number encryption logic here
@@ -556,7 +556,8 @@ userRouter.post(
       await newUser.save();
 
       return res.status(201).json({ message: "User successfully added!", payload: newUser });
-    } catch {
+    } catch (error) {
+      console.error(error);
       return res.status(500).json({ message: "Internal Server Error" });
     }
   },

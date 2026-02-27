@@ -50,11 +50,11 @@ export const userBodyValidation: Schema = {
     //     errorMessage: "Field is required",
     //     isEmpty: false,
     // },
-    movedOut: {
-        errorMessage: "Field is required",
-        isBoolean: true,
-        isEmpty: false,
-    },
+    // movedOut: {
+    //     errorMessage: "Field is required",
+    //     isBoolean: true,
+    //     isEmpty: false,
+    // },
     name: {
         errorMessage: "Field is required",
         isEmpty: false,
