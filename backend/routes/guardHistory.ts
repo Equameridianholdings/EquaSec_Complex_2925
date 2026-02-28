@@ -99,8 +99,7 @@ guardHistoryRouter.post(
   validateSchema,
   async (req: Request, res: Response) => {
     try {
-      const authReq = req as Request & { userEmail?: string };
-      const emailAddress = authReq.userEmail;
+      const emailAddress = res.get('email');
 
       if (!emailAddress) {
         return res.status(401).json({ message: "Access Denied!" });
@@ -205,8 +204,7 @@ guardHistoryRouter.post(
 
 guardHistoryRouter.get("/mine", async (req: Request, res: Response) => {
   try {
-    const authReq = req as Request & { userEmail?: string };
-    const emailAddress = authReq.userEmail;
+    const emailAddress = res.get('email');
 
     if (!emailAddress) {
       return res.status(401).json({ message: "Access Denied!" });
@@ -238,8 +236,7 @@ guardHistoryRouter.patch(
   validateSchema,
   async (req: Request, res: Response) => {
     try {
-      const authReq = req as Request & { userEmail?: string };
-      const emailAddress = authReq.userEmail;
+      const emailAddress = res.get('email');
 
       if (!emailAddress) {
         return res.status(401).json({ message: "Access Denied!" });

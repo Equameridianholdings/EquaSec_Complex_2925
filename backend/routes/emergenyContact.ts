@@ -11,7 +11,7 @@ emergencyContactRouter.use(AuthMiddleware);
 
 emergencyContactRouter.get("/", async (req, res) => {
   try {
-    const emergencyContacts = await emergencyContactSchema.find({});
+    const emergencyContacts = await emergencyContactSchema.find({}).exec();
 
     if (emergencyContacts.length === 0) {
       res.status(404).json({ message: "No emergency contacts not found!" });
@@ -35,7 +35,7 @@ emergencyContactRouter.get("/:id", validateObjectId, async (req, res) => {
     const emergencyContactQuery = {
       "securityCompany._id": _id,
     };
-    const emergencyContacts = await emergencyContactSchema.find(emergencyContactQuery);
+    const emergencyContacts = await emergencyContactSchema.find(emergencyContactQuery).exec();
 
     if (emergencyContacts.length === 0) {
       res.status(404).json({ message: "Emergency contacts not found!" });
@@ -78,7 +78,7 @@ emergencyContactRouter.patch("/:id", validateObjectId, async (req, res) => {
     const emergencyContactQuery = {
       $set: req.body as object,
     };
-    const updatedEmergencyContact = await emergencyContactSchema.findByIdAndUpdate(_id, emergencyContactQuery, { new: true });
+    const updatedEmergencyContact = await emergencyContactSchema.findByIdAndUpdate(_id, emergencyContactQuery, { new: true }).exec();
 
     if (updatedEmergencyContact === null) {
       res.status(404).json({ message: "Emergency contact not found!" });
@@ -99,7 +99,7 @@ emergencyContactRouter.delete("/:id", validateObjectId, async (req, res) => {
   const _id = req.params.id as ObjectId;
 
   try {
-    const deletedEmergencyContact = await emergencyContactSchema.findByIdAndDelete(_id);
+    const deletedEmergencyContact = await emergencyContactSchema.findByIdAndDelete(_id).exec();
 
     if (deletedEmergencyContact === null) {
       res.status(404).json({ message: "Emergency contact not found!" });

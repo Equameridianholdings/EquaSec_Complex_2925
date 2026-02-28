@@ -40,7 +40,7 @@ securityCompanyRouter.use(AuthMiddleware);
 
 securityCompanyRouter.get("/", async (req, res) => {
   try {
-    const securityCompanys = await securityCompanySchema.find({});
+    const securityCompanys = await securityCompanySchema.find({}).select({}).exec();
 
     if (securityCompanys.length === 0) {
       res.status(200).json([]);
@@ -61,7 +61,7 @@ securityCompanyRouter.get("/:id", validateObjectId, async (req, res) => {
   const _id = req.params.id as ObjectId;
 
   try {
-    const securityCompany = await securityCompanySchema.findById(_id);
+    const securityCompany = await securityCompanySchema.findById(_id).exec();
 
     if (securityCompany === null) {
       res.status(404).json({ message: "Security Company not found!" });
@@ -160,7 +160,7 @@ securityCompanyRouter.patch("/:id", validateObjectId, async (req, res) => {
     $set: req.body as object,
   };
   try {
-    const updatedSecurityCompany = await securityCompanySchema.findByIdAndUpdate(_id, securityCompanyQuery, { new: true });
+    const updatedSecurityCompany = await securityCompanySchema.findByIdAndUpdate(_id, securityCompanyQuery, { new: true }).exec();
 
     if (updatedSecurityCompany === null) {
       res.status(404).json({ message: "Security company does not exist!" });
@@ -181,7 +181,7 @@ securityCompanyRouter.delete("/:id", validateObjectId, async (req, res) => {
   const _id = req.params.id as ObjectId;
 
   try {
-    const existingCompany = await securityCompanySchema.findById(_id);
+    const existingCompany = await securityCompanySchema.findById(_id).exec();
     if (existingCompany === null) {
       res.status(404).json({ message: "Security company does not exist!" });
       return;
@@ -192,7 +192,7 @@ securityCompanyRouter.delete("/:id", validateObjectId, async (req, res) => {
     await userSchema.updateMany({ "securityCompany._id": existingCompany._id }, { $set: { securityCompany: null } });
 
     if (existingCompany.managerUserId) {
-      await userSchema.findByIdAndDelete(existingCompany.managerUserId);
+      await userSchema.findByIdAndDelete(existingCompany.managerUserId).exec();
     }
 
     res.status(200).json({ message: "Security company successfully deleted", payload: existingCompany });

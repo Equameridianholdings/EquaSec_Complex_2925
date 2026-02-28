@@ -706,8 +706,7 @@ userRouter.post(
   validateSchema,
   async (req: Request, res: Response) => {
     try {
-      const authReq = req as Request & { userEmail?: string };
-      const managerEmail = authReq.userEmail;
+      const managerEmail = res.get("email");
 
       if (!managerEmail) {
         return res.status(401).json({ message: "Access Denied!" });
@@ -802,7 +801,7 @@ userRouter.post(
         });
       } catch {
         await removeCompanyEmployeeAssignment(String(linkedSecurityCompany._id), String(employeeUser._id));
-        await userSchema.findByIdAndDelete(employeeUser._id);
+        await userSchema.findByIdAndDelete(employeeUser._id).exec();
         return res.status(500).json({ message: "Unable to send employee credentials email." });
       }
 
@@ -822,8 +821,7 @@ userRouter.post(
 
 userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
-    const authReq = req as Request & { userEmail?: string };
-    const actorEmail = authReq.userEmail;
+    const actorEmail = res.get("email");
 
     if (!actorEmail) {
       return res.status(401).json({ message: "Access Denied!" });
@@ -988,7 +986,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
         body.vehicles,
       );
     } catch {
-      await userSchema.findByIdAndDelete(tenantUser._id);
+      await userSchema.findByIdAndDelete(tenantUser._id).exec();
       return res.status(500).json({ message: "Unable to sync tenant vehicles." });
     }
 
@@ -1017,7 +1015,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
       }
     } catch {
       await vehicleSchema.deleteMany({ "user._id": { $in: [String(tenantUser._id ?? ""), tenantUser._id] } });
-      await userSchema.findByIdAndDelete(tenantUser._id);
+      await userSchema.findByIdAndDelete(tenantUser._id).exec();
       return res.status(500).json({ message: "Unable to link tenant to unit." });
     }
 
@@ -1029,7 +1027,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
       });
     } catch {
       await vehicleSchema.deleteMany({ "user._id": { $in: [String(tenantUser._id ?? ""), tenantUser._id] } });
-      await userSchema.findByIdAndDelete(tenantUser._id);
+      await userSchema.findByIdAndDelete(tenantUser._id).exec();
       return res.status(500).json({ message: "Unable to send tenant credentials email." });
     }
 
@@ -1050,8 +1048,7 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
 userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
     const requestId = getRequestIdParam(req);
-    const authReq = req as Request & { userEmail?: string };
-    const managerEmail = authReq.userEmail;
+    const managerEmail = res.get("email");
 
     if (!managerEmail) {
       return res.status(401).json({ message: "Access Denied!" });
@@ -1266,8 +1263,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
 userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Response) => {
   try {
     const requestId = getRequestIdParam(req);
-    const authReq = req as Request & { userEmail?: string };
-    const managerEmail = authReq.userEmail;
+    const managerEmail = res.get("email");
 
     if (!managerEmail) {
       return res.status(401).json({ message: "Access Denied!" });
@@ -1338,8 +1334,7 @@ userRouter.patch(
   async (req: Request, res: Response) => {
     try {
       const requestId = getRequestIdParam(req);
-      const authReq = req as Request & { userEmail?: string };
-      const managerEmail = authReq.userEmail;
+      const managerEmail = res.get("email");
 
       if (!managerEmail) {
         return res.status(401).json({ message: "Access Denied!" });
@@ -1449,8 +1444,7 @@ userRouter.patch(
   async (req: Request, res: Response) => {
     try {
       const requestId = getRequestIdParam(req);
-      const authReq = req as Request & { userEmail?: string };
-      const managerEmail = authReq.userEmail;
+      const managerEmail = res.get("email");
 
       if (!managerEmail) {
         return res.status(401).json({ message: "Access Denied!" });
@@ -1583,8 +1577,7 @@ userRouter.patch(
 userRouter.delete("/security-employee/:id", AuthMiddleware, async (req: Request, res: Response) => {
   try {
     const requestId = getRequestIdParam(req);
-    const authReq = req as Request & { userEmail?: string };
-    const managerEmail = authReq.userEmail;
+    const managerEmail = res.get("email");
 
     if (!managerEmail) {
       return res.status(401).json({ message: "Access Denied!" });
@@ -1719,7 +1712,7 @@ userRouter.delete("/deactivate/:id", AuthMiddleware, async (req, res) => {
     // if (!isValidObjectID(req.params.id as string)) return res.status(400).send("Bad Request! Invalid Id");
 
     const objectId = new ObjectId(requestId);
-    const user = await userSchema.findOneAndDelete({ _id: objectId });
+    const user = await userSchema.findOneAndDelete({ _id: objectId }).exec();
 
     if (user) {
       return res.status(200).json(user);
@@ -1776,9 +1769,8 @@ userRouter.get("/current", AuthMiddleware, async (req, res) => {
 
 userRouter.get(
   "/",
-  /*AuthMiddleware,*/ async (req, res) => {
+  AuthMiddleware, async (req, res) => {
     try {
-      // if (!isValidObjectID(req.params.id as string)) return res.status(400).send("Bad Request! Invalid Id");
       const users = await userSchema.find({}).select({}).exec();
 
       if (users.length > 0) {

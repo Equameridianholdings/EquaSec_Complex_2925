@@ -58,7 +58,7 @@ logsRouter.delete("/", async (req, res) => {
     date: { $ls: validDate },
   };
   try {
-    const deletedLogs = await logSchema.find<logDTO>(logQuery);
+    const deletedLogs = await logSchema.find<logDTO>(logQuery).select({}).exec();
 
     if (deletedLogs.length === 0) {
       res.status(404).json({ message: "No logs found" });

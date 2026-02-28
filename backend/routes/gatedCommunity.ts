@@ -143,7 +143,7 @@ gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), valida
     const gatedCommunityQuery = {
       name: gatedCommunity.name,
     };
-    const gatedCommunities = await gatedCommunitySchema.findOne(gatedCommunityQuery);
+    const gatedCommunities = await gatedCommunitySchema.findOne(gatedCommunityQuery).exec();
 
     if (gatedCommunities !== null) {
       res.status(400).json({ message: "Bad Request! Gated Community already exists!" });
@@ -168,7 +168,7 @@ gatedCommunityRouter.get("/:id", validateObjectId, async (req: Request, res: Res
   const _id = new ObjectId(getRouteId(req.params.id));
 
   try {
-    const gatedCommunity = await gatedCommunitySchema.findById(_id);
+    const gatedCommunity = await gatedCommunitySchema.findById(_id).exec();
 
     if (gatedCommunity === null) {
       res.status(404).json({ message: "Gated Community not found!" });
@@ -185,7 +185,7 @@ gatedCommunityRouter.get("/:id", validateObjectId, async (req: Request, res: Res
 
 gatedCommunityRouter.get("/", async (req: Request, res: Response) => {
   try {
-    const gatedCommunities = await gatedCommunitySchema.find({});
+    const gatedCommunities = await gatedCommunitySchema.find({}).select({}).exec();
 
     if (gatedCommunities.length === 0) {
       res.status(200).json([]);
@@ -212,13 +212,13 @@ gatedCommunityRouter.patch("/:id", validateObjectId, async (req: Request, res: R
 
   try {
     console.log("[gatedCommunity] update request", { body, id: _id });
-    const existingGatedCommunity = await gatedCommunitySchema.findById(_id);
+    const existingGatedCommunity = await gatedCommunitySchema.findById(_id).exec();
     if (existingGatedCommunity === null) {
       res.status(404).json({ message: "Gated Community does not exist!" });
       return;
     }
 
-    const updatedGatedCommunity = await gatedCommunitySchema.findOneAndUpdate({ _id }, gatedCommunityQuery, { new: true });
+    const updatedGatedCommunity = await gatedCommunitySchema.findOneAndUpdate({ _id }, gatedCommunityQuery, { new: true }).exec();
 
     if (updatedGatedCommunity === null) {
       res.status(404).json({ message: "Gated Community does not exist!" });
@@ -254,7 +254,7 @@ gatedCommunityRouter.delete("/:id", validateObjectId, async (req: Request, res: 
 
   try {
     console.log("[gatedCommunity] delete request", { id: _id });
-    const deletedGatedCommunity = await gatedCommunitySchema.findByIdAndDelete(_id);
+    const deletedGatedCommunity = await gatedCommunitySchema.findByIdAndDelete(_id).exec();
 
     if (deletedGatedCommunity === null) {
       res.status(404).json({ message: "Gated Community does not exist!" });

@@ -3,7 +3,6 @@ import { unitBodyValidation, unitDTO } from "#interfaces/unitDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import validateObjectId from "#utils/validateObjectId.js";
-import { ValidObjectId } from "#utils/validObjectId.js";
 import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 
@@ -25,7 +24,7 @@ unitRouter.post("/", unitBodyValidation, validateSchema, async (req: Request, re
     const allUnitsQuery = hasComplex
       ? { "complex._id": new ObjectId(String(unit.complex._id)) }
       : { "gatedCommunity._id": new ObjectId(String(unit.gatedCommunity?._id)) };
-    const allUnits = await unitSchema.find(allUnitsQuery);
+    const allUnits = await unitSchema.find(allUnitsQuery).select({}).exec();
 
     if (allUnits.find((x) => x.number == unit.number)) {
       res.status(400).json({ message: "Invalid Operation. Unit already exists." });
@@ -44,7 +43,7 @@ unitRouter.post("/", unitBodyValidation, validateSchema, async (req: Request, re
 
 unitRouter.get("/", async (req: Request, res: Response) => {
   try {
-    const units = await unitSchema.find({});
+    const units = await unitSchema.find({}).select({}).exec();
     res.status(200).json(units);
     return;
   } catch {
@@ -60,7 +59,7 @@ unitRouter.get("/complex/:name", async (req, res) => {
     const unitsQuery = {
       $or: [{ "complex.name": stationName }, { "gatedCommunity.name": stationName }],
     };
-    const units = await unitSchema.find(unitsQuery);
+    const units = await unitSchema.find(unitsQuery).select({}).exec();
 
     if (units.length == 0) {
       res.status(404).json({ message: "No units found" });
@@ -84,7 +83,7 @@ unitRouter.patch("/:id", validateObjectId, async (req, res) => {
     $set: req.body as object,
   };
   try {
-    const updatedUnit = await unitSchema.findByIdAndUpdate(_id, unitQuery, { new: true });
+    const updatedUnit = await unitSchema.findByIdAndUpdate(_id, unitQuery, { new: true }).exec();
 
     if (!updatedUnit) {
       res.status(404).json({ message: "Unit not found" });
@@ -100,15 +99,13 @@ unitRouter.patch("/:id", validateObjectId, async (req, res) => {
 });
 
 unitRouter.get("/user/", async (req, res) => {
-  if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = ValidObjectId(req.get("id") as unknown as string);
+  const emailAddress = res.get('email');
 
   const unitQuery = {
-    "users._id": _id,
+    "users.emailAddress": emailAddress,
   };
   try {
-    const Unit = await unitSchema.findOne(_id, unitQuery, { new: true }).exec();
+    const Unit = await unitSchema.findOne(unitQuery).exec();
 
     if (!Unit) {
       res.status(404).json({ message: "Unit not found" });
@@ -128,7 +125,7 @@ unitRouter.delete("/:id", validateObjectId, async (req, res) => {
 
   const _id = req.params.id as ObjectId;
   try {
-    const deletedUnit = await unitSchema.findByIdAndDelete(_id);
+    const deletedUnit = await unitSchema.findByIdAndDelete(_id).exec();
 
     if (!deletedUnit) {
       res.status(404).json({ message: "Unit not found" });

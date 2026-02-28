@@ -304,7 +304,7 @@ complexRouter.get("/:id", validateObjectId, async (req: Request, res: Response) 
 
 complexRouter.get("/", async (req: Request, res: Response) => {
   try {
-    const complexes = await complexSchema.find({}).select("-unitParkingConfig");
+    const complexes = await complexSchema.find({}).select("-unitParkingConfig").exec();
 
     if (complexes.length === 0) {
       res.status(200).json([]);
@@ -324,7 +324,7 @@ complexRouter.patch("/:id", validateObjectId, async (req: Request, res: Response
 
   try {
     const patchBody = req.body as ComplexRequestBody;
-    const existingComplex = await complexSchema.findById(_id);
+    const existingComplex = await complexSchema.findById(_id).exec();
     if (existingComplex === null) {
       res.status(404).json({ message: "Complex does not exist!" });
       return;
@@ -371,7 +371,7 @@ complexRouter.patch("/:id", validateObjectId, async (req: Request, res: Response
       $set: patchBody as object,
     };
 
-    const updatedComplex = await complexSchema.findOneAndUpdate({ _id }, complexQuery, { new: true });
+    const updatedComplex = await complexSchema.findOneAndUpdate({ _id }, complexQuery, { new: true }).exec();
 
     if (updatedComplex === null) {
       res.status(404).json({ message: "Complex does not exist!" });
@@ -400,7 +400,7 @@ complexRouter.delete("/:id", validateObjectId, async (req: Request, res: Respons
   const _id = new ObjectId(getRouteId(req.params.id));
 
   try {
-    const deletedComplex = await complexSchema.findByIdAndDelete(_id);
+    const deletedComplex = await complexSchema.findByIdAndDelete(_id).exec();
 
     if (deletedComplex === null) {
       res.status(404).json({ message: "Complex does not exist!" });

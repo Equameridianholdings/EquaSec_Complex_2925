@@ -58,7 +58,7 @@ vehicleRouter.get("/user/", validateObjectId, async (req, res) => {
 
 vehicleRouter.post("/", checkSchema(vehicleBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
-    const user = await validateUser(req.get("id") as unknown as string);
+    const user = await validateUser(req.get("email") as unknown as string);
 
     if (!user) return res.status(401).json("Access Denied!");
 
@@ -84,7 +84,7 @@ vehicleRouter.patch("/:id", validateObjectId, async (req, res) => {
     $set: req.body as object,
   };
   try {
-    const updatedVehicle = await vehicleSchema.findByIdAndUpdate(new ObjectId(_id), vehicleQuery, { new: true });
+    const updatedVehicle = await vehicleSchema.findByIdAndUpdate(new ObjectId(_id), vehicleQuery, { new: true }).exec();
 
     if (updatedVehicle === null) {
       res.status(404).json({ message: "Vehicle does not exist!" });
@@ -105,7 +105,7 @@ vehicleRouter.delete("/:id", validateObjectId, async (req, res) => {
   const _id = req.params.id as ObjectId;
 
   try {
-    const deletedVehicle = await vehicleSchema.findByIdAndDelete(new ObjectId(_id));
+    const deletedVehicle = await vehicleSchema.findByIdAndDelete(new ObjectId(_id)).exec();
 
     if (deletedVehicle === null) {
       res.status(404).json({ message: "Vehicle does not exist!" });

@@ -1,8 +1,9 @@
 import incidentSchema from "#db/incidentSchema.js";
 import { incidentBodyValidation, incidentDTO } from "#interfaces/incidentDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
+import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import validateObjectId from "#utils/validateObjectId.js";
-import { Router } from "express";
+import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 
 const incidentRouter = Router();
@@ -11,7 +12,7 @@ incidentRouter.use(AuthMiddleware);
 
 incidentRouter.get("/", async (req, res) => {
   try {
-    const incidents = await incidentSchema.find({});
+    const incidents = await incidentSchema.find({}).select({}).exec();
 
     if (incidents.length === 0) {
       res.status(404).json({ message: "No incidents found!" });
@@ -35,7 +36,7 @@ incidentRouter.get("/:id", validateObjectId, async (req, res) => {
   };
 
   try {
-    const incidents = await incidentSchema.find(incidentQuery);
+    const incidents = await incidentSchema.find(incidentQuery).select({}).exec();
 
     if (incidents.length === 0) {
       res.status(404).json({ message: "No incidents found!" });
@@ -50,11 +51,7 @@ incidentRouter.get("/:id", validateObjectId, async (req, res) => {
   }
 });
 
-incidentRouter.post("/", async (req, res) => {
-  const validated = await incidentBodyValidation.run(req);
-
-  if (validated.length > 0) return res.status(400).json({ message: "Invalid details", payload: validated });
-
+incidentRouter.post("/", incidentBodyValidation, validateSchema, async (req: Request, res: Response) => {
   const incident = req.body as incidentDTO;
 
   try {
@@ -75,7 +72,7 @@ incidentRouter.delete("/:id", validateObjectId, async (req, res) => {
   const _id = req.params.id as ObjectId;
 
   try {
-    const deletedIncident = await incidentSchema.findByIdAndDelete(_id);
+    const deletedIncident = await incidentSchema.findByIdAndDelete(_id).exec();
 
     if (deletedIncident === null) {
       res.status(404).json({ message: "Incident does not exist!" });
