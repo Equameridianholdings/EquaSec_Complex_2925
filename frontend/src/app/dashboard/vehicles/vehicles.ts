@@ -14,7 +14,7 @@ export class Vehicles implements OnInit {
   unitVehicles: vehicleDTO[] = [];
 
   ngOnInit(): void {
-    this.service.get<ResponseBody>('vehicle/user').subscribe({
+    this.service.get<ResponseBody>('vehicle/user/').subscribe({
       next: (res) => {
         console.log(res.message);
         this.unitVehicles = res.payload as vehicleDTO[];

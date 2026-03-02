@@ -4,7 +4,6 @@ import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import validateObjectId from "#utils/validateObjectId.js";
 import validateUser from "#utils/validateUser.js";
-import { ValidObjectId } from "#utils/validObjectId.js";
 import { Router } from "express";
 import { Request, Response } from "express";
 import { checkSchema } from "express-validator/lib/middlewares/schema.js";
@@ -31,14 +30,12 @@ vehicleRouter.get("/", async (req, res) => {
   }
 });
 
-vehicleRouter.get("/user/", validateObjectId, async (req, res) => {
+vehicleRouter.get("/user/", async (req, res) => {
   try {
-    if (!req.get("id")) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-    const _id = ValidObjectId(req.get("id") as unknown as string);
+    const email = req.get("id");
 
     const vehicleQuery = {
-      "user._id": _id,
+      "user.emailAdress": email,
     };
 
     const vehicles = await vehicleSchema.find(vehicleQuery).select({}).exec();
