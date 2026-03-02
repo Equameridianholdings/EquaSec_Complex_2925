@@ -13,42 +13,65 @@
 
     <form class="modal-form" #bookingForm (ngSubmit)="openConfirmationModal()">
       <div class="form-row">
+        <div class="form-group" style="flex: 1 1 100%; margin-bottom: 1rem;">
+          <label for="residentSearch" style="font-weight: bold;">Resident/Tenant</label>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; position: relative;">
+            <input
+              id="residentSearch"
+              name="residentSearch"
+              type="text"
+              class="form-control"
+              style="margin-bottom: 0.5rem;"
+              placeholder="Search resident/tenant..."
+              [(ngModel)]="userSearch"
+              (input)="onUserSearchChange()"
+              (focus)="onUserSearchChange()"
+              autocomplete="off"
+              [readonly]="selectedUser"
+            />
+            <ul *ngIf="filteredUsers.length > 0 && !selectedUser" class="dropdown-list" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 10; background: #fff; border: 1px solid #ccc; max-height: 180px; overflow-y: auto; margin: 0; padding: 0; list-style: none;">
+              <li *ngFor="let user of filteredUsers" (click)="selectUser(user)" style="padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #eee;" [attr.tabindex]="0">
+                {{ user | safeUserName }}
+              </li>
+            </ul>
+            <div *ngIf="selectedUser" style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-weight: 500;">Selected:</span>
+              <span>{{ selectedUser | safeUserName }}</span>
+              <button type="button" class="btn-icon" (click)="selectedUser = null; userSearch = ''; filteredUsers = users;" style="margin-left: 0.5rem;">✕</button>
+            </div>
+            <small *ngIf="!selectedUser && bookingForm['submitted']" class="error">Please select a resident/tenant.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
         <div class="form-group">
-          <label for="visitorName">Name</label>
+          <label for="visitorName">Visitor Name</label>
           <input
             id="visitorName"
             name="visitorName"
             type="text"
             class="form-control"
-            placeholder="Visitor name"
+            placeholder="Enter visitor's name"
             [(ngModel)]="newVisitor.name"
             required
-            #visitorNameInput
           />
-          @if (visitorNameInput.classList.contains('touched') && !visitorNameInput.validity.valid) {
-            <small class="error">Name is required.</small>
-          }
         </div>
+      </div>
+      <div class="form-row">
         <div class="form-group">
-          <label for="visitorSurname">Surname</label>
+          <label for="visitorSurname">Visitor Surname</label>
           <input
             id="visitorSurname"
             name="visitorSurname"
             type="text"
             class="form-control"
-            placeholder="Visitor surname"
+            placeholder="Enter visitor's surname"
             [(ngModel)]="newVisitor.surname"
             required
-            #visitorSurnameInput
           />
-          @if (
-            visitorSurnameInput.classList.contains('touched') && !visitorSurnameInput.validity.valid
-          ) {
-            <small class="error">Surname is required.</small>
-          }
         </div>
       </div>
-
       <div class="form-row">
         <div class="form-group">
           <label for="visitorCell">Cellphone</label>
@@ -65,6 +88,7 @@
             required
             #visitorCellInput
           />
+        </div>
           @if (
             visitorCellInput.classList.contains('touched') && visitorCellInput.validity.valueMissing
           ) {
@@ -77,7 +101,7 @@
             <small class="error">Must start with 0 and be 10 digits.</small>
           }
         </div>
-      </div>
+      
 
       <div class="form-row">
         <div class="form-group">
