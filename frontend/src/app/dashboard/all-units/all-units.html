@@ -6,9 +6,9 @@
   <div class="info-subsection">
     <h4>Residents in This Unit</h4>
 
-    @if (unit.users.length > 0) {
+    @if (unit().users.length > 0) {
       <div class="resident-list">
-        @for (resident of unit.users; track $index) {
+        @for (resident of unit().users; track $index) {
           <div class="resident-card">
             <div class="resident-info">
               <div class="resident-name">

@@ -112,14 +112,14 @@ guardHistoryRouter.post(
 
       const requestBody = req.body as ShiftStationRequestBody;
 
-      console.log("[GuardHistory][start] request", {
-        emailAddress,
-        selectedComplex: requestBody.selectedComplex,
-        selectedGatedCommunity: requestBody.selectedGatedCommunity,
-        stationName: requestBody.stationName,
-        stationType: requestBody.stationType,
-        userId: toObjectIdString(user._id),
-      });
+      // console.log("[GuardHistory][start] request", {
+      //   emailAddress,
+      //   selectedComplex: requestBody.selectedComplex,
+      //   selectedGatedCommunity: requestBody.selectedGatedCommunity,
+      //   stationName: requestBody.stationName,
+      //   stationType: requestBody.stationType,
+      //   userId: toObjectIdString(user._id),
+      // });
 
       const stationType = requestBody.stationType ?? "";
       const stationName = (requestBody.stationName ?? "").trim();
@@ -156,11 +156,11 @@ guardHistoryRouter.post(
 
         const updatedShift = await existingActiveShift.save();
 
-        console.log("[GuardHistory][start] reusedActiveShift", {
-          shiftId: toObjectIdString(updatedShift._id),
-          startShift: updatedShift.startShift,
-          station: updatedShift.station,
-        });
+        // console.log("[GuardHistory][start] reusedActiveShift", {
+        //   shiftId: toObjectIdString(updatedShift._id),
+        //   startShift: updatedShift.startShift,
+        //   station: updatedShift.station,
+        // });
 
         return res.status(200).json({
           message: "Active shift reused and station updated",
@@ -185,11 +185,11 @@ guardHistoryRouter.post(
 
       const guardHistory = await guardHistorySchema.create(payload);
 
-      console.log("[GuardHistory][start] created", {
-        shiftId: toObjectIdString(guardHistory._id),
-        startShift: guardHistory.startShift,
-        station: guardHistory.station,
-      });
+      // console.log("[GuardHistory][start] created", {
+      //   shiftId: toObjectIdString(guardHistory._id),
+      //   startShift: guardHistory.startShift,
+      //   station: guardHistory.station,
+      // });
 
       return res.status(201).json({
         message: "Guard shift history saved",
@@ -249,14 +249,14 @@ guardHistoryRouter.patch(
 
       const requestBody = req.body as ShiftStationRequestBody;
 
-      console.log("[GuardHistory][active/station] request", {
-        emailAddress,
-        selectedComplex: requestBody.selectedComplex,
-        selectedGatedCommunity: requestBody.selectedGatedCommunity,
-        stationName: requestBody.stationName,
-        stationType: requestBody.stationType,
-        userId: toObjectIdString(user._id),
-      });
+      // console.log("[GuardHistory][active/station] request", {
+      //   emailAddress,
+      //   selectedComplex: requestBody.selectedComplex,
+      //   selectedGatedCommunity: requestBody.selectedGatedCommunity,
+      //   stationName: requestBody.stationName,
+      //   stationType: requestBody.stationType,
+      //   userId: toObjectIdString(user._id),
+      // });
 
       const stationType = requestBody.stationType ?? "";
       const stationName = (requestBody.stationName ?? "").trim();
@@ -284,11 +284,11 @@ guardHistoryRouter.patch(
         })
         .sort({ startShift: -1 });
 
-      console.log("[GuardHistory][active/station] activeShiftLookup", {
-        effectiveCutoff,
-        foundShiftId: String(activeShift?._id ?? ""),
-        foundShiftStart: activeShift?.startShift,
-      });
+      // console.log("[GuardHistory][active/station] activeShiftLookup", {
+      //   effectiveCutoff,
+      //   foundShiftId: String(activeShift?._id ?? ""),
+      //   foundShiftStart: activeShift?.startShift,
+      // });
 
       if (!activeShift) {
         return res.status(404).json({ message: "No active shift found to update" });
@@ -303,10 +303,10 @@ guardHistoryRouter.patch(
 
       const updatedShift = await activeShift.save();
 
-      console.log("[GuardHistory][active/station] updated", {
-        shiftId: toObjectIdString(updatedShift._id),
-        station: updatedShift.station,
-      });
+      // console.log("[GuardHistory][active/station] updated", {
+      //   shiftId: toObjectIdString(updatedShift._id),
+      //   station: updatedShift.station,
+      // });
 
       return res.status(200).json({
         message: "Active shift station updated",
@@ -334,11 +334,11 @@ guardHistoryRouter.get("/active", async (req: Request, res: Response) => {
 
     const effectiveCutoff = getEffectiveCutoffDate();
 
-    console.log("[GuardHistory][active] lookup", {
-      effectiveCutoff,
-      emailAddress,
-      userId: toObjectIdString(user._id),
-    });
+    // console.log("[GuardHistory][active] lookup", {
+    //   effectiveCutoff,
+    //   emailAddress,
+    //   userId: toObjectIdString(user._id),
+    // });
 
     const activeShift = await guardHistorySchema
       .findOne({
@@ -349,11 +349,11 @@ guardHistoryRouter.get("/active", async (req: Request, res: Response) => {
       .sort({ startShift: -1 })
       .lean();
 
-    console.log("[GuardHistory][active] result", {
-      foundShiftId: String(activeShift?._id ?? ""),
-      foundShiftStart: activeShift?.startShift,
-      station: activeShift?.station,
-    });
+    // console.log("[GuardHistory][active] result", {
+    //   foundShiftId: String(activeShift?._id ?? ""),
+    //   foundShiftStart: activeShift?.startShift,
+    //   station: activeShift?.station,
+    // });
 
     if (!activeShift) {
       return res.status(200).json({ payload: null });

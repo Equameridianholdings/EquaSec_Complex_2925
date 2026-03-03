@@ -6,9 +6,9 @@
   <div class="info-subsection">
     <h4>Registered Vehicles</h4>
 
-    @if (unitVehicles.length > 0) {
+    @if (unitVehicles().length > 0) {
       <div class="vehicle-list">
-        @for (vehicle of unitVehicles; track $index) {
+        @for (vehicle of unitVehicles(); track $index) {
           <div class="vehicle-card">
             <div class="vehicle-info">
               <div class="vehicle-header">
@@ -16,7 +16,7 @@
                 <span class="vehicle-details">{{ vehicle.make }} {{ vehicle.model }}</span>
               </div>
               <div class="vehicle-meta">
-                <small>Color: {{ vehicle.colour }}</small>
+                <small>Color: {{ vehicle.color }}</small>
                 <small>Owner: {{ vehicle.user?.name }}</small>
               </div>
             </div>

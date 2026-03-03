@@ -1,10 +1,12 @@
 import unitSchema from "#db/unitSchema.js";
+import userSchema from "#db/userSchema.js";
 import { unitBodyValidation, unitDTO } from "#interfaces/unitDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import validateObjectId from "#utils/validateObjectId.js";
 import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
+import { isValidObjectId } from "mongoose";
 
 const unitRouter = Router();
 
@@ -99,17 +101,33 @@ unitRouter.patch("/:id", validateObjectId, async (req, res) => {
 });
 
 unitRouter.get("/user/", async (req, res) => {
-  const emailAddress = res.get('email');
+  const emailAddress = res.get("email");
 
-  const unitQuery = {
-    "users.emailAddress": emailAddress,
+  const userQuery = {
+    emailAddress: emailAddress,
   };
   try {
+    const user = await userSchema.findOne(userQuery).exec();
+
+    if (!user) {
+      res.status(404).json({ message: "Unit not found" });
+      return;
+    }
+    
+    const unitQuery = {
+      "users": user._id.toString(),
+    };
+
     const Unit = await unitSchema.findOne(unitQuery).exec();
 
     if (!Unit) {
       res.status(404).json({ message: "Unit not found" });
       return;
+    }
+
+    for (let i = 0; i < Unit.users.length; i++) {
+      if (isValidObjectId(Unit.users[i]))
+        Unit.users[i] = await userSchema.findOne({_id: new ObjectId(Unit.users[i] as string)});
     }
 
     res.status(200).json({ message: "Unit successfully found!", payload: Unit });

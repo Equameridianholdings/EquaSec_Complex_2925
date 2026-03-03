@@ -18,11 +18,11 @@ vehicleRouter.get("/", async (req, res) => {
     const vehicles = await vehicleSchema.find({});
 
     if (vehicles.length === 0) {
-      res.status(200).json([]);
+      res.status(200).json({message: "No vehichles found", payload: []});
       return;
     }
 
-    res.status(200).json(vehicles);
+    res.status(200).json({message: "Successfully loaded vehichles", payload: vehicles});
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error" });
@@ -32,7 +32,7 @@ vehicleRouter.get("/", async (req, res) => {
 
 vehicleRouter.get("/user/", async (req, res) => {
   try {
-    const email = req.get("id");
+    const email = req.get("email");
 
     const vehicleQuery = {
       "user.emailAdress": email,
@@ -41,11 +41,11 @@ vehicleRouter.get("/user/", async (req, res) => {
     const vehicles = await vehicleSchema.find(vehicleQuery).select({}).exec();
 
     if (vehicles.length === 0) {
-      res.status(200).json([]);
+      res.status(404).json({message: "No vehichles found", payload: []});
       return;
     }
 
-    res.status(200).json(vehicles);
+    res.status(200).json({message: "Successfully loaded vehichles", payload: vehicles});
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error" });

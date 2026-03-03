@@ -4,7 +4,7 @@ import { UserDTO } from "./userDTO.js";
 
 export interface vehicleDTO {
     _id?: string;
-    colour: string;
+    color: string;
     make: string;
     model: string;
     registrationNumber: string;

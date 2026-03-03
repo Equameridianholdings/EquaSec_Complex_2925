@@ -4,7 +4,7 @@ import { UserDTO } from "./userDTO.js";
 
 export interface unitDTO {
   _id?: string;
-  complex: complexDTO;
+  complex?: complexDTO;
   gatedCommunity?: gatedCommunityDTO;
   number: number;
   numberOfParkingBays: number;

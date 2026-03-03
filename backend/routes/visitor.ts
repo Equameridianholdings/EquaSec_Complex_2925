@@ -28,8 +28,8 @@ visitorRouter.get("/security/", validateObjectId, async (req, res) => {
   try {
     //load visitors based on security guard => complex specific visitors
     const security = await userSchema.findById<UserDTO>(_id);
-    console.log('[GET /visitor/security] Guard ID:', guardId);
-    console.log('[GET /visitor/security] Security user:', security);
+    // console.log('[GET /visitor/security] Guard ID:', guardId);
+    // console.log('[GET /visitor/security] Security user:', security);
 
     if (security == null) {
       console.log('[GET /visitor/security] Security company not found for ID:', guardId);
@@ -92,8 +92,8 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
     const loggedInUser: UserDTO = (await userSchema.findOne({ emailAddress: res.get("email") }).exec()) as unknown as UserDTO;
 
     // Logging incoming request for debugging
-    console.log('[POST /visitor] Incoming body:', req.body);
-    console.log('[POST /visitor] Logged-in user:', loggedInUser);
+    // console.log('[POST /visitor] Incoming body:', req.body);
+    // console.log('[POST /visitor] Logged-in user:', loggedInUser);
 
     // Use req.body.user if present (guard booking for resident), else use logged-in user (tenant self-booking)
     let userToAssign = req.body.user ? req.body.user : loggedInUser;

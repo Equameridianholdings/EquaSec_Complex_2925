@@ -121,7 +121,7 @@ residentSearch: any;
 
   visitorIdNumber: string = '' //Encryption still in dev
   newVehicle: vehicleDTO = {
-    colour: '',
+    color: '',
     make: '',
     model: '',
     registrationNumber: ''
@@ -137,7 +137,7 @@ residentSearch: any;
       make: '',
       model: '',
       registrationNumber: '',
-      colour: ''
+      color: ''
     },
   };
 
