@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, ElementRef, inject, OnDestroy, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UserDTO } from '../../interfaces/userDTO';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -13,17 +13,135 @@ export class ChangeDp {
   dialogRef = inject(MatDialogRef<ChangeDp>);
   user: UserDTO = inject(MAT_DIALOG_DATA);
 
+  @ViewChild('profileCameraVideo')
+  private readonly profileCameraVideo?: ElementRef<HTMLVideoElement>;
+  @ViewChild('profileCameraCanvas')
+  private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
+
   profilePhotoData: string = '';
   cameraError: string = '';
-  hasCameraStream: boolean = true;
+  hasCameraStream: boolean = false;
+  private profileCameraStream: MediaStream | null = null;
 
   closeModal() {
+    this.stopProfileCamera();
     this.dialogRef.close();
   }
 
-  captureProfilePhoto() {}
+  private async waitForProfileCameraVideo(maxAttempts = 12, delayMs = 50): Promise<HTMLVideoElement | null> {
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const video = this.profileCameraVideo?.nativeElement;
+      if (video) {
+        return video;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+    }
+    return null;
+  }
 
-  startProfileCamera() {}
+  private async requestCameraStream(): Promise<MediaStream> {
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false,
+      });
+    } catch {
+      return await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+    }
+  }
 
-  retakeProfilePhoto() {}
+  captureProfilePhoto() {
+    const video = this.profileCameraVideo?.nativeElement;
+    const canvas = this.profileCameraCanvas?.nativeElement;
+    if (!video || !canvas) {
+      return;
+    }
+
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return;
+    }
+
+    context.drawImage(video, 0, 0, width, height);
+    this.profilePhotoData = canvas.toDataURL('image/jpeg', 0.9);
+    this.stopProfileCamera();
+  }
+
+  async startProfileCamera() {
+    this.cameraError = '';
+    this.profilePhotoData = '';
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        this.cameraError = 'Camera is not supported in this browser.';
+        this.hasCameraStream = false;
+        return;
+      }
+
+      const video = await this.waitForProfileCameraVideo();
+      if (!video) {
+        this.cameraError = 'Camera preview is not ready. Please try again.';
+        this.hasCameraStream = false;
+        return;
+      }
+
+      this.profileCameraStream?.getTracks().forEach((track) => track.stop());
+      this.profileCameraStream = await this.requestCameraStream();
+
+      const videoTrack = this.profileCameraStream.getVideoTracks()[0];
+      if (!videoTrack || videoTrack.readyState !== 'live') {
+        throw new Error('No active camera track');
+      }
+
+      video.srcObject = this.profileCameraStream;
+      await new Promise<void>((resolve) => {
+        if (video.readyState >= 1) {
+          resolve();
+          return;
+        }
+        const onLoadedMetadata = () => {
+          video.removeEventListener('loadedmetadata', onLoadedMetadata);
+          resolve();
+        };
+        video.addEventListener('loadedmetadata', onLoadedMetadata);
+      });
+
+      await video.play();
+      this.hasCameraStream = true;
+    } catch {
+      this.cameraError = 'Unable to access the camera. Please allow camera permissions.';
+      this.stopProfileCamera();
+    }
+  }
+
+  retakeProfilePhoto() {
+    void this.startProfileCamera();
+  }
+
+  useCapturedProfilePhoto(): void {
+    this.stopProfileCamera();
+    this.dialogRef.close(this.profilePhotoData || null);
+  }
+
+  private stopProfileCamera(): void {
+    this.profileCameraStream?.getTracks().forEach((track) => track.stop());
+    this.profileCameraStream = null;
+    this.hasCameraStream = false;
+    const video = this.profileCameraVideo?.nativeElement;
+    if (video) {
+      video.srcObject = null;
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.stopProfileCamera();
+  }
 }

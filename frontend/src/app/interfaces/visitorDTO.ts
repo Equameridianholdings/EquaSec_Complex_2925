@@ -15,10 +15,14 @@ export interface visitorDTO {
   vehicle?: vehicleDTO;
 }
 
+const getVisitorInviteMessage = (visitor: visitorDTO): string => {
+  const pin = String(visitor.code ?? '').trim() || 'N/A';
+
+  return `Dear Visitor, your access PIN is ${pin}. This PIN expires in 24 hours. Thank you. Estate Management.`;
+};
+
 export const shareCode = (visitor: visitorDTO) => {
-  const message = encodeURIComponent(
-    `Your visitor access code is: ${visitor.code}\n\nVisitor: ${visitor.name}\nExpires: ${getHours(visitor)}\n\nPlease share this with your visitor.`,
-  );
+  const message = encodeURIComponent(getVisitorInviteMessage(visitor));
   const whatsappURL = `https://wa.me/?text=${message}`;
   window.open(whatsappURL, '_blank');
 };

@@ -44,14 +44,30 @@ export class UpdateProfile implements OnInit {
 
   openChangePinModal() {
     this.dialog.open(ChangePin, {
-      data: this.user,
+      data: this.user(),
     });
   }
 
   openChangeDPModal() {
-    this.dialog.open(ChangeDp, {
-      data: this.user,
-    });
+    this.dialog
+      .open(ChangeDp, {
+        data: this.user(),
+      })
+      .afterClosed()
+      .subscribe((photoData: string | null | undefined) => {
+        if (!photoData) {
+          return;
+        }
+        const current = this.user();
+        this.user.set({
+          ...current,
+          profilePhoto: photoData,
+        });
+        this.updatedUser = {
+          ...this.updatedUser,
+          profilePhoto: photoData,
+        };
+      });
   }
 
   closeModal() {

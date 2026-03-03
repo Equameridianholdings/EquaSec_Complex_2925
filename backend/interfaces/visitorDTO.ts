@@ -6,6 +6,8 @@ import { vehicleDTO } from "./vehicleDTO.js";
 export interface visitorDTO {
   _id?: string;
   access: boolean;
+  arrivedAt?: Date;
+  bookedAt?: Date;
   code?: number;
   contact: string;
   driving: boolean;

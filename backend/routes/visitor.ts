@@ -105,12 +105,15 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
       }
     }
 
+    const isSecurityBooking = Boolean(req.body?.user);
+
     const visitor: visitorDTO = {
       ...(req.body as visitorDTO),
       code: Code_Generator(),
       expiry: new Date(new Date().setHours(new Date().getHours() + 24)),
       user: userToAssign,
-      validity: true,
+      validity: isSecurityBooking ? false : true,
+      bookedAt: new Date(),
       vehicle: req.body.vehicle
         ? {
             color: req.body.vehicle.color || '',
@@ -139,6 +142,7 @@ visitorRouter.patch("/grant/:id/:access", async (req, res) => {
     const { access, id } = req.params;
 
     const visitor: visitorDTO = req.body as visitorDTO;
+    const visitorId = String((visitor as any)?._id ?? (visitor as any)?.id ?? '').trim();
 
     if (visitor.expiry && visitor.expiry < new Date()) {
       res.status(400).json({ message: "Bad Request! Visitation expired." });
@@ -159,13 +163,36 @@ visitorRouter.patch("/grant/:id/:access", async (req, res) => {
       return;
     }
 
-    visitor.validity = access === "true" ? true : false;
-    visitor.access = visitor.validity ? true : false;
+    const nextValidity = false;
+    const nextAccess = true;
 
-    const log = new logSchema({ date: new Date(), guard: security, visitor: visitor });
+    visitor.validity = nextValidity;
+    visitor.access = nextAccess;
+
+    let persistedVisitor: visitorDTO | null = null;
+    if (visitorId && isValidObjectId(visitorId)) {
+      const updatePayload = {
+        validity: nextValidity,
+        access: nextAccess,
+        arrivedAt: new Date(),
+      };
+
+      persistedVisitor = await visitorShema.findByIdAndUpdate<visitorDTO>(
+        new ObjectId(visitorId),
+        updatePayload,
+        { new: true }
+      ).exec();
+    }
+
+    if (!persistedVisitor) {
+      res.status(404).json({ message: "Visitor not found!" });
+      return;
+    }
+
+    const log = new logSchema({ date: new Date(), guard: security, visitor: persistedVisitor });
     await log.save();
 
-    res.status(200).json({ message: "Access Granted!", payload: visitor });
+    res.status(200).json({ message: "Access Granted!", payload: persistedVisitor });
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error!" });

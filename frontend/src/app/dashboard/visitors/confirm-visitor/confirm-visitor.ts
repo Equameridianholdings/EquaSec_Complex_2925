@@ -1,6 +1,6 @@
 import { Component, inject, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { shareCode, visitorDTO } from '../../../interfaces/visitorDTO';
+import { visitorDTO } from '../../../interfaces/visitorDTO';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { DataService } from '../../../services/data.service';
 import { ResponseBody } from '../../../interfaces/ResponseBody';
@@ -22,10 +22,6 @@ export class ConfirmVisitor {
 
   closeModal() {
     this.dialogRef.close();
-  }
-
-  shareVisitorCode() {
-    shareCode(this.visitor);
   }
 
   confirmBooking() {
