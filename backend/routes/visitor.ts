@@ -96,11 +96,11 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
     // console.log('[POST /visitor] Logged-in user:', loggedInUser);
 
     // Use req.body.user if present (guard booking for resident), else use logged-in user (tenant self-booking)
-    let userToAssign = req.body.user ? req.body.user : loggedInUser;
+    const userToAssign = req.body.user ? req.body.user : loggedInUser;
 
     // Ensure user.unit.complex is set to the correct complex name
-    if (userToAssign && userToAssign.unit) {
-      if (!userToAssign.unit.complex && userToAssign.complex && userToAssign.complex.name) {
+    if (userToAssign?.unit) {
+      if (!userToAssign.unit.complex && userToAssign.complex?.name) {
         userToAssign.unit.complex = userToAssign.complex.name;
       }
     }
@@ -113,9 +113,9 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
       validity: true,
       vehicle: req.body.vehicle
         ? {
+            color: req.body.vehicle.color || '',
             makeModel: req.body.vehicle.makeModel || '',
             registration: req.body.vehicle.registration || '',
-            color: req.body.vehicle.color || '',
           }
         : undefined,
     };
