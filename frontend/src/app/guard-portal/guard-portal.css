@@ -939,23 +939,27 @@
 .modal-backdrop {
 	position: fixed;
 	inset: 0;
-	background: rgba(30, 58, 95, 0.4);
-	display: flex;
-	align-items: center;
-	justify-content: center;
+	background: rgba(30, 58, 95, 0.7);
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
 	padding: 20px;
-	z-index: 1000;
+	z-index: 9999 !important;
+	border: 5px solid red !important;
+	opacity: 1 !important;
 }
 
 .modal {
 	width: min(560px, 100%);
-	background: #ffffff;
-	border: 2px solid #1e3a5f;
+	background: #fff !important;
+	border: 5px solid green !important;
 	border-radius: 12px;
 	padding: 0;
 	box-shadow: 0 20px 60px rgba(30, 58, 95, 0.2), 0 0 1px rgba(30, 58, 95, 0.1);
 	max-height: min(72vh, 600px);
 	overflow: auto;
+	z-index: 10000 !important;
+	opacity: 1 !important;
 }
 
 .modal-header {

@@ -287,8 +287,8 @@
               <span class="pill">{{ formatResidenceBadge(vehicle.unit) }}</span>
             </div>
             <p><strong>Owner:</strong> {{ vehicle.owner }}</p>
-            <p><strong>Registration:</strong> {{ vehicle.regNumber }}</p>
-            <p><strong>Colour:</strong> {{ vehicle.color }}</p>
+            <p><strong>Registration:</strong> {{ vehicle.regNumber || '-' }}</p>
+            <p><strong>Colour:</strong> {{ vehicle.color || '-' }}</p>
           </article>
         </div>
         <ng-template #noRegistered>
@@ -390,7 +390,7 @@
 </div>
 
 <!-- Profile Photo Camera Modal -->
-<div class="modal-backdrop" *ngIf="isPhotoCameraModalOpen" (click)="closeProfilePhotoModal()">
+<div class="modal-backdrop" *ngIf="isPhotoCameraModalOpen">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="camera-title" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h2 id="camera-title">Capture Profile Photo</h2>
@@ -399,7 +399,7 @@
 
     <div class="modal-body">
       <div class="camera-card">
-        <video #profileCameraVideo class="camera-video" autoplay playsinline muted></video>
+        <video #profileCameraVideo class="camera-video" autoplay playsinline muted style="display:block;background:#000;z-index:10001;"></video>
         <canvas #profileCameraCanvas class="camera-canvas"></canvas>
         <img *ngIf="guardPhotoData" [src]="guardPhotoData" alt="Profile preview" class="camera-preview">
       </div>

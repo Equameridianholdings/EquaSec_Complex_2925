@@ -206,32 +206,44 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   // Helper: filter registered vehicles by reg search
   protected get filteredRegisteredVehiclesByReg() {
-    const regQuery = this.filtersForm.searchReg.trim().toLowerCase();
-    let vehicles = this.vehicles;
-    if (regQuery) {
-      vehicles = vehicles.filter(v => (v.regNumber || '').toLowerCase().includes(regQuery));
-    }
-    return vehicles.map(v => ({ ...v, isVisitor: false }));
+      let regQuery = (this.filtersForm.searchReg || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+      let vehicles = this.vehicles;
+      let filtered = vehicles;
+      if (regQuery) {
+        filtered = vehicles.filter(v => {
+          let regValue = (v.regNumber || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+          return regValue.includes(regQuery);
+        });
+        // DEBUG: If no vehicles match, show all vehicles to help diagnose
+        if (filtered.length === 0 && vehicles.length > 0) {
+          return vehicles.map(v => ({ ...v, isVisitor: false, debug: true }));
+        }
+      }
+      return filtered.map(v => ({ ...v, isVisitor: false }));
   }
 
   // Helper: filter visitor vehicles (from active codes) by reg search
   protected get filteredVisitorVehiclesByReg() {
-    const regQuery = this.filtersForm.searchReg.trim().toLowerCase();
-    return (Array.isArray(this.activeCodes) ? this.activeCodes : [])
-      .filter(code => code.isDriving && code.vehicle && code.vehicle.registration)
-      .filter(code => (code.vehicle.registration || '').toLowerCase().includes(regQuery))
-      .map(code => ({
-        make: code.vehicle?.makeModel?.split(' ')[0] || '',
-        model: code.vehicle?.makeModel?.split(' ').slice(1).join(' ') || '',
-        regNumber: code.vehicle?.registration || '',
-        color: code.vehicle?.color || '',
-        unit: code.unit || '',
-        houseNumber: code.houseNumber || '',
-        owner: code.visitorName || '',
-        complexId: code.complexId || '',
-        gatedCommunityId: code.gatedCommunityId || '',
-        isVisitor: true
-      }));
+      const regQuery = (this.filtersForm.searchReg || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+      return (Array.isArray(this.activeCodes) ? this.activeCodes : [])
+        .filter(code => code.isDriving && code.vehicle)
+        .filter(code => {
+          // Normalize and check multiple possible registration properties
+          let regValue = (code.vehicle.registration || code.vehicle.regNumber || code.vehicle.reg || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+          return regValue.includes(regQuery);
+        })
+        .map(code => ({
+          make: code.vehicle?.makeModel?.split(' ')[0] || code.vehicle?.make || '',
+          model: code.vehicle?.makeModel?.split(' ').slice(1).join(' ') || code.vehicle?.model || '',
+          regNumber: code.vehicle?.registration || code.vehicle?.regNumber || code.vehicle?.reg || '',
+          color: code.vehicle?.color || '',
+          unit: code.unit || '',
+          houseNumber: code.houseNumber || '',
+          owner: code.visitorName || '',
+          complexId: code.complexId || '',
+          gatedCommunityId: code.gatedCommunityId || '',
+          isVisitor: true
+        }));
   }
 
   // Helper: filter residents by unit search
@@ -835,25 +847,33 @@ export class GuardPortal implements OnInit, OnDestroy {
 
         const filteredVisitors = this.visitorList.filter((visitor: { access?: boolean; validity?: boolean; }) => visitor.access === true || visitor.validity === true);
         this.activeCodes = filteredVisitors
-          .map((visitor: { code: any; name: any; surname: any; user: { name: any; surname: any; unit: any; houseNumber: any; complexId: unknown; gatedCommunityId: unknown; }; contact: any; expiry: unknown; driving: any; vehicle: { make: any; model: any; registerationNumber: any; registration: any; color: any; }; }) => ({
-            code: String(visitor.code ?? ''),
-            visitorName: `${visitor.name ?? ''} ${visitor.surname ?? ''}`.trim(),
-            tenantName: `${visitor.user?.name ?? ''} ${visitor.user?.surname ?? ''}`.trim(),
-            cellphone: visitor.contact ?? '',
-            unit: visitor.user?.unit ?? '',
-            houseNumber: visitor.user?.houseNumber ?? '',
-            expires: this.formatExpiryLabel(visitor.expiry),
-            isDriving: Boolean(visitor.driving),
-            complexId: this.normalizeStationId(visitor.user?.complexId),
-            gatedCommunityId: this.normalizeStationId(visitor.user?.gatedCommunityId),
-            vehicle: visitor.vehicle
-              ? {
-                  makeModel: `${visitor.vehicle.make ?? ''} ${visitor.vehicle.model ?? ''}`.trim(),
-                  registration: visitor.vehicle.registerationNumber ?? visitor.vehicle.registration ?? '',
-                  color: visitor.vehicle.color ?? '',
-                }
-              : undefined,
-          }))
+          .map((visitor: any) => {
+            // Map backend vehicle fields to frontend fields
+            let mappedVehicle = undefined;
+            if (visitor.vehicle) {
+              mappedVehicle = {
+                makeModel: `${visitor.vehicle.make ?? ''} ${visitor.vehicle.model ?? ''}`.trim(),
+                registration: visitor.vehicle.registrationNumber ?? visitor.vehicle.registerationNumber ?? visitor.vehicle.registration ?? '',
+                color: visitor.vehicle.colour ?? visitor.vehicle.color ?? '',
+                make: visitor.vehicle.make ?? '',
+                model: visitor.vehicle.model ?? '',
+                regNumber: visitor.vehicle.registrationNumber ?? visitor.vehicle.registerationNumber ?? visitor.vehicle.registration ?? '',
+              };
+            }
+            return {
+              code: String(visitor.code ?? ''),
+              visitorName: `${visitor.name ?? ''} ${visitor.surname ?? ''}`.trim(),
+              tenantName: `${visitor.user?.name ?? ''} ${visitor.user?.surname ?? ''}`.trim(),
+              cellphone: visitor.contact ?? '',
+              unit: visitor.user?.unit ?? '',
+              houseNumber: visitor.user?.houseNumber ?? '',
+              expires: this.formatExpiryLabel(visitor.expiry),
+              isDriving: Boolean(visitor.driving),
+              complexId: this.normalizeStationId(visitor.user?.complexId),
+              gatedCommunityId: this.normalizeStationId(visitor.user?.gatedCommunityId),
+              vehicle: mappedVehicle,
+            };
+          })
           .filter((visitorCode: { complexId: any; gatedCommunityId: any; }) => {
             if (!hasAssignments) {
               return false;
@@ -2246,9 +2266,9 @@ protected get filteredVisitorsForUnit() {
 
   protected triggerCameraInput(): void {
     this.isPhotoCameraModalOpen = true;
-    setTimeout(() => {
-      void this.startProfileCamera();
-    }, 100);
+    console.log('DEBUG: Camera modal opened');
+    this.cdr.detectChanges();
+    void this.startProfileCamera();
   }
 
   protected onPhotoCapture(event: Event): void {
@@ -2268,23 +2288,34 @@ protected get filteredVisitorsForUnit() {
     this.guardPhotoData = '';
 
     try {
+      // Stop any previous stream
       this.profileCameraStream?.getTracks().forEach((track) => track.stop());
       this.profileCameraStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
         audio: false,
       });
 
-      const video = this.profileCameraVideo?.nativeElement;
-      if (video) {
-        video.srcObject = this.profileCameraStream;
-        await video.play();
-      }
-      this.hasCameraStream = true;
+      // Delay stream attachment to ensure video element exists
+      setTimeout(() => {
+        const video = this.profileCameraVideo?.nativeElement;
+        if (video) {
+          video.srcObject = this.profileCameraStream;
+          video.style.display = 'block';
+          video.style.background = '#000';
+          video.style.zIndex = '10001';
+          video.play();
+          console.log('DEBUG: Camera stream attached to video element');
+        } else {
+          this.cameraError = 'Camera video element not found.';
+        }
+        this.hasCameraStream = true;
+      }, 200);
     } catch (error) {
       this.cameraError = 'Unable to access the camera. Please allow camera permissions.';
       this.profileCameraStream?.getTracks().forEach((track) => track.stop());
       this.profileCameraStream = null;
       this.hasCameraStream = false;
+      console.error('DEBUG: Camera error', error);
     }
   }
 
