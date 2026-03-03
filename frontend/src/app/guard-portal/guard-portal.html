@@ -114,77 +114,70 @@
     </div>
   </section>
 
-  <section class="codes-section" *ngIf="showCodes && !searchReg">
-    <div class="section-title">
-      <div>
-        <h2>Active Visitor Codes</h2>
-        <span class="helper">Verify visitor details before granting access.</span>
+  <ng-template #visitorCodesSection>
+    <section class="codes-section" *ngIf="showCodes">
+      <div class="section-title">
+        <div>
+          <h2>Active Visitor Codes</h2>
+          <span class="helper">Verify visitor details before granting access.</span>
+        </div>
+        <div class="search-helper">
+          <span class="helper">Filtered by the search above.</span>
+        </div>
       </div>
-      <div class="search-helper">
-        <span class="helper">Filtered by the search above.</span>
-      </div>
-    </div>
-    <div class="code-grid">
-      <ng-container *ngIf="filteredCodes && filteredCodes.length > 0; else emptyState">
-        <article class="code-card" *ngFor="let code of filteredCodes">
-          <div class="code-header">
-            <div>
-              <span class="code-label">Access Code</span>
-              <h3>{{ code.code }}</h3>
-            </div>
-            <span class="badge" [class.driving]="code.isDriving" [class.walking]="!code.isDriving">
-              {{ code.isDriving ? 'Driving' : 'Walking' }}
-            </span>
-          </div>
-          <div class="code-body">
-            <div class="detail">
-              <span>Visitor</span>
-              <strong>{{ code.visitorName }}</strong>
-            </div>
-            <div class="detail">
-              <span>Tenant</span>
-              <strong>{{ code.tenantName }}</strong>
-            </div>
-            <div class="detail">
-              <span>Tenant Number</span>
-              <strong>{{ code.cellphone }}</strong>
-            </div>
-            <div class="detail">
-              <span>{{ residenceSearchLabel }}</span>
-              <strong>{{ formatResidenceValue(code.unit) }}</strong>
-            </div>
-            <div class="detail">
-              <span>Expires</span>
-              <strong>{{ code.expires }}</strong>
-            </div>
-            <div class="vehicle-box" *ngIf="code.isDriving; else noVehicle">
-              <pre style="font-size:11px;color:#888;background:#f8f8f8;padding:4px 8px;border-radius:4px;overflow-x:auto;">{{ code.vehicle | json }}</pre>
-              <h4>Vehicle Details</h4>
-              <p>Make & Model: {{ code.vehicle?.make || code.vehicle?.makeModel }}{{ code.vehicle?.model ? ' ' + code.vehicle?.model : '' }}</p>
-              <p>Registration: {{ code.vehicle?.registration || '' }}</p>
-              <p>Colour: {{ code.vehicle?.color || '' }}</p>
-            </div>
-            <ng-template #noVehicle>
-              <div class="vehicle-box muted">
-                <h4>No Vehicle</h4>
-                <p>Visitor is arriving on foot.</p>
+      <div class="code-grid">
+        <ng-container *ngIf="filteredCodes && filteredCodes.length > 0; else emptyState">
+          <article class="code-card" *ngFor="let code of filteredCodes">
+            <div class="code-header">
+              <div>
+                <span class="code-label">Access Code</span>
+                <h3>{{ code.code }}</h3>
               </div>
-            </ng-template>
-          </div>
-          <div class="code-actions">
-            <button class="btn-deny" type="button">Deny Access</button>
-            <button class="btn-main" type="button" (click)="onGrantAccess()">Grant Access</button>
-          </div>
-        </article>
-      </ng-container>
-    </div>
-    <ng-template #emptyState>
-      <div class="empty-state">
-        <h3>No codes found</h3>
-        <p>Try a different 6-digit code.</p>
+              <span class="badge" [class.driving]="code.isDriving" [class.walking]="!code.isDriving">
+                {{ code.isDriving ? 'Driving' : 'Walking' }}
+              </span>
+            </div>
+            <div class="code-body">
+              <div class="detail">
+                <span>Visitor</span>
+                <strong>{{ code.visitorName }}</strong>
+              </div>
+              <div class="detail">
+                <span>Tenant</span>
+                <strong>{{ code.tenantName }}</strong>
+              </div>
+              <div class="detail">
+                <span>Tenant Number</span>
+                <strong>{{ code.cellphone }}</strong>
+              </div>
+              <div class="detail">
+                <span>{{ residenceSearchLabel }}</span>
+                <strong>{{ formatResidenceValue(code.unit) }}</strong>
+              </div>
+              <div class="detail">
+                <span>Expires</span>
+                <strong>{{ code.expires }}</strong>
+              </div>
+            </div>
+            <div class="code-actions">
+              <button class="btn-secondary" type="button" *ngIf="code.isDriving" (click)="openCodeVehicleModal(code)">View Vehicle</button>
+              <button class="btn-main" type="button" (click)="onGrantAccess(code)">Grant Access</button>
+            </div>
+          </article>
+        </ng-container>
       </div>
-    </ng-template>
-  <!-- removed extra closing section tag -->
+      <ng-template #emptyState>
+        <div class="empty-state">
+          <h3>No codes found</h3>
+          <p>Try a different 6-digit code.</p>
+        </div>
+      </ng-template>
+    </section>
+  </ng-template>
+
+  <ng-container *ngIf="!(searchUnit || '').trim()">
+    <ng-container *ngTemplateOutlet="visitorCodesSection"></ng-container>
+  </ng-container>
 
   <section class="info-section" *ngIf="showResidents && isStationSelected && !showStationPrompt && !searchReg">
     <div class="section-title">
@@ -224,7 +217,7 @@
         </div>
       </article>
     </div>
-  <!-- removed unmatched closing section tag -->
+  </section>
 
   <div class="station-modal" *ngIf="showStationPrompt">
     <div class="station-card" role="dialog" aria-modal="true">
@@ -297,26 +290,6 @@
           </div>
         </ng-template>
       </div>
-      <div class="info-subsection">
-        <h3>Visitor Vehicles (Active Codes)</h3>
-        <div class="info-grid" *ngIf="filteredVisitorVehiclesByReg.length > 0; else noVisitor">
-          <article class="info-card" *ngFor="let vehicle of filteredVisitorVehiclesByReg">
-            <div class="info-header">
-              <h3>{{ vehicle.make }} {{ vehicle.model }}</h3>
-              <span class="pill">{{ formatResidenceBadge(vehicle.unit) }}</span>
-            </div>
-            <p><strong>Owner:</strong> {{ vehicle.owner }}</p>
-            <p><strong>Registration:</strong> {{ vehicle.regNumber }}</p>
-            <p><strong>Colour:</strong> {{ vehicle.color }}</p>
-            <span class="visitor-badge">Visitor Vehicle</span>
-          </article>
-        </div>
-        <ng-template #noVisitor>
-          <div class="empty-state">
-            <h3>No visitor vehicles found</h3>
-          </div>
-        </ng-template>
-      </div>
     </ng-container>
     <!-- For unit search or default, show all residents, vehicles, and codes for unit -->
     <ng-template #unitVehicleSection>
@@ -331,7 +304,6 @@
             <p><strong>Owner:</strong> {{ vehicle.owner }}</p>
             <p><strong>Registration:</strong> {{ vehicle.regNumber }}</p>
             <p><strong>Colour:</strong> {{ vehicle.color }}</p>
-            <span *ngIf="vehicle.isVisitor" class="visitor-badge">Visitor Vehicle</span>
           </article>
         </div>
         <ng-template #noVehicles>
@@ -342,6 +314,10 @@
       </div>
     </ng-template>
   </section>
+
+  <ng-container *ngIf="(searchUnit || '').trim()">
+    <ng-container *ngTemplateOutlet="visitorCodesSection"></ng-container>
+  </ng-container>
 
   <footer class="guard-footer">
     <span>© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</span>
@@ -372,7 +348,7 @@
 <div class="toast" *ngIf="toastVisible" role="status" aria-live="polite">
   <span class="toast-icon">✅</span>
   <span>{{ toastMessage }}</span>
-<!-- removed unexpected closing div tag -->
+</div>
 
 <div class="modal-backdrop" *ngIf="isResidentPhotoModalOpen" (click)="closeResidentPhotoModal()">
   <div class="modal resident-photo-modal" role="dialog" aria-modal="true" aria-labelledby="resident-photo-title" (click)="$event.stopPropagation()">
@@ -385,6 +361,36 @@
       <ng-template #residentInitialsFallback>
         <div class="resident-photo-fallback">{{ selectedResidentInitials }}</div>
       </ng-template>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="isCodeVehicleModalOpen" (click)="closeCodeVehicleModal()">
+  <div class="modal vehicle-details-modal" role="dialog" aria-modal="true" aria-labelledby="vehicle-details-title" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="vehicle-details-title">Vehicle Details</h2>
+      <button class="btn-icon" type="button" (click)="closeCodeVehicleModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail">
+        <span>Visitor</span>
+        <strong>{{ selectedCodeVisitorName || 'Visitor' }}</strong>
+      </div>
+      <div class="detail">
+        <span>Make & Model</span>
+        <strong>{{ selectedCodeVehicle?.make || selectedCodeVehicle?.makeModel }}{{ selectedCodeVehicle?.model ? ' ' + selectedCodeVehicle?.model : '' }}</strong>
+      </div>
+      <div class="detail">
+        <span>Registration</span>
+        <strong>{{ selectedCodeVehicle?.registration || '-' }}</strong>
+      </div>
+      <div class="detail">
+        <span>Colour</span>
+        <strong>{{ selectedCodeVehicle?.color || '-' }}</strong>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-main" (click)="closeCodeVehicleModal()">Close</button>
     </div>
   </div>
 </div>
@@ -588,4 +594,6 @@
       </div>
     </form>
   </div>
+</div>
+
 </div>

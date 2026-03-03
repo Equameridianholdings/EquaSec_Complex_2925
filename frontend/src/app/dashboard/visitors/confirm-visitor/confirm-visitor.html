@@ -25,20 +25,9 @@
             <p><strong>Make:</strong> {{ visitor.vehicle?.make }}</p>
             <p><strong>Model:</strong> {{ visitor.vehicle?.model }}</p>
             <p><strong>Registration:</strong> {{ visitor.vehicle?.registrationNumber }}</p>
-            <p><strong>Colour:</strong> {{ visitor.vehicle?.colour }}</p>
+            <p><strong>Colour:</strong> {{ visitor.vehicle?.color }}</p>
           </ng-container>
         }
-      </div>
-      <div class="code-share-row">
-        <div class="access-code">{{ visitor.code }}</div>
-        <button
-          type="button"
-          class="btn-whatsapp-share"
-          (click)="shareVisitorCode()"
-          title="Share visitor code on WhatsApp"
-        >
-          <img src="/Screenshot 2026-02-11 174917.png" alt="Share" />
-        </button>
       </div>
     </div>
 

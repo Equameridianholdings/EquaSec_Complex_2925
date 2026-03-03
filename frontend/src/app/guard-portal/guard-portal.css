@@ -1122,6 +1122,10 @@
 	max-height: 90vh;
 }
 
+.vehicle-details-modal {
+	width: min(520px, 100%);
+}
+
 .resident-photo-modal-body {
 	padding: 20px;
 	display: flex;

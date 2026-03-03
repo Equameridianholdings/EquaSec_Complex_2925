@@ -12,7 +12,7 @@
     </div>
 
     <form class="modal-form" #bookingForm (ngSubmit)="openConfirmationModal()">
-      <div class="form-row">
+      <div class="form-row" *ngIf="!hideTenantInput">
         <div class="form-group" style="flex: 1 1 100%; margin-bottom: 1rem;">
           <label for="residentSearch" style="font-weight: bold;">Resident/Tenant</label>
           <div style="display: flex; flex-direction: column; gap: 0.5rem; position: relative;">
@@ -40,6 +40,15 @@
               <button type="button" class="btn-icon" (click)="selectedUser = null; userSearch = ''; filteredUsers = users;" style="margin-left: 0.5rem;">✕</button>
             </div>
             <small *ngIf="!selectedUser && bookingForm['submitted']" class="error">Please select a resident/tenant.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row" *ngIf="hideTenantInput">
+        <div class="form-group" style="flex: 1 1 100%; margin-bottom: 1rem;">
+          <label style="font-weight: bold;">Resident/Tenant</label>
+          <div class="form-control" style="background: #f8fafc; cursor: default;">
+            {{ selectedUser | safeUserName }}
           </div>
         </div>
       </div>

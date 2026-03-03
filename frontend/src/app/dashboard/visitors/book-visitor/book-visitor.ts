@@ -33,6 +33,7 @@ import { CommonModule } from '@angular/common';
 })
 export class BookVisitor implements OnInit {
 residentSearch: any;
+  protected hideTenantInput = false;
   constructor(@Optional() @Inject(MAT_DIALOG_DATA) public data: any) {
     if (data && data.resident) {
       this.selectedUser = data.resident;
@@ -44,6 +45,15 @@ residentSearch: any;
     selectedUser: any = null;
     userSearch: string = '';
     ngOnInit(): void {
+      const currentUser = this.getCurrentUserFromStorage();
+      if (this.isTenantUser(currentUser)) {
+        this.hideTenantInput = true;
+        this.selectedUser = currentUser;
+        this.userSearch = `${currentUser?.name ?? ''} ${currentUser?.surname ?? ''}`.trim();
+        this.filteredUsers = [];
+        return;
+      }
+
       // Fetch all users (residents/tenants) from the /user endpoint
       this.service.get<any>('user').subscribe(response => {
         console.log('[BookVisitor][ngOnInit] users from API:', response);
@@ -80,6 +90,25 @@ residentSearch: any;
         }
       });
     }
+
+  private getCurrentUserFromStorage(): any {
+    try {
+      const rawUser = localStorage.getItem('current-user');
+      if (!rawUser) {
+        return null;
+      }
+      return JSON.parse(rawUser);
+    } catch {
+      return null;
+    }
+  }
+
+  private isTenantUser(user: any): boolean {
+    const types = Array.isArray(user?.type) ? user.type : [user?.type];
+    return types
+      .map((value: any) => String(value ?? '').trim().toLowerCase())
+      .some((value: string) => value === 'tenant' || value === 'tenat');
+  }
 
 
   onResidentSearchChange(): void {

@@ -13,6 +13,8 @@ const visitor = new mongoose.Schema(
     user: { required: true, type: Object },
     validity: { required: true, type: Boolean },
     vehicle: { required: false, type: Object },
+    bookedAt: { required: false, type: Date },
+    arrivedAt: { required: false, type: Date },
   },
   { collection: "visitors" },
 );
