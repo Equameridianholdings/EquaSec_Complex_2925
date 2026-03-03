@@ -1,3 +1,7 @@
+// ...existing code...
+
+  // Place these inside the GuardPortal class, after the constructor
+
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, PLATFORM_ID, ViewChild, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -10,6 +14,8 @@ import { TenantFormDTO } from '../interfaces/forms/tenantFormDTO';
 import { VehicleFormDTO } from '../interfaces/forms/vehicleFormDTO';
 import { DataService } from '../services/data.service';
 import { StorageService } from '../services/storage.service';
+import { MatDialog } from '@angular/material/dialog';
+import { BookVisitor } from '../dashboard/visitors/book-visitor/book-visitor';
 
 @Component({
   selector: 'app-guard-portal',
@@ -19,6 +25,32 @@ import { StorageService } from '../services/storage.service';
   styleUrl: './guard-portal.css',
 })
 export class GuardPortal implements OnInit, OnDestroy {
+  private dialog = inject(MatDialog);
+  visitorList: any;
+  // Dynamic filtered lists for residents and vehicles by unit search
+  protected get filteredResidents(): any[] {
+    const unitQuery = (this.filtersForm.searchUnit || '').trim().toLowerCase();
+    if (!unitQuery) {
+      return Array.isArray(this.residents) ? [...this.residents] : [];
+    }
+    return (Array.isArray(this.residents) ? this.residents : []).filter(resident => {
+      const unit = (resident.unit || resident.houseNumber || '').toString().toLowerCase();
+      return unit.includes(unitQuery);
+    });
+  }
+
+  // No need to assign filtered lists, just trigger change detection
+  private updateFilteredLists(): void {
+    this.cdr.markForCheck();
+  }
+
+  openBookVisitorModal(resident?: any): void {
+    this.dialog.open(BookVisitor, {
+      width: '600px',
+      disableClose: false,
+      data: resident ? { resident } : undefined
+    });
+  }
   @ViewChild('cameraInput') cameraInput!: ElementRef<HTMLInputElement>;
   @ViewChild('profileCameraVideo') private readonly profileCameraVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('profileCameraCanvas') private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
@@ -87,6 +119,11 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected showCodes = true;
   protected showResidents = true;
   protected showVehicles = true;
+
+  // Utility to check if station is selected/locked
+  protected get isStationSelected(): boolean {
+    return this.stationLocked && this.hasValidStationSelection();
+  }
   protected toastVisible = false;
   protected toastMessage = '';
   private toastTimeoutId: number | null = null;
@@ -166,6 +203,69 @@ export class GuardPortal implements OnInit, OnDestroy {
     private readonly dataService: DataService,
     private readonly storage: StorageService,
   ) {}
+
+  // Helper: filter registered vehicles by reg search
+  protected get filteredRegisteredVehiclesByReg() {
+      let regQuery = (this.filtersForm.searchReg || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+      let vehicles = this.vehicles;
+      let filtered = vehicles;
+      if (regQuery) {
+        filtered = vehicles.filter(v => {
+          let regValue = (v.regNumber || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+          return regValue.includes(regQuery);
+        });
+        // DEBUG: If no vehicles match, show all vehicles to help diagnose
+        if (filtered.length === 0 && vehicles.length > 0) {
+          return vehicles.map(v => ({ ...v, isVisitor: false, debug: true }));
+        }
+      }
+      return filtered.map(v => ({ ...v, isVisitor: false }));
+  }
+
+  // Helper: filter visitor vehicles (from active codes) by reg search
+  protected get filteredVisitorVehiclesByReg() {
+      const regQuery = (this.filtersForm.searchReg || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+      return (Array.isArray(this.activeCodes) ? this.activeCodes : [])
+        .filter(code => code.isDriving && code.vehicle)
+        .filter(code => {
+          // Normalize and check multiple possible registration properties
+          let regValue = (code.vehicle.registration || code.vehicle.regNumber || code.vehicle.reg || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+          return regValue.includes(regQuery);
+        })
+        .map(code => ({
+          make: code.vehicle?.makeModel?.split(' ')[0] || code.vehicle?.make || '',
+          model: code.vehicle?.makeModel?.split(' ').slice(1).join(' ') || code.vehicle?.model || '',
+          regNumber: code.vehicle?.registration || code.vehicle?.regNumber || code.vehicle?.reg || '',
+          color: code.vehicle?.color || '',
+          unit: code.unit || '',
+          houseNumber: code.houseNumber || '',
+          owner: code.visitorName || '',
+          complexId: code.complexId || '',
+          gatedCommunityId: code.gatedCommunityId || '',
+          isVisitor: true
+        }));
+  }
+
+  // Helper: filter residents by unit search
+  protected get filteredResidentsByUnit() {
+    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
+    if (!unitQuery) return this.filteredResidents;
+    return this.filteredResidents.filter(resident => (resident.unit || '').toLowerCase().includes(unitQuery));
+  }
+
+  // Helper: filter vehicles by unit search
+  protected get filteredVehiclesByUnit() {
+    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
+    if (!unitQuery) return this.filteredVehicles;
+    return this.filteredVehicles.filter(vehicle => (vehicle.unit || '').toLowerCase().includes(unitQuery));
+  }
+
+  // Helper: filter active codes by unit search
+  protected get filteredCodesByUnit() {
+    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
+    if (!unitQuery) return this.filteredCodes;
+    return this.filteredCodes.filter(code => (code.unit || '').toLowerCase().includes(unitQuery));
+  }
   protected get guardInitials(): string {
     return (this.guardName || 'Guard').trim().slice(0, 2).toUpperCase();
   }
@@ -446,8 +546,14 @@ export class GuardPortal implements OnInit, OnDestroy {
           );
 
           const guardId = currentUser?._id as string | undefined;
-          const visitors$ = guardId
-            ? this.dataService.get<any[]>('visitor/security/', { headers: { id: guardId } })
+          // Ensure guardId is set from current user
+          let effectiveGuardId = guardId;
+          if (!effectiveGuardId) {
+            const currentUser = this.getStoredCurrentUser();
+            effectiveGuardId = currentUser?._id ?? currentUser?.id ?? '';
+          }
+          const visitors$ = effectiveGuardId
+            ? this.dataService.get<any[]>('visitor/security/', { headers: { id: effectiveGuardId } })
             : of([]);
           return forkJoin({
             gated: this.dataService.get<any[]>('gatedCommunity').pipe(catchError(() => of([]))),
@@ -475,7 +581,7 @@ export class GuardPortal implements OnInit, OnDestroy {
         const unitList = this.ensureArray<any>(units);
         const userList = this.ensureArray<any>(users);
         const vehicleList = this.ensureArray<any>(vehicles);
-        const visitorList = this.ensureArray<any>(visitors);
+        this.visitorList = this.ensureArray<any>(visitors);
 
         this.cdr.markForCheck();
         this.stationContextReady = true;
@@ -735,34 +841,51 @@ export class GuardPortal implements OnInit, OnDestroy {
             return Boolean(inComplex || inCommunity);
           });
 
+        // Update filtered lists to show all residents and vehicles by default
+        this.updateFilteredLists();
 
-        this.activeCodes = visitorList.map((visitor) => ({
-          code: String(visitor.code ?? ''),
-          visitorName: `${visitor.name ?? ''} ${visitor.surname ?? ''}`.trim(),
-          tenantName: `${visitor.user?.name ?? ''} ${visitor.user?.surname ?? ''}`.trim(),
-          cellphone: visitor.contact ?? '',
-          unit: visitor.user?.unit ?? '',
-          houseNumber: visitor.user?.houseNumber ?? '',
-          expires: this.formatExpiryLabel(visitor.expiry),
-          isDriving: Boolean(visitor.driving),
-          complexId: this.normalizeStationId(visitor.user?.complex?._id ?? visitor.user?.complex?.id),
-          gatedCommunityId: this.normalizeStationId(visitor.user?.communityId ?? visitor.user?.gatedCommunity?._id ?? visitor.user?.gatedCommunity?.id),
-          vehicle: visitor.vehicle
-            ? {
+
+        const filteredVisitors = this.visitorList.filter((visitor: { access?: boolean; validity?: boolean; }) => visitor.access === true || visitor.validity === true);
+        this.activeCodes = filteredVisitors
+          .map((visitor: any) => {
+            // Map backend vehicle fields to frontend fields
+            let mappedVehicle = undefined;
+            if (visitor.vehicle) {
+              mappedVehicle = {
                 makeModel: `${visitor.vehicle.make ?? ''} ${visitor.vehicle.model ?? ''}`.trim(),
-                registration: visitor.vehicle.registerationNumber ?? visitor.vehicle.registration ?? '',
-                color: visitor.vehicle.color ?? '',
-              }
-            : undefined,
-        }))
-          .filter((visitorCode) => {
+                registration: visitor.vehicle.registrationNumber ?? visitor.vehicle.registerationNumber ?? visitor.vehicle.registration ?? '',
+                color: visitor.vehicle.colour ?? visitor.vehicle.color ?? '',
+                make: visitor.vehicle.make ?? '',
+                model: visitor.vehicle.model ?? '',
+                regNumber: visitor.vehicle.registrationNumber ?? visitor.vehicle.registerationNumber ?? visitor.vehicle.registration ?? '',
+              };
+            }
+            return {
+              code: String(visitor.code ?? ''),
+              visitorName: `${visitor.name ?? ''} ${visitor.surname ?? ''}`.trim(),
+              tenantName: `${visitor.user?.name ?? ''} ${visitor.user?.surname ?? ''}`.trim(),
+              cellphone: visitor.contact ?? '',
+              unit: visitor.user?.unit ?? '',
+              houseNumber: visitor.user?.houseNumber ?? '',
+              expires: this.formatExpiryLabel(visitor.expiry),
+              isDriving: Boolean(visitor.driving),
+              complexId: this.normalizeStationId(visitor.user?.complexId),
+              gatedCommunityId: this.normalizeStationId(visitor.user?.gatedCommunityId),
+              vehicle: mappedVehicle,
+            };
+          })
+          .filter((visitorCode: { complexId: any; gatedCommunityId: any; }) => {
             if (!hasAssignments) {
               return false;
             }
-            const inComplex = visitorCode.complexId && allowedComplexIdSet.has(String(visitorCode.complexId));
-            const inCommunity = visitorCode.gatedCommunityId && allowedGatedCommunityIds.has(String(visitorCode.gatedCommunityId));
-            return Boolean(inComplex || inCommunity);
+            const complexIdStr = String(visitorCode.complexId ?? '');
+            const communityIdStr = String(visitorCode.gatedCommunityId ?? '');
+            const inComplex = complexIdStr && allowedComplexIdSet.has(complexIdStr);
+            const inCommunity = communityIdStr && allowedGatedCommunityIds.has(communityIdStr);
+            const result = Boolean(inComplex || inCommunity);
+            return result;
           });
+        // ...
 
 
         this.stationContextReady = true;
@@ -994,31 +1117,25 @@ export class GuardPortal implements OnInit, OnDestroy {
     return `In ${diffHours} hours`;
   }
 
-  protected get filteredCodes() {
-    const codeQuery = this.filtersForm.searchCode.replace(/\D/g, '');
-    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
-    const regQuery = this.filtersForm.searchReg.trim().toLowerCase();
-    let codes = this.activeCodes;
-    
-    // Filter by selected complex or gated community
-    if (this.filtersForm.selectedComplex) {
-      codes = codes.filter((code) => code.complexId === this.filtersForm.selectedComplex);
-    } else if (this.filtersForm.selectedGatedCommunity) {
-      codes = codes.filter((code) => code.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
-    }
-    
-    if (!codeQuery && !unitQuery && !regQuery) {
-      return codes;
-    }
-    return codes.filter((code) => {
-      const matchesCode = !codeQuery || code.code.includes(codeQuery);
-      const residenceNumber = this.resolveResidenceNumber(code.unit, code.houseNumber).toLowerCase();
-      const matchesUnit = !unitQuery || residenceNumber.includes(unitQuery);
-      const registration = code.vehicle?.registration?.toLowerCase() ?? '';
-      const matchesReg = !regQuery || registration.includes(regQuery);
-      return matchesCode && matchesUnit && matchesReg;
-    });
+ // Code search: only filter codes by code; Reg search: only filter codes with vehicles by reg
+protected get filteredCodes() {
+  const codeQuery = (this.filtersForm.searchCode || '').replace(/\D/g, '');
+  const regQuery = (this.filtersForm.searchReg || '').trim().toLowerCase();
+  let codes = Array.isArray(this.activeCodes) ? this.activeCodes : [];
+  if (this.filtersForm.selectedComplex) {
+    codes = codes.filter((code) => String(code.complexId) === String(this.filtersForm.selectedComplex));
+  } else if (this.filtersForm.selectedGatedCommunity) {
+    codes = codes.filter((code) => String(code.gatedCommunityId) === String(this.filtersForm.selectedGatedCommunity));
   }
+  if (codeQuery) {
+    return codes.filter((code) => code.code && code.code.includes(codeQuery));
+  }
+  if (regQuery) {
+    // Only codes with vehicles, filter by registration
+    return codes.filter((code) => code.vehicle && code.vehicle.registration && code.vehicle.registration.toLowerCase().includes(regQuery));
+  }
+  return codes;
+}
 
   protected openTenantModal(): void {
     if (!this.canRegisterTenant) {
@@ -1702,31 +1819,26 @@ export class GuardPortal implements OnInit, OnDestroy {
     return list.filter((name) => name.toLowerCase().includes(query));
   }
 
-  protected clearOtherSearches(activeField: 'unit' | 'reg' | 'code'): void {
-    if (activeField === 'unit') {
-      this.filtersForm.searchCode = '';
-      this.filtersForm.searchReg = '';
-      this.showRegOptions = false;
-      this.showCodes = false;
-      this.showResidents = true;
-      this.showVehicles = true;
-    } else if (activeField === 'reg') {
-      this.filtersForm.searchCode = '';
-      this.filtersForm.searchUnit = '';
-      this.showUnitOptions = false;
-      this.showCodes = true;
-      this.showResidents = false;
-      this.showVehicles = true;
-    } else if (activeField === 'code') {
-      this.filtersForm.searchUnit = '';
-      this.filtersForm.searchReg = '';
-      this.showUnitOptions = false;
-      this.showRegOptions = false;
-      this.showCodes = true;
-      this.showResidents = false;
-      this.showVehicles = false;
-    }
+ protected clearOtherSearches(activeField: 'unit' | 'reg' | 'code'): void {
+  // Always show all sections
+  this.showCodes = true;
+  this.showResidents = true;
+  this.showVehicles = true;
+  if (activeField === 'unit') {
+    this.filtersForm.searchCode = '';
+    this.filtersForm.searchReg = '';
+    this.showRegOptions = false;
+  } else if (activeField === 'reg') {
+    this.filtersForm.searchCode = '';
+    this.filtersForm.searchUnit = '';
+    this.showUnitOptions = false;
+  } else if (activeField === 'code') {
+    this.filtersForm.searchUnit = '';
+    this.filtersForm.searchReg = '';
+    this.showUnitOptions = false;
+    this.showRegOptions = false;
   }
+}
 
   protected selectUnit(unit: string): void {
     this.filtersForm.searchUnit = unit;
@@ -1749,8 +1861,8 @@ export class GuardPortal implements OnInit, OnDestroy {
   }
 
   protected get filteredUnitOptions(): string[] {
-    let residents = this.residents;
-    let vehicles = this.vehicles;
+    let residents = Array.isArray(this.residents) ? this.residents : [];
+    let vehicles = Array.isArray(this.vehicles) ? this.vehicles : [];
     const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
 
     // Filter by complex or gated community
@@ -1761,7 +1873,6 @@ export class GuardPortal implements OnInit, OnDestroy {
       residents = residents.filter((r) => r.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
       vehicles = vehicles.filter((v) => v.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
     }
-    
     const units = new Set<string>([
       ...residents.map((resident) => this.resolveResidenceNumber(resident.unit, resident.houseNumber)),
       ...vehicles.map((vehicle) => this.resolveResidenceNumber(vehicle.unit, vehicle.houseNumber)),
@@ -1775,15 +1886,13 @@ export class GuardPortal implements OnInit, OnDestroy {
   }
 
   protected get filteredRegOptions(): string[] {
-    let vehicles = this.vehicles;
-    
+    let vehicles = Array.isArray(this.vehicles) ? this.vehicles : [];
     // Filter by complex or gated community
     if (this.filtersForm.selectedComplex) {
       vehicles = vehicles.filter((v) => v.complexId === this.filtersForm.selectedComplex);
     } else if (this.filtersForm.selectedGatedCommunity) {
       vehicles = vehicles.filter((v) => v.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
     }
-
     const list = vehicles.map((vehicle) => vehicle.regNumber).sort();
     const query = this.filtersForm.searchReg.trim().toLowerCase();
     if (!query) {
@@ -1792,30 +1901,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     return list.filter((reg) => reg.toLowerCase().includes(query));
   }
 
-  protected get filteredResidents() {
-    let residents = this.residents;
-    const complexFilter = this.filtersForm.selectedComplex;
-
-    // Filter by complex or gated community
-    if (complexFilter) {
-      residents = residents.filter((r) => r.complexId === complexFilter);
-    } else if (this.filtersForm.selectedGatedCommunity) {
-      residents = residents.filter((r) => r.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
-    }
-    
-    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
-    const mappedResidents = residents.map((resident) => ({
-      ...resident,
-      unit: this.resolveResidenceNumber(resident.unit, resident.houseNumber),
-    }));
-
-    if (!unitQuery) {
-      return mappedResidents;
-    }
-    return mappedResidents.filter((resident) => resident.unit.toLowerCase().includes(unitQuery));
-  }
-
-  protected get filteredVisitorsForUnit() {
+protected get filteredVisitorsForUnit() {
     let codes = this.activeCodes;
     const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
 
@@ -1838,29 +1924,64 @@ export class GuardPortal implements OnInit, OnDestroy {
     return mappedCodes.filter((code) => code.unit.toLowerCase().includes(unitQuery));
   }
 
-  protected get filteredVehicles() {
-    let vehicles = this.vehicles;
-    const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
+  
 
+  protected get filteredVehicles() {
+    const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
+    let vehicles = this.vehicles;
     // Filter by complex or gated community
     if (complexFilter) {
       vehicles = vehicles.filter((v) => v.complexId === complexFilter);
     } else if (this.filtersForm.selectedGatedCommunity) {
       vehicles = vehicles.filter((v) => v.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
     }
-    
+
+    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
     const regQuery = this.filtersForm.searchReg.trim().toLowerCase();
+
+    // Visitor code vehicles (from activeCodes)
+    const visitorVehicles = (Array.isArray(this.activeCodes) ? this.activeCodes : [])
+      .filter(code => code.isDriving && code.vehicle && code.vehicle.registration)
+      .filter(code => {
+        // Filter by complex/gated
+        if (complexFilter && code.complexId !== complexFilter) return false;
+        if (!complexFilter && this.filtersForm.selectedGatedCommunity && code.gatedCommunityId !== this.filtersForm.selectedGatedCommunity) return false;
+        return true;
+      })
+      .map(code => ({
+        make: code.vehicle?.makeModel?.split(' ')[0] || '',
+        model: code.vehicle?.makeModel?.split(' ').slice(1).join(' ') || '',
+        regNumber: code.vehicle?.registration || '',
+        color: code.vehicle?.color || '',
+        unit: code.unit || '',
+        houseNumber: code.houseNumber || '',
+        owner: code.visitorName || '',
+        complexId: code.complexId || '',
+        gatedCommunityId: code.gatedCommunityId || '',
+        isVisitor: true
+      }));
+
+    // Merge and deduplicate by regNumber
     const mappedVehicles = vehicles.map((vehicle) => ({
       ...vehicle,
       unit: this.resolveResidenceNumber(vehicle.unit, vehicle.houseNumber),
+      isVisitor: false
     }));
-
-    if (!regQuery) {
-      return mappedVehicles;
+    let all = [...mappedVehicles, ...visitorVehicles];
+    const seen = new Set();
+    all = all.filter(v => {
+      const key = (v.regNumber || '').toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (unitQuery) {
+      all = all.filter((vehicle) => (vehicle.unit || '').toLowerCase().includes(unitQuery));
     }
-    return mappedVehicles.filter((vehicle) =>
-      vehicle.regNumber.toLowerCase().includes(regQuery)
-    );
+    if (regQuery) {
+      all = all.filter((vehicle) => (vehicle.regNumber || '').toLowerCase().includes(regQuery));
+    }
+    return all;
   }
 
   protected getResidentInitials(name: string): string {
@@ -2145,9 +2266,9 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected triggerCameraInput(): void {
     this.isPhotoCameraModalOpen = true;
-    setTimeout(() => {
-      void this.startProfileCamera();
-    }, 100);
+    console.log('DEBUG: Camera modal opened');
+    this.cdr.detectChanges();
+    void this.startProfileCamera();
   }
 
   protected onPhotoCapture(event: Event): void {
@@ -2167,23 +2288,34 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.guardPhotoData = '';
 
     try {
+      // Stop any previous stream
       this.profileCameraStream?.getTracks().forEach((track) => track.stop());
       this.profileCameraStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
         audio: false,
       });
 
-      const video = this.profileCameraVideo?.nativeElement;
-      if (video) {
-        video.srcObject = this.profileCameraStream;
-        await video.play();
-      }
-      this.hasCameraStream = true;
+      // Delay stream attachment to ensure video element exists
+      setTimeout(() => {
+        const video = this.profileCameraVideo?.nativeElement;
+        if (video) {
+          video.srcObject = this.profileCameraStream;
+          video.style.display = 'block';
+          video.style.background = '#000';
+          video.style.zIndex = '10001';
+          video.play();
+          console.log('DEBUG: Camera stream attached to video element');
+        } else {
+          this.cameraError = 'Camera video element not found.';
+        }
+        this.hasCameraStream = true;
+      }, 200);
     } catch (error) {
       this.cameraError = 'Unable to access the camera. Please allow camera permissions.';
       this.profileCameraStream?.getTracks().forEach((track) => track.stop());
       this.profileCameraStream = null;
       this.hasCameraStream = false;
+      console.error('DEBUG: Camera error', error);
     }
   }
 

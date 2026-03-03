@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 const visitor = new mongoose.Schema(
   {
     access: { required: true, type: Boolean },
-    code: { required: true, type: Int32 },
+    code: { required: false, type: Int32 },
     contact: { required: true, type: String },
     driving: { required: true, type: Boolean },
     expiry: { required: true, type: Date },
