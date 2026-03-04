@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 const visitor = new mongoose.Schema(
   {
     access: { required: true, type: Boolean },
+    arrivedAt: { required: false, type: Date },
+    bookedAt: { required: false, type: Date },
     code: { required: false, type: Int32 },
     contact: { required: true, type: String },
     driving: { required: true, type: Boolean },
@@ -13,8 +15,6 @@ const visitor = new mongoose.Schema(
     user: { required: true, type: Object },
     validity: { required: true, type: Boolean },
     vehicle: { required: false, type: Object },
-    bookedAt: { required: false, type: Date },
-    arrivedAt: { required: false, type: Date },
   },
   { collection: "visitors" },
 );
