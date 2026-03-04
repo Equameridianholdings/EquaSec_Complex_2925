@@ -158,9 +158,26 @@
                 <span>Expires</span>
                 <strong>{{ code.expires }}</strong>
               </div>
+              <ng-container *ngIf="code.isDriving && code.vehicle">
+                <div class="detail">
+                  <span>Vehicle Make</span>
+                  <strong>{{ code.vehicle.make || '-' }}</strong>
+                </div>
+                <div class="detail">
+                  <span>Vehicle Model</span>
+                  <strong>{{ code.vehicle.model || '-' }}</strong>
+                </div>
+                <div class="detail">
+                  <span>Registration</span>
+                  <strong>{{ code.vehicle.regNumber || code.vehicle.registration || '-' }}</strong>
+                </div>
+                <div class="detail">
+                  <span>Colour</span>
+                  <strong>{{ code.vehicle.color || '-' }}</strong>
+                </div>
+              </ng-container>
             </div>
             <div class="code-actions">
-              <button class="btn-secondary" type="button" *ngIf="code.isDriving" (click)="openCodeVehicleModal(code)">View Vehicle</button>
               <button class="btn-main" type="button" (click)="onGrantAccess(code)">Grant Access</button>
             </div>
           </article>

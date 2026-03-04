@@ -24,11 +24,9 @@ export class Visitors implements OnInit {
     this.service.get<ResponseBody>('visitor/user').subscribe({
       next: (res) => {
         console.log(res.message);
-        const AllVisitors = res.payload as visitorDTO[];
-
-        AllVisitors.map((value: visitorDTO) => {
-          this.visitors.update((arr) => [...arr, value]);
-        });
+        const allVisitors = (res.payload as visitorDTO[]) ?? [];
+        const validVisitors = allVisitors.filter((visitor) => visitor?.validity === true);
+        this.visitors.set(validVisitors);
       },
       error: (err) => {
         console.error(err.message);

@@ -3,6 +3,10 @@
     <span class="code-number">{{ visitor.code }}</span>
     <span class="visitor-name">{{ visitor.name }} {{ visitor.surname }}</span>
     <small>Transport: {{ visitor.driving ? "Car" : "Walking" }} | Cellphone: {{ visitor.contact }}</small>
+    <small>
+      Location:
+      {{ visitor.user?.complex?.name || visitor.user?.gatedCommunity?.name || 'Not linked' }}
+    </small>
     <small>Expires in {{ hours }} hours</small>
   </div>
   <div class="code-actions">
