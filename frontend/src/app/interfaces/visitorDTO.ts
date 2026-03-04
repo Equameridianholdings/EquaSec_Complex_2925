@@ -17,8 +17,15 @@ export interface visitorDTO {
 
 const getVisitorInviteMessage = (visitor: visitorDTO): string => {
   const pin = String(visitor.code ?? '').trim() || 'N/A';
+  const location =
+    String(visitor.user?.complex?.name ?? '').trim() ||
+    String(visitor.user?.gatedCommunity?.name ?? '').trim();
 
-  return `Dear Visitor, your access PIN is ${pin}. This PIN expires in 24 hours. Thank you. Estate Management.`;
+  if (location) {
+    return `Dear Visitor, your access PIN is ${pin}. This PIN expires in 24 hours. Complex: ${location}. Thank you.`;
+  }
+
+  return `Dear Visitor, your access PIN is ${pin}. This PIN expires in 24 hours. Thank you.`;
 };
 
 export const shareCode = (visitor: visitorDTO) => {
