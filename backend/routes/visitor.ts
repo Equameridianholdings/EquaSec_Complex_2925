@@ -15,6 +15,13 @@ import { isValidObjectId } from "mongoose";
 
 const visitorRouter = Router();
 
+type UnitLookupRecord = {
+  complex?: Record<string, unknown>;
+  gatedCommunity?: Record<string, unknown>;
+  number?: number | string;
+  users?: unknown[];
+};
+
 visitorRouter.use(AuthMiddleware);
 
 const toIdString = (value: unknown): string => {
@@ -70,9 +77,9 @@ const buildResidenceLookup = async (userIds: string[]) => {
   const units = await unitSchema
     .find({ users: { $in: userIdVariants } })
     .select({ complex: 1, gatedCommunity: 1, number: 1, users: 1 })
-    .lean();
+    .lean<UnitLookupRecord[]>();
 
-  (units as Array<Record<string, unknown>>).forEach((unit) => {
+  units.forEach((unit) => {
     const users = Array.isArray(unit?.users) ? unit.users : [];
     const unitNumber = unit?.number === undefined || unit?.number === null ? "" : String(unit.number);
     const complex = (unit?.complex ?? null) as Record<string, unknown> | null;
@@ -200,8 +207,7 @@ visitorRouter.get("/security/", validateObjectId, async (req, res) => {
       ].filter((value) => value.length > 0),
     );
 
-    const visitors = await visitorShema.find<visitorDTO>({}).exec();
-    const plainVisitors = visitors.map((visitor) => visitor.toObject() as Record<string, unknown>);
+    const plainVisitors = await visitorShema.find({}).lean<Record<string, unknown>[]>().exec();
     const userIds = plainVisitors
       .map((visitor) => toIdString((visitor.user as Record<string, unknown> | undefined)?._id))
       .filter((value) => value.length > 0);
@@ -269,8 +275,11 @@ visitorRouter.get("/user/", async (req, res) => {
           ],
         }
       : { "user.emailAddress": email };
-    const visitors = await visitorShema.find<visitorDTO>(visitorQuery).select({}).exec();
-    const plainVisitors = visitors.map((visitor) => visitor.toObject() as Record<string, unknown>);
+    const plainVisitors = await visitorShema
+      .find(visitorQuery)
+      .select({})
+      .lean<Record<string, unknown>[]>()
+      .exec();
     const userIds = plainVisitors
       .map((visitor) => toIdString((visitor.user as Record<string, unknown> | undefined)?._id))
       .filter((value) => value.length > 0);
