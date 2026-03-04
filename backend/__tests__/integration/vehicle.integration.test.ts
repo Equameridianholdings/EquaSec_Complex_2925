@@ -8,7 +8,7 @@ describe("Complex endpoints for api", () => {
   const URI: string = process.env.TEST_SERVER_URI as unknown as string;
 
   const vehicle: vehicleDTO = {
-    colour: "Silver",
+    color: "Silver",
     make: "renualt",
     model: "clio",
     registrationNumber: "qwe123gp",

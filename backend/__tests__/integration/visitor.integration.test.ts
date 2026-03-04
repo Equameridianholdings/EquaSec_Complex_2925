@@ -21,7 +21,7 @@ const visitorDriving: visitorDTO = {
   surname: "Dummy",
   validity: false,
   vehicle: {
-    colour: "Blue",
+    color: "Blue",
     make: "Test",
     model: "Dummy",
     registrationNumber: "tst123gp",
