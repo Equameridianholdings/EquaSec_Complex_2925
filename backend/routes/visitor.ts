@@ -15,34 +15,75 @@ import { isValidObjectId } from "mongoose";
 
 const visitorRouter = Router();
 
-type UnitLookupRecord = {
+interface UnitLookupRecord {
   complex?: Record<string, unknown>;
   gatedCommunity?: Record<string, unknown>;
   number?: number | string;
   users?: unknown[];
-};
+}
 
 visitorRouter.use(AuthMiddleware);
 
 const toIdString = (value: unknown): string => {
-  if (value === null || value === undefined) {
-    return "";
-  }
-
   if (typeof value === "string") {
     return value.trim();
   }
 
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value).trim();
+  }
+
   if (value instanceof ObjectId) {
-    return value.toString();
+    return value.toHexString();
   }
 
-  if (typeof value === "object" && value !== null && "toString" in value) {
-    const converted = String((value as { toString: () => string }).toString());
-    return converted === "[object Object]" ? "" : converted.trim();
+  if (typeof value === "object" && value !== null && "toHexString" in value) {
+    const objectWithHex = value as { toHexString?: () => unknown };
+    if (typeof objectWithHex.toHexString === "function") {
+      const normalized = objectWithHex.toHexString();
+      return typeof normalized === "string" ? normalized.trim() : "";
+    }
   }
 
-  return String(value).trim();
+  return "";
+};
+
+const toTrimmedText = (value: unknown): string => {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value).trim();
+  }
+
+  return "";
+};
+
+const toRecord = (value: unknown): Record<string, unknown> => {
+  if (typeof value === "object" && value !== null) {
+    return value as Record<string, unknown>;
+  }
+
+  return {};
+};
+
+const toUnknownArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+const toBoolean = (value: unknown): boolean => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value === 1;
+  }
+
+  if (typeof value === "string") {
+    return value.trim().toLowerCase() === "true";
+  }
+
+  return false;
 };
 
 const buildResidenceLookup = async (userIds: string[]) => {
@@ -67,7 +108,7 @@ const buildResidenceLookup = async (userIds: string[]) => {
     return residenceLookup;
   }
 
-  const userIdVariants: Array<ObjectId | string> = [...normalizedUserIds];
+  const userIdVariants: (ObjectId | string)[] = [...normalizedUserIds];
   normalizedUserIds.forEach((id) => {
     if (ObjectId.isValid(id)) {
       userIdVariants.push(new ObjectId(id));
@@ -80,15 +121,15 @@ const buildResidenceLookup = async (userIds: string[]) => {
     .lean<UnitLookupRecord[]>();
 
   units.forEach((unit) => {
-    const users = Array.isArray(unit?.users) ? unit.users : [];
-    const unitNumber = unit?.number === undefined || unit?.number === null ? "" : String(unit.number);
-    const complex = (unit?.complex ?? null) as Record<string, unknown> | null;
-    const gatedCommunity = (unit?.gatedCommunity ?? null) as Record<string, unknown> | null;
+    const users = toUnknownArray(unit.users);
+    const unitNumber = toTrimmedText(unit.number);
+    const complex = toRecord(unit.complex);
+    const gatedCommunity = toRecord(unit.gatedCommunity);
     const residence = {
-      complex,
-      complexId: toIdString(complex?._id),
-      gatedCommunity,
-      gatedCommunityId: toIdString(gatedCommunity?._id),
+      complex: Object.keys(complex).length > 0 ? complex : null,
+      complexId: toIdString(complex._id),
+      gatedCommunity: Object.keys(gatedCommunity).length > 0 ? gatedCommunity : null,
+      gatedCommunityId: toIdString(gatedCommunity._id),
       houseNumber: unitNumber,
       unit: unitNumber,
     };
@@ -115,8 +156,8 @@ const enrichVisitorResidence = (
     unit: string;
   }>,
 ) => {
-  const user = ((visitor?.user ?? {}) as Record<string, unknown>);
-  const userId = toIdString(user?._id);
+  const user = toRecord(visitor.user);
+  const userId = toIdString(user._id);
 
   if (!userId) {
     return visitor;
@@ -131,12 +172,12 @@ const enrichVisitorResidence = (
     ...visitor,
     user: {
       ...user,
-      complex: user?.complex ?? residence.complex,
-      complexId: toIdString(user?.complexId) || residence.complexId,
-      gatedCommunity: user?.gatedCommunity ?? residence.gatedCommunity,
-      gatedCommunityId: toIdString(user?.gatedCommunityId) || residence.gatedCommunityId,
-      houseNumber: String(user?.houseNumber ?? "").trim() || residence.houseNumber,
-      unit: String(user?.unit ?? "").trim() || residence.unit,
+      complex: user.complex ?? residence.complex,
+      complexId: toIdString(user.complexId) || residence.complexId,
+      gatedCommunity: user.gatedCommunity ?? residence.gatedCommunity,
+      gatedCommunityId: toIdString(user.gatedCommunityId) || residence.gatedCommunityId,
+      houseNumber: toTrimmedText(user.houseNumber) || residence.houseNumber,
+      unit: toTrimmedText(user.unit) || residence.unit,
     },
   };
 };
@@ -158,8 +199,8 @@ const cleanupExpiredVisitors = async () => {
 
   await visitorShema
     .deleteMany({
-      expiry: { $lt: now },
       $or: [{ arrivedAt: { $exists: false } }, { arrivedAt: null }],
+      expiry: { $lt: now },
     })
     .exec();
 };
@@ -187,12 +228,14 @@ visitorRouter.get("/security/", validateObjectId, async (req, res) => {
       return;
     }
 
+    const securityRecord = security as unknown as Record<string, unknown>;
+
     const guardComplexIds = new Set<string>(
       [
         toIdString(security.complex?._id),
-        toIdString((security as unknown as Record<string, unknown>)?.complexId),
-        ...(Array.isArray((security as unknown as Record<string, unknown>)?.assignedComplexes)
-          ? ((security as unknown as Record<string, unknown>).assignedComplexes as unknown[]).map((value) => toIdString(value))
+        toIdString(securityRecord.complexId),
+        ...(Array.isArray(securityRecord.assignedComplexes)
+          ? toUnknownArray(securityRecord.assignedComplexes).map((value) => toIdString(value))
           : []),
       ].filter((value) => value.length > 0),
     );
@@ -200,25 +243,25 @@ visitorRouter.get("/security/", validateObjectId, async (req, res) => {
     const guardCommunityIds = new Set<string>(
       [
         toIdString(security.gatedCommunity?._id),
-        toIdString((security as unknown as Record<string, unknown>)?.communityId),
-        ...(Array.isArray((security as unknown as Record<string, unknown>)?.assignedCommunities)
-          ? ((security as unknown as Record<string, unknown>).assignedCommunities as unknown[]).map((value) => toIdString(value))
+        toIdString(securityRecord.communityId),
+        ...(Array.isArray(securityRecord.assignedCommunities)
+          ? toUnknownArray(securityRecord.assignedCommunities).map((value) => toIdString(value))
           : []),
       ].filter((value) => value.length > 0),
     );
 
     const plainVisitors = await visitorShema.find({}).lean<Record<string, unknown>[]>().exec();
     const userIds = plainVisitors
-      .map((visitor) => toIdString((visitor.user as Record<string, unknown> | undefined)?._id))
+      .map((visitor) => toIdString(toRecord(visitor.user)._id))
       .filter((value) => value.length > 0);
     const residenceLookup = await buildResidenceLookup(userIds);
     const enrichedVisitors = plainVisitors.map((visitor) => enrichVisitorResidence(visitor, residenceLookup));
     const filteredVisitors = enrichedVisitors.filter((visitor) => {
-      const visitorUser = (visitor.user ?? {}) as Record<string, unknown>;
-      const visitorComplexId = toIdString(visitorUser.complexId) || toIdString((visitorUser.complex as Record<string, unknown> | undefined)?._id);
+      const visitorUser = toRecord(visitor.user);
+      const visitorComplexId = toIdString(visitorUser.complexId) || toIdString(toRecord(visitorUser.complex)._id);
       const visitorCommunityId =
         toIdString(visitorUser.gatedCommunityId) ||
-        toIdString((visitorUser.gatedCommunity as Record<string, unknown> | undefined)?._id);
+        toIdString(toRecord(visitorUser.gatedCommunity)._id);
 
       const inComplex = visitorComplexId.length > 0 && guardComplexIds.has(visitorComplexId);
       const inCommunity = visitorCommunityId.length > 0 && guardCommunityIds.has(visitorCommunityId);
@@ -229,7 +272,7 @@ visitorRouter.get("/security/", validateObjectId, async (req, res) => {
     // Log each visitor vehicle for debugging registration/color fields
     filteredVisitors.forEach((v, idx) => {
       if (v.vehicle) {
-        console.log(`[GET /visitor/security] Visitor #${idx} vehicle:`, v.vehicle);
+        console.log(`[GET /visitor/security] Visitor #${String(idx)} vehicle:`, v.vehicle);
       }
     });
 
@@ -259,7 +302,7 @@ visitorRouter.get("/user/", async (req, res) => {
     const loggedInUser = await userSchema.findOne({ emailAddress: email }).select({ _id: 1, emailAddress: 1 }).lean();
     const loggedInUserId = toIdString(loggedInUser?._id);
 
-    const userIdVariants: Array<ObjectId | string> = [];
+    const userIdVariants: (ObjectId | string)[] = [];
     if (loggedInUserId) {
       userIdVariants.push(loggedInUserId);
       if (ObjectId.isValid(loggedInUserId)) {
@@ -281,7 +324,7 @@ visitorRouter.get("/user/", async (req, res) => {
       .lean<Record<string, unknown>[]>()
       .exec();
     const userIds = plainVisitors
-      .map((visitor) => toIdString((visitor.user as Record<string, unknown> | undefined)?._id))
+      .map((visitor) => toIdString(toRecord(visitor.user)._id))
       .filter((value) => value.length > 0);
     const residenceLookup = await buildResidenceLookup(userIds);
     const enrichedVisitors = plainVisitors.map((visitor) => enrichVisitorResidence(visitor, residenceLookup));
@@ -302,15 +345,21 @@ visitorRouter.get("/user/", async (req, res) => {
 visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Request, res: Response) => {
   try {
 
-    const loggedInUser: UserDTO = (await userSchema.findOne({ emailAddress: res.get("email") }).exec()) as unknown as UserDTO;
+    const loggedInUser = await userSchema.findOne({ emailAddress: res.get("email") }).lean<null | UserDTO>().exec();
+
+    if (loggedInUser === null) {
+      res.status(404).json({ message: "User not found!" });
+      return;
+    }
 
     // Logging incoming request for debugging
     // console.log('[POST /visitor] Incoming body:', req.body);
     // console.log('[POST /visitor] Logged-in user:', loggedInUser);
 
+    const requestBody = toRecord(req.body);
     // Use req.body.user if present (guard booking for resident), else use logged-in user (tenant self-booking)
-    const requestUser = (req.body?.user ?? {}) as Record<string, unknown>;
-    const selectedUserId = toIdString(requestUser._id) || toIdString(loggedInUser?._id);
+    const requestUser = toRecord(requestBody.user);
+    const selectedUserId = toIdString(requestUser._id) || toIdString(loggedInUser._id);
 
     if (!selectedUserId) {
       res.status(400).json({ message: "Bad Request! User id is required." });
@@ -319,47 +368,51 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
 
     const userToAssign = {
       _id: selectedUserId,
-      cellNumber: String(requestUser.cellNumber ?? loggedInUser?.cellNumber ?? ""),
-      emailAddress: String(requestUser.emailAddress ?? loggedInUser?.emailAddress ?? ""),
-      name: String(requestUser.name ?? loggedInUser?.name ?? ""),
-      surname: String(requestUser.surname ?? loggedInUser?.surname ?? ""),
+      cellNumber: toTrimmedText(requestUser.cellNumber) || toTrimmedText(loggedInUser.cellNumber),
+      emailAddress: toTrimmedText(requestUser.emailAddress) || toTrimmedText(loggedInUser.emailAddress),
+      name: toTrimmedText(requestUser.name) || toTrimmedText(loggedInUser.name),
+      surname: toTrimmedText(requestUser.surname) || toTrimmedText(loggedInUser.surname),
     };
 
-    const actorTypes = Array.isArray(loggedInUser?.type) ? loggedInUser.type : [];
+    const actorTypes = Array.isArray(loggedInUser.type) ? loggedInUser.type : [];
     const normalizedActorTypes = actorTypes
-      .map((value) => String(value ?? "").trim().toLowerCase())
+      .map((value) => toTrimmedText(value).toLowerCase())
       .filter((value) => value.length > 0);
     const isSecurityBooking = normalizedActorTypes.some(
       (value) => value.includes("security") || value.includes("guard"),
     );
 
-    const incomingVehicle = req.body?.vehicle;
-    const makeModelParts = String(incomingVehicle?.makeModel ?? "")
+    const incomingVehicle = toRecord(requestBody.vehicle);
+    const hasIncomingVehicle = Object.keys(incomingVehicle).length > 0;
+    const makeModelParts = toTrimmedText(incomingVehicle.makeModel)
       .trim()
       .split(" ")
       .filter(Boolean);
-    const normalizedVehicle = incomingVehicle
+    const normalizedVehicle = hasIncomingVehicle
       ? {
-          color: incomingVehicle.color ?? incomingVehicle.colour ?? "",
-          make: incomingVehicle.make ?? makeModelParts[0] ?? "",
+          color: toTrimmedText(incomingVehicle.color) || toTrimmedText(incomingVehicle.colour),
+          make: toTrimmedText(incomingVehicle.make) || makeModelParts[0] || "",
           model:
-            incomingVehicle.model ??
+            toTrimmedText(incomingVehicle.model) ||
             (makeModelParts.length > 1 ? makeModelParts.slice(1).join(" ") : ""),
           registrationNumber:
-            incomingVehicle.registrationNumber ??
-            incomingVehicle.registerationNumber ??
-            incomingVehicle.registration ??
-            "",
+            toTrimmedText(incomingVehicle.registrationNumber) ||
+            toTrimmedText(incomingVehicle.registerationNumber) ||
+            toTrimmedText(incomingVehicle.registration),
         }
       : undefined;
 
     const visitor: visitorDTO = {
-      ...(req.body as visitorDTO),
+      access: isSecurityBooking ? false : true,
+      bookedAt: new Date(),
       code: isSecurityBooking ? undefined : Code_Generator(),
+      contact: toTrimmedText(requestBody.contact),
+      driving: toBoolean(requestBody.driving),
       expiry: new Date(new Date().setHours(new Date().getHours() + 24)),
+      name: toTrimmedText(requestBody.name),
+      surname: toTrimmedText(requestBody.surname),
       user: userToAssign as unknown as UserDTO,
       validity: isSecurityBooking ? false : true,
-      bookedAt: new Date(),
       vehicle: normalizedVehicle,
     };
 
@@ -379,10 +432,11 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
 visitorRouter.patch("/grant/:id/:access", async (req, res) => {
   try {
     // Access Granted or Denied Logic
-    const { access, id } = req.params;
+    const { id } = req.params;
 
-    const visitor: visitorDTO = req.body as visitorDTO;
-    const visitorId = String((visitor as any)?._id ?? (visitor as any)?.id ?? '').trim();
+    const visitor = req.body as visitorDTO;
+    const visitorRecord = toRecord(req.body);
+    const visitorId = toIdString(visitorRecord._id) || toIdString(visitorRecord.id);
 
     await cleanupExpiredVisitors();
 
@@ -433,9 +487,9 @@ visitorRouter.patch("/grant/:id/:access", async (req, res) => {
     visitor.access = nextAccess;
 
     const updatePayload = {
-      validity: nextValidity,
       access: nextAccess,
       arrivedAt: new Date(),
+      validity: nextValidity,
     };
 
     const persistedVisitor = await visitorShema.findByIdAndUpdate<visitorDTO>(
