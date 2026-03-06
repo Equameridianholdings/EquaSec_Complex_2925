@@ -1,4 +1,15 @@
-import { Component, OnInit, AfterViewInit, ElementRef, ViewChild, Inject, NgZone, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  AfterViewInit,
+  ElementRef,
+  ViewChild,
+  Inject,
+  NgZone,
+  CUSTOM_ELEMENTS_SCHEMA,
+  inject,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { isPlatformBrowser } from '@angular/common';
@@ -11,6 +22,11 @@ import { GatedAssignmentFormDTO } from '../interfaces/forms/gatedAssignmentFormD
 import { AdminPortalFiltersFormDTO } from '../interfaces/forms/adminPortalFiltersFormDTO';
 import { DataService } from '../services/data.service';
 import { environment } from '../../environments/environment';
+import {
+  MatSnackBar,
+  MatSnackBarHorizontalPosition,
+  MatSnackBarVerticalPosition,
+} from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-admin-portal',
@@ -21,10 +37,14 @@ import { environment } from '../../environments/environment';
   styleUrl: './admin-portal.css',
 })
 export class AdminPortal implements OnInit, AfterViewInit {
+  loading = signal(false);
+  private _snackBar = inject(MatSnackBar);
+  horizontalPosition: MatSnackBarHorizontalPosition = 'center';
+  verticalPosition: MatSnackBarVerticalPosition = 'top';
   constructor(
     private readonly dataService: DataService,
     private readonly ngZone: NgZone,
-    @Inject(PLATFORM_ID) private readonly platformId: object
+    @Inject(PLATFORM_ID) private readonly platformId: object,
   ) {}
   @ViewChild('complexAddressInput') protected complexAddressInput?: ElementRef<HTMLElement>;
   private addressAutocomplete: any = null;
@@ -48,7 +68,11 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   submitUpdateSecurity(): void {
-    if (!this.editingSecurityCompany) return;
+    this.loading.update(() => true);
+    if (!this.editingSecurityCompany) {
+      this.loading.update(() => false);
+      return;
+    }
     this.updateSecurityError = '';
 
     const payload = {
@@ -62,143 +86,176 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
     const companyId = this.editingSecurityCompany.companyId;
     if (!companyId) {
-      const idx = this.registeredSecurityCompanies.findIndex((c: any) => c.companyName === this.editingSecurityCompany.companyName);
+      const idx = this.registeredSecurityCompanies.findIndex(
+        (c: any) => c.companyName === this.editingSecurityCompany.companyName,
+      );
       if (idx > -1) {
         this.registeredSecurityCompanies[idx] = { ...this.editingSecurityCompany };
       }
+      this.loading.update(() => false);
       this.closeUpdateSecurityModal();
       return;
     }
 
     this.dataService.put(`securityCompany/${companyId}`, payload).subscribe({
       next: () => {
-        const idx = this.registeredSecurityCompanies.findIndex((c: any) => c.companyId === companyId);
+        const idx = this.registeredSecurityCompanies.findIndex(
+          (c: any) => c.companyId === companyId,
+        );
         if (idx > -1) {
-          this.registeredSecurityCompanies[idx] = { ...this.registeredSecurityCompanies[idx], ...this.editingSecurityCompany };
+          this.registeredSecurityCompanies[idx] = {
+            ...this.registeredSecurityCompanies[idx],
+            ...this.editingSecurityCompany,
+          };
         }
         this.closeUpdateSecurityModal();
-          this.triggerToast(`Security company "${this.editingSecurityCompany?.companyName}" updated successfully.`);
-          setTimeout(() => {
-            window.location.reload();
-          }, 1200);
+        this.triggerToast(
+          `Security company "${this.editingSecurityCompany?.companyName}" updated successfully.`,
+        );
+        setTimeout(() => {
+          this.loading.update(() => false);
+          window.location.reload();
+        }, 1200);
       },
       error: (err) => {
-        const apiMessage = err?.error?.message;
-        this.updateSecurityError = apiMessage || 'Unable to update security company.';
-      }
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
+      },
     });
   }
-          /**
-           * Delete a complex from onboardedComplexes.
-           */
-          deleteComplex(complex: any): void {
-            if (!complex?.complexId) {
-              return;
-            }
-            this.dataService.delete(`complex/${complex.complexId}`).subscribe({
-              next: () => {
-                this.onboardedComplexes = this.onboardedComplexes.filter(
-                  (item: any) => item.complexId !== complex.complexId
-                );
-                this.registeredSecurityCompanies = this.registeredSecurityCompanies.map((company: any) => {
-                  if (!company.assignments) {
-                    return company;
-                  }
-                  return {
-                    ...company,
-                    assignments: company.assignments.filter(
-                      (assignment: any) => assignment.complexName !== complex.complexName
-                    ),
-                  };
-                });
-                this.buildContractHistoryFromCompanies();
-                this.triggerToast(`Complex "${complex.complexName}" removed successfully.`);
-                setTimeout(() => {
-                  window.location.reload();
-                }, 1200);
-              },
-              error: () => {
-                this.updateComplexError = 'Unable to delete complex.';
-              }
-            });
+  /**
+   * Delete a complex from onboardedComplexes.
+   */
+  deleteComplex(complex: any): void {
+    this.loading.update(() => true);
+    if (!complex?.complexId) {
+      this.loading.update(() => false);
+      return;
+    }
+    this.dataService.delete(`complex/${complex.complexId}`).subscribe({
+      next: () => {
+        this.onboardedComplexes = this.onboardedComplexes.filter(
+          (item: any) => item.complexId !== complex.complexId,
+        );
+        this.registeredSecurityCompanies = this.registeredSecurityCompanies.map((company: any) => {
+          if (!company.assignments) {
+            return company;
           }
-        // Get the gated community name for a given complex, or null if not assigned
-        getGatedCommunityForComplex(complexName: string): string | null {
-          const complex = (this.onboardedComplexes || []).find((item: any) => item.complexName === complexName);
-          const communityName = String(complex?.gatedCommunityName ?? '').trim();
-          return communityName.length > 0 ? communityName : null;
-        }
-      // Check if a complex in a gated community is assigned to a security company
-      isGatedComplexAssigned(complex: any): boolean {
-        return Array.isArray(complex.securityAssignments) && complex.securityAssignments.length > 0;
-      }
+          return {
+            ...company,
+            assignments: company.assignments.filter(
+              (assignment: any) => assignment.complexName !== complex.complexName,
+            ),
+          };
+        });
+        this.buildContractHistoryFromCompanies();
+        this.triggerToast(`Complex "${complex.complexName}" removed successfully.`);
+        setTimeout(() => {
+          this.loading.update(() => false);
+          window.location.reload();
+        }, 1200);
+      },
+      error: (err) => {
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
+      },
+    });
+  }
+  // Get the gated community name for a given complex, or null if not assigned
+  getGatedCommunityForComplex(complexName: string): string | null {
+    const complex = (this.onboardedComplexes || []).find(
+      (item: any) => item.complexName === complexName,
+    );
+    const communityName = String(complex?.gatedCommunityName ?? '').trim();
+    return communityName.length > 0 ? communityName : null;
+  }
+  // Check if a complex in a gated community is assigned to a security company
+  isGatedComplexAssigned(complex: any): boolean {
+    return Array.isArray(complex.securityAssignments) && complex.securityAssignments.length > 0;
+  }
 
-      // Get assignment status string for a complex in a gated community
-      getGatedComplexAssignmentStatus(complex: any): string {
-        return this.isGatedComplexAssigned(complex) ? 'Assigned' : 'Not Assigned';
-      }
-    /**
-     * Open the Gated Community modal for editing a specific community.
-     * If a community is provided, set editingGatedCommunity and prefill form fields.
-     * If not, open for adding a new community.
-     */
-    openGatedCommunityModal(community?: any): void {
-      this.showGatedCommunityModal = true;
-      if (community) {
-        this.editingGatedCommunity = community;
-        const derivedHouses = typeof community.numberOfHouses === 'number'
+  // Get assignment status string for a complex in a gated community
+  getGatedComplexAssignmentStatus(complex: any): string {
+    return this.isGatedComplexAssigned(complex) ? 'Assigned' : 'Not Assigned';
+  }
+  /**
+   * Open the Gated Community modal for editing a specific community.
+   * If a community is provided, set editingGatedCommunity and prefill form fields.
+   * If not, open for adding a new community.
+   */
+  openGatedCommunityModal(community?: any): void {
+    this.showGatedCommunityModal = true;
+    if (community) {
+      this.editingGatedCommunity = community;
+      const derivedHouses =
+        typeof community.numberOfHouses === 'number'
           ? community.numberOfHouses
-          : (Number(community.unitEnd) - Number(community.unitStart) + 1);
-        this.gatedCommunityForm = {
-          gatedCommunityName: community.gatedCommunityName,
-          numberOfHouses: Number.isFinite(derivedHouses) && derivedHouses > 0 ? derivedHouses : '',
-          gatedCommunityPrice: community.price
-        };
-        this.gatedCommunityError = '';
-        this.gatedCommunitySuccess = '';
-      } else {
-        this.resetGatedCommunityForm();
-        this.editingGatedCommunity = null;
-      }
+          : Number(community.unitEnd) - Number(community.unitStart) + 1;
+      this.gatedCommunityForm = {
+        gatedCommunityName: community.gatedCommunityName,
+        numberOfHouses: Number.isFinite(derivedHouses) && derivedHouses > 0 ? derivedHouses : '',
+        gatedCommunityPrice: community.price,
+      };
+      this.gatedCommunityError = '';
+      this.gatedCommunitySuccess = '';
+    } else {
+      this.resetGatedCommunityForm();
+      this.editingGatedCommunity = null;
     }
+  }
 
-    /**
-     * Delete a gated community from the list.
-     */
-    deleteGatedCommunity(community: any): void {
-      if (!community?.gatedCommunityId) {
-        return;
-      }
-      this.dataService.delete(`gatedCommunity/${community.gatedCommunityId}`).subscribe({
-        next: () => {
-          this.gatedCommunities = this.gatedCommunities.filter(
-            (gc: any) => gc.gatedCommunityId !== community.gatedCommunityId
-          );
-          this.onboardedComplexes = this.onboardedComplexes.filter(
-            (complex: any) => complex.gatedCommunityName !== community.gatedCommunityName
-          );
-          this.registeredSecurityCompanies = this.registeredSecurityCompanies.map((company: any) => {
-            if (!company.assignments) {
-              return company;
-            }
-            return {
-              ...company,
-              assignments: company.assignments.filter(
-                (assignment: any) => assignment.gatedCommunityName !== community.gatedCommunityName
-              ),
-            };
-          });
-          this.buildContractHistoryFromCompanies();
-          this.triggerToast(`Gated community "${community.gatedCommunityName}" removed successfully.`);
-          setTimeout(() => {
-            window.location.reload();
-          }, 1200);
-        },
-        error: () => {
-          this.gatedCommunityError = 'Unable to delete gated community.';
-        }
-      });
+  /**
+   * Delete a gated community from the list.
+   */
+  deleteGatedCommunity(community: any): void {
+    this.loading.update(() => true);
+    if (!community?.gatedCommunityId) {
+      this.loading.update(() => false);
+      return;
     }
+    this.dataService.delete(`gatedCommunity/${community.gatedCommunityId}`).subscribe({
+      next: () => {
+        this.gatedCommunities = this.gatedCommunities.filter(
+          (gc: any) => gc.gatedCommunityId !== community.gatedCommunityId,
+        );
+        this.onboardedComplexes = this.onboardedComplexes.filter(
+          (complex: any) => complex.gatedCommunityName !== community.gatedCommunityName,
+        );
+        this.registeredSecurityCompanies = this.registeredSecurityCompanies.map((company: any) => {
+          if (!company.assignments) {
+            return company;
+          }
+          return {
+            ...company,
+            assignments: company.assignments.filter(
+              (assignment: any) => assignment.gatedCommunityName !== community.gatedCommunityName,
+            ),
+          };
+        });
+        this.buildContractHistoryFromCompanies();
+        this.triggerToast(
+          `Gated community "${community.gatedCommunityName}" removed successfully.`,
+        );
+        setTimeout(() => {
+          this.loading.update(() => false);
+          window.location.reload();
+        }, 1200);
+      },
+      error: (err) => {
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
+      },
+    });
+  }
   public adminEmail: string = 'kkpartners@equameridian.com';
   public editingGatedCommunity: any = null;
   public complexPrice: number | string = '';
@@ -228,12 +285,17 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   getComplexesForCommunity(gatedCommunityName: string): Array<any> {
-    const normalized = String(gatedCommunityName ?? '').trim().toLowerCase();
+    const normalized = String(gatedCommunityName ?? '')
+      .trim()
+      .toLowerCase();
     if (!normalized) {
       return [];
     }
-    return (this.onboardedComplexes || []).filter((complex: any) =>
-      String(complex?.gatedCommunityName ?? '').trim().toLowerCase() === normalized
+    return (this.onboardedComplexes || []).filter(
+      (complex: any) =>
+        String(complex?.gatedCommunityName ?? '')
+          .trim()
+          .toLowerCase() === normalized,
     );
   }
 
@@ -326,9 +388,19 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
   // Add Security Company handler
   addSecurityCompany() {
+    this.loading.update(() => true);
     this.addSecurityError = '';
     const form = this.newSecurityCompany;
-    if (!form.companyName || !form.companyEmail || !form.companyTel || !form.cipcReg || !form.psiraNumber) return;
+    if (
+      !form.companyName ||
+      !form.companyEmail ||
+      !form.companyTel ||
+      !form.cipcReg ||
+      !form.psiraNumber
+    ) {
+      this.loading.update(() => false);
+      return;
+    }
 
     const payload = {
       name: form.companyName.trim(),
@@ -345,41 +417,48 @@ export class AdminPortal implements OnInit, AfterViewInit {
         this.loadSecurityCompanies();
         this.triggerToast(`Security company "${form.companyName}" added successfully.`);
         setTimeout(() => {
+          this.loading.update(() => false);
           window.location.reload();
         }, 1200);
       },
       error: (err) => {
-        const apiMessage = err?.error?.message;
-        const detail = err?.error?.error;
-        this.addSecurityError = detail || apiMessage || 'Unable to add security company.';
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
       },
     });
   }
 
   private triggerToast(message: string): void {
-    this.toastMessage = message;
-    this.showToast = true;
-    setTimeout(() => {
-      this.showToast = false;
-    }, 1000);
+    this._snackBar.open(message, 'close', {
+      horizontalPosition: this.horizontalPosition,
+      verticalPosition: this.verticalPosition,
+    });
   }
 
   private async ensureGoogleMapsLoaded(): Promise<void> {
+    this.loading.update(() => true);
     if (!isPlatformBrowser(this.platformId)) {
+      this.loading.update(() => false);
       return;
     }
     const windowAny = window as any;
     const existing = windowAny?.google?.maps?.places;
     if (existing) {
+      this.loading.update(() => false);
       return;
     }
     if (windowAny.__gmapsLoadingPromise) {
       await windowAny.__gmapsLoadingPromise;
+      this.loading.update(() => false);
       return;
     }
     const apiKey = environment.GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
       console.warn('[maps] GOOGLE_MAPS_API_KEY is missing. Address autocomplete disabled.');
+      this.loading.update(() => false);
       return;
     }
     windowAny.__gmapsLoadingPromise = new Promise<void>((resolve, reject) => {
@@ -392,6 +471,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
       document.head.appendChild(script);
     });
     await windowAny.__gmapsLoadingPromise;
+    this.loading.update(() => false);
   }
 
   private async setupAddressAutocomplete(): Promise<void> {
@@ -491,30 +571,39 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
   // Remove Security Company handler
   removeSecurityCompany() {
-    if (!this.removeCompanyName) return;
+    this.loading.update(() => true);
+    if (!this.removeCompanyName) {
+      this.loading.update(() => false);
+      return;
+    }
     this.removeSecurityError = '';
     const company = this.registeredSecurityCompanies.find(
-      (c: any) => c.companyName === this.removeCompanyName
+      (c: any) => c.companyName === this.removeCompanyName,
     );
     if (!company?.companyId) {
       this.removeSecurityError = 'Unable to locate the selected company.';
+      this.loading.update(() => false);
       return;
     }
     this.dataService.delete(`securityCompany/${company.companyId}`).subscribe({
       next: () => {
         this.registeredSecurityCompanies = this.registeredSecurityCompanies.filter(
-          (c: any) => c.companyId !== company.companyId
+          (c: any) => c.companyId !== company.companyId,
         );
         this.closeRemoveSecurityModal();
         this.triggerToast(`Security company "${company.companyName}" removed successfully.`);
         setTimeout(() => {
+          this.loading.update(() => false);
           window.location.reload();
         }, 1200);
       },
       error: (err) => {
-        const apiMessage = err?.error?.message;
-        this.removeSecurityError = apiMessage || 'Unable to remove security company.';
-      }
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
+      },
     });
   }
   protected showOnboardingModal = false;
@@ -526,7 +615,9 @@ export class AdminPortal implements OnInit, AfterViewInit {
     this.editingComplex = { ...complex };
     if (this.editingComplex.parkingMode === 'fixed') {
       const isUnlimited = this.editingComplex['fixedParkingCount'] === 'unlimited';
-      this.editingComplex.parkingIsUnlimited = Boolean(isUnlimited || this.editingComplex.parkingIsUnlimited);
+      this.editingComplex.parkingIsUnlimited = Boolean(
+        isUnlimited || this.editingComplex.parkingIsUnlimited,
+      );
       if (isUnlimited) {
         this.editingComplex['fixedParkingCount'] = '';
       }
@@ -571,10 +662,15 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   submitUpdateComplex(): void {
-    if (!this.editingComplex) return;
+    this.loading.update(() => true);
+    if (!this.editingComplex) {
+      this.loading.update(() => false);
+      return;
+    }
     this.updateComplexError = '';
 
-    const hasBlocks = Array.isArray(this.editingComplex.blocks) && this.editingComplex.blocks.length > 0;
+    const hasBlocks =
+      Array.isArray(this.editingComplex.blocks) && this.editingComplex.blocks.length > 0;
     let unitStart = 0;
     let unitEnd = 0;
     let numberOfUnits = 0;
@@ -582,15 +678,24 @@ export class AdminPortal implements OnInit, AfterViewInit {
     if (hasBlocks) {
       normalizedBlocks = this.editingComplex.blocks.map((block: any) => ({
         name: String(block?.name ?? '').trim(),
-        unitStart: typeof block?.unitStart === 'number' ? block.unitStart : parseInt(String(block?.unitStart), 10),
-        unitEnd: typeof block?.unitEnd === 'number' ? block.unitEnd : parseInt(String(block?.unitEnd), 10),
+        unitStart:
+          typeof block?.unitStart === 'number'
+            ? block.unitStart
+            : parseInt(String(block?.unitStart), 10),
+        unitEnd:
+          typeof block?.unitEnd === 'number' ? block.unitEnd : parseInt(String(block?.unitEnd), 10),
       }));
       for (const block of normalizedBlocks) {
         if (!block.name) {
           this.updateComplexError = 'Block name is required.';
+          this.loading.update(() => false);
           return;
         }
-        if (Number.isNaN(block.unitStart) || Number.isNaN(block.unitEnd) || block.unitStart > block.unitEnd) {
+        if (
+          Number.isNaN(block.unitStart) ||
+          Number.isNaN(block.unitEnd) ||
+          block.unitStart > block.unitEnd
+        ) {
           this.updateComplexError = 'Block unit range must be valid.';
           return;
         }
@@ -599,39 +704,54 @@ export class AdminPortal implements OnInit, AfterViewInit {
       const ends = normalizedBlocks.map((block) => block.unitEnd);
       unitStart = Math.min(...starts);
       unitEnd = Math.max(...ends);
-      numberOfUnits = normalizedBlocks.reduce((total, block) => total + (block.unitEnd - block.unitStart + 1), 0);
+      numberOfUnits = normalizedBlocks.reduce(
+        (total, block) => total + (block.unitEnd - block.unitStart + 1),
+        0,
+      );
     } else {
-      unitStart = typeof this.editingComplex.unitStart === 'number'
-        ? this.editingComplex.unitStart
-        : parseInt(String(this.editingComplex.unitStart), 10);
-      unitEnd = typeof this.editingComplex.unitEnd === 'number'
-        ? this.editingComplex.unitEnd
-        : parseInt(String(this.editingComplex.unitEnd), 10);
+      unitStart =
+        typeof this.editingComplex.unitStart === 'number'
+          ? this.editingComplex.unitStart
+          : parseInt(String(this.editingComplex.unitStart), 10);
+      unitEnd =
+        typeof this.editingComplex.unitEnd === 'number'
+          ? this.editingComplex.unitEnd
+          : parseInt(String(this.editingComplex.unitEnd), 10);
       if (Number.isNaN(unitStart) || Number.isNaN(unitEnd) || unitStart > unitEnd) {
         this.updateComplexError = 'Unit range must be valid.';
+        this.loading.update(() => false);
         return;
       }
       numberOfUnits = unitEnd - unitStart + 1;
     }
 
-    const priceValue = typeof this.editingComplex.price === 'number'
-      ? this.editingComplex.price
-      : parseFloat(String(this.editingComplex.price));
+    const priceValue =
+      typeof this.editingComplex.price === 'number'
+        ? this.editingComplex.price
+        : parseFloat(String(this.editingComplex.price));
     if (Number.isNaN(priceValue) || priceValue < 0) {
       this.updateComplexError = 'Price must be a valid non-negative number.';
+      this.loading.update(() => false);
       return;
     }
 
     const isFixedMode = this.editingComplex.parkingMode === 'fixed';
     const fixedParkingRaw = this.editingComplex['fixedParkingCount'];
-    const isUnlimited = Boolean(this.editingComplex.parkingIsUnlimited || fixedParkingRaw === 'unlimited');
+    const isUnlimited = Boolean(
+      this.editingComplex.parkingIsUnlimited || fixedParkingRaw === 'unlimited',
+    );
     const fixedParkingCount = isUnlimited
       ? null
-      : (typeof fixedParkingRaw === 'number'
+      : typeof fixedParkingRaw === 'number'
         ? fixedParkingRaw
-        : parseInt(String(fixedParkingRaw), 10));
-    if (isFixedMode && !isUnlimited && (fixedParkingCount === null || Number.isNaN(fixedParkingCount) || fixedParkingCount < 0)) {
+        : parseInt(String(fixedParkingRaw), 10);
+    if (
+      isFixedMode &&
+      !isUnlimited &&
+      (fixedParkingCount === null || Number.isNaN(fixedParkingCount) || fixedParkingCount < 0)
+    ) {
       this.updateComplexError = 'Fixed parking count must be a valid non-negative number.';
+      this.loading.update(() => false);
       return;
     }
 
@@ -647,7 +767,10 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
     if (hasBlocks) {
       payload['blocks'] = normalizedBlocks;
-    } else if (Array.isArray(this.editingComplex.blocks) && this.editingComplex.blocks.length === 0) {
+    } else if (
+      Array.isArray(this.editingComplex.blocks) &&
+      this.editingComplex.blocks.length === 0
+    ) {
       payload['blocks'] = [];
     }
 
@@ -661,6 +784,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
     const complexId = this.editingComplex.complexId;
     if (!complexId) {
       this.updateComplexError = 'Unable to locate the complex record.';
+      this.loading.update(() => false);
       return;
     }
 
@@ -680,13 +804,17 @@ export class AdminPortal implements OnInit, AfterViewInit {
         this.closeUpdateComplexModal();
         this.triggerToast(`Complex "${this.editingComplex?.complexName}" updated successfully.`);
         setTimeout(() => {
+          this.loading.update(() => false);
           window.location.reload();
         }, 1200);
       },
       error: (err) => {
-        const apiMessage = err?.error?.message;
-        this.updateComplexError = apiMessage || 'Unable to update complex.';
-      }
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
+      },
     });
   }
   protected showUnitConfigStep = false;
@@ -699,7 +827,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
     parkingMode: 'fixed',
     fixedParkingCount: '',
     parkingIsUnlimited: false,
-    selectedGatedCommunityForOnboarding: ''
+    selectedGatedCommunityForOnboarding: '',
   };
   protected get complexAddress(): string {
     return this.complexOnboardingForm.address;
@@ -718,7 +846,12 @@ export class AdminPortal implements OnInit, AfterViewInit {
     this.syncBlocksState();
   }
 
-  protected get blocks(): Array<{ name: string; numberOfUnits: number | string; unitStart?: number | string; unitEnd?: number | string }> {
+  protected get blocks(): Array<{
+    name: string;
+    numberOfUnits: number | string;
+    unitStart?: number | string;
+    unitEnd?: number | string;
+  }> {
     return this.complexOnboardingForm.blocks;
   }
   protected get complexName(): string {
@@ -772,7 +905,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
   protected gatedCommunityForm: GatedCommunityFormDTO = {
     gatedCommunityName: '',
     numberOfHouses: '',
-    gatedCommunityPrice: ''
+    gatedCommunityPrice: '',
   };
   protected get gatedCommunityName(): string {
     return this.gatedCommunityForm.gatedCommunityName;
@@ -818,7 +951,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
   protected assignmentForm: AssignmentFormDTO = {
     assignmentComplexName: '',
     assignmentContractStart: '',
-    assignmentContractEnd: ''
+    assignmentContractEnd: '',
   };
   protected get assignmentComplexName(): string {
     return this.assignmentForm.assignmentComplexName;
@@ -848,7 +981,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
   protected showUnassignModal = false;
   protected unassignmentTarget: any = null;
   protected assignmentTimeoutId: any = null;
-  
+
   // Gated community assignment
   protected showGatedComplexAssignModal = false;
   protected showGatedSecurityAssignModal = false;
@@ -857,7 +990,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
     gatedAssignmentComplexName: '',
     gatedAssignmentCompanyName: '',
     gatedSecurityContractStart: '',
-    gatedSecurityContractEnd: ''
+    gatedSecurityContractEnd: '',
   };
   protected get gatedAssignmentComplexName(): string {
     return this.gatedAssignmentForm.gatedAssignmentComplexName;
@@ -895,7 +1028,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
   protected gatedSecurityUnassignTarget: any = null;
   protected showGatedSecurityUnassignModal = false;
   protected gatedCommunityFilter = '';
-  
+
   // Contract history filters and sorting
   protected contractFilters: AdminPortalFiltersFormDTO = {
     contractSearchTerm: '',
@@ -910,7 +1043,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
     filterStartTime: '',
     filterEndTime: '',
     timeframeFilter: '',
-    gatedCommunityFilter: ''
+    gatedCommunityFilter: '',
   };
   protected get contractSearchTerm(): string {
     return this.contractFilters.contractSearchTerm;
@@ -1010,12 +1143,12 @@ export class AdminPortal implements OnInit, AfterViewInit {
   protected sortContractColumn = 'contractEndDate';
   protected sortContractDirection: 'asc' | 'desc' = 'desc';
   protected filteredContractHistory: Array<any> = [];
-  
+
   // Visitor history filters
   protected sortColumn = 'entryTime';
   protected sortDirection: 'asc' | 'desc' = 'desc';
   protected filteredVisitorHistory: Array<any> = [];
-  
+
   protected registeredSecurityCompanies: Array<any> = [];
 
   protected contractHistory: Array<any> = [];
@@ -1057,22 +1190,31 @@ export class AdminPortal implements OnInit, AfterViewInit {
   protected readonly overviewStats = [];
 
   protected readonly quickActions = [
-    { title: 'Onboard Complex', description: 'Set up a new complex with units and parking configuration.', action: 'onboard' },
+    {
+      title: 'Onboard Complex',
+      description: 'Set up a new complex with units and parking configuration.',
+      action: 'onboard',
+    },
   ];
 
   protected readonly recentEvents = [];
 
   protected get isGatedCommunityFormValid(): boolean {
     const hasName = this.gatedCommunityForm.gatedCommunityName.trim().length > 0;
-    const hasNumberOfHouses = this.gatedCommunityForm.numberOfHouses !== '' && this.gatedCommunityForm.numberOfHouses !== null;
-    const hasPrice = this.gatedCommunityForm.gatedCommunityPrice !== '' && this.gatedCommunityForm.gatedCommunityPrice !== null && !isNaN(Number(this.gatedCommunityForm.gatedCommunityPrice));
-    const numberOfHouses = typeof this.gatedCommunityForm.numberOfHouses === 'number'
-      ? this.gatedCommunityForm.numberOfHouses
-      : parseInt(String(this.gatedCommunityForm.numberOfHouses), 10);
+    const hasNumberOfHouses =
+      this.gatedCommunityForm.numberOfHouses !== '' &&
+      this.gatedCommunityForm.numberOfHouses !== null;
+    const hasPrice =
+      this.gatedCommunityForm.gatedCommunityPrice !== '' &&
+      this.gatedCommunityForm.gatedCommunityPrice !== null &&
+      !isNaN(Number(this.gatedCommunityForm.gatedCommunityPrice));
+    const numberOfHouses =
+      typeof this.gatedCommunityForm.numberOfHouses === 'number'
+        ? this.gatedCommunityForm.numberOfHouses
+        : parseInt(String(this.gatedCommunityForm.numberOfHouses), 10);
     const validCount = Number.isFinite(numberOfHouses) && numberOfHouses > 0 && hasNumberOfHouses;
     return hasName && validCount && hasPrice;
   }
-
 
   protected closeGatedCommunityModal(): void {
     this.showGatedCommunityModal = false;
@@ -1084,35 +1226,41 @@ export class AdminPortal implements OnInit, AfterViewInit {
     this.gatedCommunityForm = {
       gatedCommunityName: '',
       numberOfHouses: '',
-      gatedCommunityPrice: ''
+      gatedCommunityPrice: '',
     };
     this.gatedCommunityError = '';
     this.gatedCommunitySuccess = '';
   }
 
   protected async submitGatedCommunity(): Promise<void> {
+    this.loading.update(() => true);
     this.gatedCommunityError = '';
     this.gatedCommunitySuccess = '';
 
     if (!this.gatedCommunityForm.gatedCommunityName.trim()) {
       this.gatedCommunityError = 'Gated community name is required.';
+      this.loading.update(() => false);
       return;
     }
 
-    const numberOfHouses = typeof this.gatedCommunityForm.numberOfHouses === 'number'
-      ? this.gatedCommunityForm.numberOfHouses
-      : parseInt(String(this.gatedCommunityForm.numberOfHouses), 10);
+    const numberOfHouses =
+      typeof this.gatedCommunityForm.numberOfHouses === 'number'
+        ? this.gatedCommunityForm.numberOfHouses
+        : parseInt(String(this.gatedCommunityForm.numberOfHouses), 10);
 
     if (!Number.isFinite(numberOfHouses) || numberOfHouses <= 0) {
       this.gatedCommunityError = 'Number of houses must be a valid positive number.';
+      this.loading.update(() => false);
       return;
     }
 
-    const priceValue = typeof this.gatedCommunityForm.gatedCommunityPrice === 'number'
-      ? this.gatedCommunityForm.gatedCommunityPrice
-      : parseFloat(String(this.gatedCommunityForm.gatedCommunityPrice));
+    const priceValue =
+      typeof this.gatedCommunityForm.gatedCommunityPrice === 'number'
+        ? this.gatedCommunityForm.gatedCommunityPrice
+        : parseFloat(String(this.gatedCommunityForm.gatedCommunityPrice));
     if (Number.isNaN(priceValue) || priceValue < 0) {
       this.gatedCommunityError = 'Price must be a valid non-negative number.';
+      this.loading.update(() => false);
       return;
     }
 
@@ -1126,7 +1274,9 @@ export class AdminPortal implements OnInit, AfterViewInit {
       unitStart,
       unitEnd,
       price: priceValue,
-      securityAssignments: this.editingGatedCommunity ? this.editingGatedCommunity.securityAssignments : [],
+      securityAssignments: this.editingGatedCommunity
+        ? this.editingGatedCommunity.securityAssignments
+        : [],
     };
 
     const existingName = String(this.editingGatedCommunity?.gatedCommunityName ?? '').trim();
@@ -1153,16 +1303,21 @@ export class AdminPortal implements OnInit, AfterViewInit {
           setTimeout(() => {
             this.closeGatedCommunityModal();
           }, 1500);
-          this.triggerToast(`Gated community "${gatedData.gatedCommunityName}" updated successfully.`);
+          this.triggerToast(
+            `Gated community "${gatedData.gatedCommunityName}" updated successfully.`,
+          );
           setTimeout(() => {
+            this.loading.update(() => false);
             window.location.reload();
           }, 1200);
         },
         error: (err) => {
-          const apiMessage = err?.error?.message;
-          const fallback = 'Unable to update gated community.';
-          this.gatedCommunityError = apiMessage || fallback;
-        }
+          this._snackBar.open(err.error.message, 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
+          this.loading.update(() => false);
+        },
       });
     } else {
       this.dataService.post('gatedCommunity', payload).subscribe({
@@ -1173,16 +1328,21 @@ export class AdminPortal implements OnInit, AfterViewInit {
           setTimeout(() => {
             this.closeGatedCommunityModal();
           }, 1500);
-          this.triggerToast(`Gated community "${gatedData.gatedCommunityName}" added successfully.`);
+          this.triggerToast(
+            `Gated community "${gatedData.gatedCommunityName}" added successfully.`,
+          );
           setTimeout(() => {
+            this.loading.update(() => false);
             window.location.reload();
           }, 1200);
         },
         error: (err) => {
-          const apiMessage = err?.error?.message;
-          const fallback = 'Unable to add gated community.';
-          this.gatedCommunityError = apiMessage || fallback;
-        }
+          this._snackBar.open(err.error.message, 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
+          this.loading.update(() => false);
+        },
       });
     }
   }
@@ -1206,34 +1366,42 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   protected async submitGatedComplexAssignment(): Promise<void> {
+    this.loading.update(() => true);
     this.gatedAssignmentError = '';
     this.gatedAssignmentSuccess = '';
 
     if (!this.gatedCommunityFilter) {
       this.gatedAssignmentError = 'Please select which gated community this complex belongs to.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.gatedAssignmentComplexName) {
       this.gatedAssignmentError = 'Please select a complex.';
+      this.loading.update(() => false);
       return;
     }
 
     // Validate selected complex matches the gated community
     const filteredComplexes = this.filteredGatedComplexesByFilter;
-    const complexExists = filteredComplexes.some((c: any) => c.complexName === this.gatedAssignmentComplexName);
+    const complexExists = filteredComplexes.some(
+      (c: any) => c.complexName === this.gatedAssignmentComplexName,
+    );
     if (!complexExists) {
-      this.gatedAssignmentError = 'Selected complex does not belong to the selected gated community.';
+      this.gatedAssignmentError =
+        'Selected complex does not belong to the selected gated community.';
+      this.loading.update(() => false);
       return;
     }
 
     if (this.selectedGatedCommunity) {
       const existingComplex = this.onboardedComplexes.find(
-        (c: any) => c.complexName === this.gatedAssignmentComplexName
+        (c: any) => c.complexName === this.gatedAssignmentComplexName,
       );
 
       if (!existingComplex?.complexId) {
         this.gatedAssignmentError = 'Selected complex could not be found.';
+        this.loading.update(() => false);
         return;
       }
 
@@ -1242,22 +1410,29 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
       if (existingLinkedCommunity && existingLinkedCommunity === targetCommunity) {
         this.gatedAssignmentError = 'This complex is already assigned to this gated community.';
+        this.loading.update(() => false);
         return;
       }
 
-      this.dataService.put(`complex/${existingComplex.complexId}`, { gatedCommunityName: targetCommunity }).subscribe({
-        next: () => {
-          existingComplex.gatedCommunityName = targetCommunity;
-          this.gatedAssignmentSuccess = `${this.gatedAssignmentComplexName} has been assigned to ${this.selectedGatedCommunity.gatedCommunityName}!`;
-          setTimeout(() => {
-            this.closeGatedComplexAssignModal();
-          }, 2000);
-        },
-        error: (err) => {
-          const apiMessage = err?.error?.message;
-          this.gatedAssignmentError = apiMessage || 'Unable to assign complex to gated community.';
-        }
-      });
+      this.dataService
+        .put(`complex/${existingComplex.complexId}`, { gatedCommunityName: targetCommunity })
+        .subscribe({
+          next: () => {
+            existingComplex.gatedCommunityName = targetCommunity;
+            this.gatedAssignmentSuccess = `${this.gatedAssignmentComplexName} has been assigned to ${this.selectedGatedCommunity.gatedCommunityName}!`;
+            setTimeout(() => {
+              this.loading.update(() => false);
+              this.closeGatedComplexAssignModal();
+            }, 2000);
+          },
+          error: (err) => {
+            this._snackBar.open(err.error.message, 'close', {
+              horizontalPosition: this.horizontalPosition,
+              verticalPosition: this.verticalPosition,
+            });
+            this.loading.update(() => false);
+          },
+        });
     }
   }
 
@@ -1282,31 +1457,37 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   protected async submitGatedSecurityAssignment(): Promise<void> {
+    this.loading.update(() => true);
     this.gatedAssignmentError = '';
     this.gatedAssignmentSuccess = '';
 
     if (!this.gatedAssignmentCompanyName) {
       this.gatedAssignmentError = 'Please select a security company.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.gatedSecurityContractStart) {
       this.gatedAssignmentError = 'Contract start date is required.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.gatedSecurityContractEnd) {
       this.gatedAssignmentError = 'Contract end date is required.';
+      this.loading.update(() => false);
       return;
     }
 
     if (this.selectedGatedCommunity) {
       const existingCompany = this.selectedGatedCommunity.securityAssignments?.find(
-        (c: any) => c.companyName === this.gatedAssignmentCompanyName
+        (c: any) => c.companyName === this.gatedAssignmentCompanyName,
       );
 
       if (existingCompany) {
-        this.gatedAssignmentError = 'This security company is already assigned to this gated community.';
+        this.gatedAssignmentError =
+          'This security company is already assigned to this gated community.';
+        this.loading.update(() => false);
         return;
       }
 
@@ -1315,17 +1496,20 @@ export class AdminPortal implements OnInit, AfterViewInit {
       }
 
       const targetCompany = this.registeredSecurityCompanies.find(
-        (company) => company.companyName === this.gatedAssignmentCompanyName
+        (company) => company.companyName === this.gatedAssignmentCompanyName,
       );
       if (targetCompany) {
         if (!targetCompany.assignments) {
           targetCompany.assignments = [];
         }
         const existingContract = targetCompany.assignments.find(
-          (assignment: any) => assignment.gatedCommunityName === this.selectedGatedCommunity.gatedCommunityName
+          (assignment: any) =>
+            assignment.gatedCommunityName === this.selectedGatedCommunity.gatedCommunityName,
         );
         if (existingContract) {
-          this.gatedAssignmentError = 'This security company is already assigned to this gated community.';
+          this.gatedAssignmentError =
+            'This security company is already assigned to this gated community.';
+          this.loading.update(() => false);
           return;
         }
         targetCompany.assignments.push({
@@ -1344,31 +1528,40 @@ export class AdminPortal implements OnInit, AfterViewInit {
       this.gatedAssignmentSuccess = `${this.gatedAssignmentCompanyName} has been assigned to ${this.selectedGatedCommunity.gatedCommunityName}!`;
 
       setTimeout(() => {
+        this.loading.update(() => false);
         this.closeGatedSecurityAssignModal();
       }, 2000);
     }
   }
 
   protected confirmGatedSecurityUnassignment(community: any, security: any): void {
-    const index = community.securityAssignments.findIndex((s: any) => s.companyName === security.companyName);
+    this.loading.update(() => true);
+    const index = community.securityAssignments.findIndex(
+      (s: any) => s.companyName === security.companyName,
+    );
     if (index > -1) {
       community.securityAssignments.splice(index, 1);
     }
     const targetCompany = this.registeredSecurityCompanies.find(
-      (company) => company.companyName === security.companyName
+      (company) => company.companyName === security.companyName,
     );
     if (targetCompany?.assignments) {
       const assignmentIndex = targetCompany.assignments.findIndex(
-        (assignment: any) => assignment.gatedCommunityName === community.gatedCommunityName
+        (assignment: any) => assignment.gatedCommunityName === community.gatedCommunityName,
       );
       if (assignmentIndex > -1) {
         targetCompany.assignments.splice(assignmentIndex, 1);
         this.persistCompanyAssignments(targetCompany);
       }
     }
-    console.log('Security company unassigned from gated community:', security.companyName, community.gatedCommunityName);
+    console.log(
+      'Security company unassigned from gated community:',
+      security.companyName,
+      community.gatedCommunityName,
+    );
     this.gatedAssignmentSuccess = `${security.companyName} has been unassigned from ${community.gatedCommunityName}!`;
     setTimeout(() => {
+      this.loading.update(() => false);
       this.gatedAssignmentSuccess = '';
     }, 2000);
   }
@@ -1381,7 +1574,10 @@ export class AdminPortal implements OnInit, AfterViewInit {
       const gatedPrice = this.getGatedCommunityPrice(this.selectedGatedCommunityForOnboarding);
       priceValue = gatedPrice !== null ? gatedPrice : null;
     } else {
-      const parsedPrice = typeof this.complexPrice === 'number' ? this.complexPrice : parseFloat(String(this.complexPrice));
+      const parsedPrice =
+        typeof this.complexPrice === 'number'
+          ? this.complexPrice
+          : parseFloat(String(this.complexPrice));
       priceValue = Number.isNaN(parsedPrice) ? null : parsedPrice;
     }
     const hasValidPrice = priceValue !== null && priceValue >= 0;
@@ -1390,7 +1586,10 @@ export class AdminPortal implements OnInit, AfterViewInit {
       validRange = this.areBlocksValid();
     } else {
       const hasNumberOfUnits = this.numberOfUnits !== '' && this.numberOfUnits !== null;
-      const numberOfUnitsNum = typeof this.numberOfUnits === 'number' ? this.numberOfUnits : parseInt(String(this.numberOfUnits), 10);
+      const numberOfUnitsNum =
+        typeof this.numberOfUnits === 'number'
+          ? this.numberOfUnits
+          : parseInt(String(this.numberOfUnits), 10);
       validRange = Number.isFinite(numberOfUnitsNum) && numberOfUnitsNum > 0 && hasNumberOfUnits;
     }
 
@@ -1399,9 +1598,16 @@ export class AdminPortal implements OnInit, AfterViewInit {
       if (this.parkingIsUnlimited) {
         return hasComplexName && hasAddress && hasValidPrice && validRange;
       }
-      
-      const parkingNum = typeof this.fixedParkingCount === 'number' ? this.fixedParkingCount : parseInt(String(this.fixedParkingCount), 10);
-      const hasFixedParking = this.fixedParkingCount !== '' && this.fixedParkingCount !== null && !isNaN(parkingNum) && parkingNum >= 0;
+
+      const parkingNum =
+        typeof this.fixedParkingCount === 'number'
+          ? this.fixedParkingCount
+          : parseInt(String(this.fixedParkingCount), 10);
+      const hasFixedParking =
+        this.fixedParkingCount !== '' &&
+        this.fixedParkingCount !== null &&
+        !isNaN(parkingNum) &&
+        parkingNum >= 0;
       return hasComplexName && hasAddress && hasValidPrice && validRange && hasFixedParking;
     }
 
@@ -1410,7 +1616,8 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
   protected get allUnitsConfigured(): boolean {
     return this.unitList.every((unit) => {
-      const parkingNum = typeof unit.parkingBays === 'string' ? parseInt(unit.parkingBays, 10) : unit.parkingBays;
+      const parkingNum =
+        typeof unit.parkingBays === 'string' ? parseInt(unit.parkingBays, 10) : unit.parkingBays;
       return !isNaN(parkingNum) && parkingNum >= 0;
     });
   }
@@ -1451,15 +1658,13 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   protected async submitOnboarding(): Promise<void> {
+    this.loading.update(() => true);
     this.onboardingError = '';
     this.onboardingSuccess = '';
 
     const element = this.complexAddressInput?.nativeElement as any;
     const domAddress = String(
-      element?.value ??
-      element?.inputValue ??
-      element?.getAttribute?.('value') ??
-      ''
+      element?.value ?? element?.inputValue ?? element?.getAttribute?.('value') ?? '',
     ).trim();
     if (!this.complexAddress.trim() && domAddress) {
       this.complexAddress = domAddress;
@@ -1472,29 +1677,37 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
     if (!this.complexName.trim()) {
       this.onboardingError = 'Complex name is required.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.complexAddress.trim()) {
       this.onboardingError = 'Address is required.';
+      this.loading.update(() => false);
       return;
     }
 
     let numberOfUnits = 0;
     if (this.hasBlocks) {
       if (!this.validateBlocks()) {
+        this.loading.update(() => false);
         return;
       }
       const summary = this.getBlocksSummary();
       if (!summary) {
         this.onboardingError = 'Blocks are incomplete.';
+        this.loading.update(() => false);
         return;
       }
       numberOfUnits = summary.numberOfUnits;
     } else {
-      numberOfUnits = typeof this.numberOfUnits === 'number' ? this.numberOfUnits : parseInt(String(this.numberOfUnits), 10);
+      numberOfUnits =
+        typeof this.numberOfUnits === 'number'
+          ? this.numberOfUnits
+          : parseInt(String(this.numberOfUnits), 10);
       if (!Number.isFinite(numberOfUnits) || numberOfUnits <= 0) {
         this.onboardingError = 'Number of units must be a valid positive number.';
+        this.loading.update(() => false);
         return;
       }
     }
@@ -1506,6 +1719,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
     const parsedPrice = typeof price === 'number' ? price : parseFloat(String(price));
     if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
       this.onboardingError = 'Price must be a valid non-negative number.';
+      this.loading.update(() => false);
       return;
     }
 
@@ -1533,13 +1747,18 @@ export class AdminPortal implements OnInit, AfterViewInit {
             blocks: this.hasBlocks ? this.normalizeBlocks() : [],
           },
           onboardingData,
-          `Complex "${onboardingData.complexName}" has been onboarded successfully with unlimited parking!`
+          `Complex "${onboardingData.complexName}" has been onboarded successfully with unlimited parking!`,
         );
+        this.loading.update(() => false);
         return;
       }
-      const fixedCount = typeof this.fixedParkingCount === 'number' ? this.fixedParkingCount : parseInt(String(this.fixedParkingCount), 10);
+      const fixedCount =
+        typeof this.fixedParkingCount === 'number'
+          ? this.fixedParkingCount
+          : parseInt(String(this.fixedParkingCount), 10);
       if (isNaN(fixedCount) || fixedCount < 0) {
         this.onboardingError = 'Fixed parking count must be a valid non-negative number.';
+        this.loading.update(() => false);
         return;
       }
       const onboardingData = {
@@ -1563,12 +1782,14 @@ export class AdminPortal implements OnInit, AfterViewInit {
           blocks: this.hasBlocks ? this.normalizeBlocks() : [],
         },
         onboardingData,
-        `Complex "${onboardingData.complexName}" has been onboarded successfully!`
+        `Complex "${onboardingData.complexName}" has been onboarded successfully!`,
       );
+      this.loading.update(() => false);
       return;
     }
 
     // Per-unit mode - show unit configuration
+    this.loading.update(() => false);
     this.generateUnitList(numberOfUnits);
     this.showUnitConfigStep = true;
   }
@@ -1581,28 +1802,36 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   protected async confirmUnitConfiguration(): Promise<void> {
+    this.loading.update(() => true);
     this.onboardingError = '';
 
     if (!this.allUnitsConfigured) {
       this.onboardingError = 'All units must have a parking bay count assigned.';
+      this.loading.update(() => false);
       return;
     }
 
     let numberOfUnits = 0;
     if (this.hasBlocks) {
       if (!this.validateBlocks()) {
+        this.loading.update(() => false);
         return;
       }
       const summary = this.getBlocksSummary();
       if (!summary) {
         this.onboardingError = 'Blocks are incomplete.';
+        this.loading.update(() => false);
         return;
       }
       numberOfUnits = summary.numberOfUnits;
     } else {
-      numberOfUnits = typeof this.numberOfUnits === 'number' ? this.numberOfUnits : parseInt(String(this.numberOfUnits), 10);
+      numberOfUnits =
+        typeof this.numberOfUnits === 'number'
+          ? this.numberOfUnits
+          : parseInt(String(this.numberOfUnits), 10);
       if (!Number.isFinite(numberOfUnits) || numberOfUnits <= 0) {
         this.onboardingError = 'Number of units must be a valid positive number.';
+        this.loading.update(() => false);
         return;
       }
     }
@@ -1611,12 +1840,16 @@ export class AdminPortal implements OnInit, AfterViewInit {
       const gatedPrice = this.getGatedCommunityPrice(this.selectedGatedCommunityForOnboarding);
       priceValue = gatedPrice !== null ? gatedPrice : null;
     } else {
-      const parsedPrice = typeof this.complexPrice === 'number' ? this.complexPrice : parseFloat(String(this.complexPrice));
+      const parsedPrice =
+        typeof this.complexPrice === 'number'
+          ? this.complexPrice
+          : parseFloat(String(this.complexPrice));
       priceValue = Number.isNaN(parsedPrice) ? null : parsedPrice;
     }
     const parsedPrice = priceValue ?? NaN;
     if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
       this.onboardingError = 'Price must be a valid non-negative number.';
+      this.loading.update(() => false);
       return;
     }
 
@@ -1627,7 +1860,8 @@ export class AdminPortal implements OnInit, AfterViewInit {
       parkingMode: 'per-unit',
       unitParkingConfig: this.unitList.map((unit) => ({
         unitNumber: unit.unitNumber,
-        parkingBays: typeof unit.parkingBays === 'string' ? parseInt(unit.parkingBays, 10) : unit.parkingBays,
+        parkingBays:
+          typeof unit.parkingBays === 'string' ? parseInt(unit.parkingBays, 10) : unit.parkingBays,
       })),
       price: parsedPrice,
     };
@@ -1645,8 +1879,9 @@ export class AdminPortal implements OnInit, AfterViewInit {
         blocks: this.hasBlocks ? this.normalizeBlocks() : [],
       },
       finalData,
-      `Complex "${finalData.complexName}" has been onboarded successfully with per-unit parking configuration!`
+      `Complex "${finalData.complexName}" has been onboarded successfully with per-unit parking configuration!`,
     );
+    this.loading.update(() => false);
   }
 
   private createComplexRecord(
@@ -1662,8 +1897,9 @@ export class AdminPortal implements OnInit, AfterViewInit {
       blocks: Array<{ name: string; numberOfUnits: number }>;
     },
     onboardingData: any,
-    successMessage: string
+    successMessage: string,
   ): void {
+    this.loading.update(() => true);
     const requestPayload: Record<string, unknown> = { ...payload };
     if (this.selectedGatedCommunityForOnboarding) {
       requestPayload['gatedCommunityName'] = this.selectedGatedCommunityForOnboarding;
@@ -1682,19 +1918,17 @@ export class AdminPortal implements OnInit, AfterViewInit {
         }, 2000);
         this.triggerToast(`Complex "${onboardingData.complexName}" added successfully.`);
         setTimeout(() => {
+          this.loading.update(() => false);
           window.location.reload();
         }, 1200);
       },
       error: (err) => {
-        const apiMessage = err?.error?.message;
-        const payloadErrors = err?.error?.payload;
-        const firstError = Array.isArray(payloadErrors) ? payloadErrors[0] : null;
-        const detailedMessage = firstError?.msg
-          ? `${firstError.msg}${firstError.param ? ` (${firstError.param})` : ''}`
-          : null;
-        const fallback = 'Unable to onboard complex. Please try again.';
-        this.onboardingError = detailedMessage || apiMessage || fallback;
-      }
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
+      },
     });
   }
 
@@ -1733,7 +1967,10 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
   private normalizeBlocks(): Array<{ name: string; numberOfUnits: number }> {
     return this.blocks.map((block) => {
-      const count = typeof block.numberOfUnits === 'number' ? block.numberOfUnits : parseInt(String(block.numberOfUnits), 10);
+      const count =
+        typeof block.numberOfUnits === 'number'
+          ? block.numberOfUnits
+          : parseInt(String(block.numberOfUnits), 10);
       const safeCount = Number.isFinite(count) && count > 0 ? count : 0;
       return {
         name: block.name.trim(),
@@ -1755,7 +1992,10 @@ export class AdminPortal implements OnInit, AfterViewInit {
         this.onboardingError = 'Block name is required.';
         return false;
       }
-      const blockUnits = typeof block.numberOfUnits === 'number' ? block.numberOfUnits : parseInt(String(block.numberOfUnits), 10);
+      const blockUnits =
+        typeof block.numberOfUnits === 'number'
+          ? block.numberOfUnits
+          : parseInt(String(block.numberOfUnits), 10);
       if (!Number.isFinite(blockUnits) || blockUnits <= 0) {
         this.onboardingError = 'Each block must have a valid positive number of units.';
         return false;
@@ -1773,7 +2013,10 @@ export class AdminPortal implements OnInit, AfterViewInit {
     }
     return this.blocks.every((block) => {
       if (!block.name.trim()) return false;
-      const blockUnits = typeof block.numberOfUnits === 'number' ? block.numberOfUnits : parseInt(String(block.numberOfUnits), 10);
+      const blockUnits =
+        typeof block.numberOfUnits === 'number'
+          ? block.numberOfUnits
+          : parseInt(String(block.numberOfUnits), 10);
       return Number.isFinite(blockUnits) && blockUnits > 0;
     });
   }
@@ -1828,47 +2071,55 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   protected async submitSecurityCompany(): Promise<void> {
+    this.loading.update(() => true);
     this.securityError = '';
     this.securitySuccess = '';
 
     if (!this.securityCompanyName.trim()) {
       this.securityError = 'Company name is required.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.securityCompanyEmail.trim()) {
       this.securityError = 'Company email is required.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.securityCompanyTel.trim()) {
       this.securityError = 'Company telephone number is required.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.cipcReg.trim()) {
       this.securityError = 'CIPC registration number is required.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.contractStart) {
       this.securityError = 'Contract start date is required.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.contractEnd) {
       this.securityError = 'Contract end date is required.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.psiraNumber.trim()) {
       this.securityError = 'PSIRA number is required.';
+      this.loading.update(() => false);
       return;
     }
 
     // Check if company already exists
     const existingCompany = this.registeredSecurityCompanies.find(
-      company => company.companyName === this.securityCompanyName.trim()
+      (company) => company.companyName === this.securityCompanyName.trim(),
     );
 
     if (existingCompany) {
@@ -1876,22 +2127,26 @@ export class AdminPortal implements OnInit, AfterViewInit {
       if (!existingCompany.assignments) {
         existingCompany.assignments = [];
       }
-      
+
       const existingAssignment = existingCompany.assignments.find(
-        (a: any) => a.complexName === this.selectedComplexName
+        (a: any) => a.complexName === this.selectedComplexName,
       );
-      
+
       if (existingAssignment) {
         this.securityError = 'This company is already assigned to this complex.';
+        this.loading.update(() => false);
         return;
       }
-      
+
       existingCompany.assignments.push({
         complexName: this.selectedComplexName,
         contractStart: this.contractStart,
         contractEnd: this.contractEnd,
       });
-      this.persistCompanyAssignments(existingCompany, `Security company "${existingCompany.companyName}" has been assigned to ${this.selectedComplexName}!`);
+      this.persistCompanyAssignments(
+        existingCompany,
+        `Security company "${existingCompany.companyName}" has been assigned to ${this.selectedComplexName}!`,
+      );
     } else {
       // New company, create with assignments array
       const securityData = {
@@ -1927,36 +2182,40 @@ export class AdminPortal implements OnInit, AfterViewInit {
           this.registeredSecurityCompanies.push(securityData);
           this.securitySuccess = `Security company "${securityData.companyName}" has been registered for ${this.selectedComplexName}!`;
           setTimeout(() => {
+            this.loading.update(() => false);
             this.closeSecurityModal();
           }, 2000);
         },
         error: (err) => {
-          const apiMessage = err?.error?.message;
-          const detail = err?.error?.error;
-          this.securityError = detail || apiMessage || 'Unable to register security company.';
-        }
+          this._snackBar.open(err.error.message, 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
+          this.loading.update(() => false);
+        },
       });
       return;
     }
 
     setTimeout(() => {
+      this.loading.update(() => false);
       this.closeSecurityModal();
     }, 2000);
   }
 
   protected get unassignedComplexes(): Array<any> {
     const assignedComplexNames = new Set<string>();
-    
-    this.registeredSecurityCompanies.forEach(company => {
+
+    this.registeredSecurityCompanies.forEach((company) => {
       if (company.assignments) {
         company.assignments.forEach((assignment: any) => {
           assignedComplexNames.add(assignment.complexName);
         });
       }
     });
-    
+
     return this.onboardedComplexes.filter(
-      complex => !assignedComplexNames.has(complex.complexName)
+      (complex) => !assignedComplexNames.has(complex.complexName),
     );
   }
 
@@ -1964,13 +2223,18 @@ export class AdminPortal implements OnInit, AfterViewInit {
     if (!this.gatedCommunityFilter) {
       return this.onboardedComplexes;
     }
-    const selectedCommunityName = String(this.gatedCommunityFilter ?? '').trim().toLowerCase();
+    const selectedCommunityName = String(this.gatedCommunityFilter ?? '')
+      .trim()
+      .toLowerCase();
     if (!selectedCommunityName) {
       return this.onboardedComplexes;
     }
 
     return this.onboardedComplexes.filter(
-      (complex: any) => String(complex?.gatedCommunityName ?? '').trim().toLowerCase() === selectedCommunityName
+      (complex: any) =>
+        String(complex?.gatedCommunityName ?? '')
+          .trim()
+          .toLowerCase() === selectedCommunityName,
     );
   }
 
@@ -1981,8 +2245,9 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   protected isComplexAssigned(complexName: string): boolean {
-    return this.registeredSecurityCompanies.some(company => 
-      company.assignments && company.assignments.some((a: any) => a.complexName === complexName)
+    return this.registeredSecurityCompanies.some(
+      (company) =>
+        company.assignments && company.assignments.some((a: any) => a.complexName === complexName),
     );
   }
 
@@ -2017,21 +2282,25 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   protected async submitAssignment(): Promise<void> {
+    this.loading.update(() => true);
     this.assignmentError = '';
     this.assignmentSuccess = '';
 
     if (!this.assignmentComplexName) {
       this.assignmentError = 'Please select a complex.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.assignmentContractStart) {
       this.assignmentError = 'Contract start date is required.';
+      this.loading.update(() => false);
       return;
     }
 
     if (!this.assignmentContractEnd) {
       this.assignmentError = 'Contract end date is required.';
+      this.loading.update(() => false);
       return;
     }
 
@@ -2041,17 +2310,18 @@ export class AdminPortal implements OnInit, AfterViewInit {
       if (!this.selectedCompanyForAssignment.assignments) {
         this.selectedCompanyForAssignment.assignments = [];
       }
-      
+
       // Check if already assigned to this complex
       const existingAssignment = this.selectedCompanyForAssignment.assignments.find(
-        (a: any) => a.complexName === this.assignmentComplexName
+        (a: any) => a.complexName === this.assignmentComplexName,
       );
-      
+
       if (existingAssignment) {
         this.assignmentError = 'This company is already assigned to this complex.';
+        this.loading.update(() => false);
         return;
       }
-      
+
       // Add new assignment
       this.selectedCompanyForAssignment.assignments.push({
         complexName: this.assignmentComplexName,
@@ -2060,7 +2330,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
       });
       this.persistCompanyAssignments(
         this.selectedCompanyForAssignment,
-        `${this.selectedCompanyForAssignment?.companyName} has been assigned to ${this.assignmentComplexName}!`
+        `${this.selectedCompanyForAssignment?.companyName} has been assigned to ${this.assignmentComplexName}!`,
       );
     }
 
@@ -2080,6 +2350,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
     // Close modal after showing success
     this.assignmentTimeoutId = setTimeout(() => {
+      this.loading.update(() => false);
       this.closeAssignModal();
       this.assignmentTimeoutId = null;
     }, 1500);
@@ -2096,6 +2367,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   protected confirmUnassignment(): void {
+    this.loading.update(() => true);
     if (this.unassignmentTarget) {
       const { company, assignment } = this.unassignmentTarget;
       const index = company.assignments.indexOf(assignment);
@@ -2106,18 +2378,38 @@ export class AdminPortal implements OnInit, AfterViewInit {
       console.log('Company unassigned from complex:', company.companyName, assignedName);
       this.persistCompanyAssignments(
         company,
-        `${company.companyName} has been unassigned from ${assignedName}!`
+        `${company.companyName} has been unassigned from ${assignedName}!`,
       );
       setTimeout(() => {
+        this.loading.update(() => false);
         this.closeUnassignModal();
         this.assignmentSuccess = '';
       }, 2000);
     }
   }
 
-  private buildContractPayload(assignments: Array<{ complexName?: string; gatedCommunityName?: string; contractStart?: string; contractEnd?: string }>): Array<{ complex?: { name: string }; complexName?: string; gatedCommunityName?: string; contractStartDate?: string; contractEndDate?: string }> {
+  private buildContractPayload(
+    assignments: Array<{
+      complexName?: string;
+      gatedCommunityName?: string;
+      contractStart?: string;
+      contractEnd?: string;
+    }>,
+  ): Array<{
+    complex?: { name: string };
+    complexName?: string;
+    gatedCommunityName?: string;
+    contractStartDate?: string;
+    contractEndDate?: string;
+  }> {
     return (assignments || []).map((assignment) => {
-      const payload: { complex?: { name: string }; complexName?: string; gatedCommunityName?: string; contractStartDate?: string; contractEndDate?: string } = {
+      const payload: {
+        complex?: { name: string };
+        complexName?: string;
+        gatedCommunityName?: string;
+        contractStartDate?: string;
+        contractEndDate?: string;
+      } = {
         contractStartDate: assignment.contractStart,
         contractEndDate: assignment.contractEnd,
       };
@@ -2153,7 +2445,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
       error: (err) => {
         const apiMessage = err?.error?.message;
         this.assignmentError = apiMessage || 'Unable to update security assignments.';
-      }
+      },
     });
   }
 
@@ -2164,7 +2456,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
     const diffMinutes = Math.floor(diffMs / 60000);
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
@@ -2185,6 +2477,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   private loadSecurityCompanies(): void {
+    this.loading.update(() => true);
     this.dataService.get<any[]>('securityCompany').subscribe({
       next: (companies) => {
         this.registeredSecurityCompanies = (companies || []).map((company) => ({
@@ -2205,11 +2498,16 @@ export class AdminPortal implements OnInit, AfterViewInit {
         this.buildContractHistoryFromCompanies();
         this.hydrateGatedSecurityAssignments();
       },
-      error: () => {
+      error: (err) => {
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
         this.registeredSecurityCompanies = [];
         this.contractHistory = [];
         this.filteredContractHistory = [];
-      }
+      },
     });
   }
 
@@ -2230,13 +2528,14 @@ export class AdminPortal implements OnInit, AfterViewInit {
           companyTel: company.companyTel,
           psiraNumber: company.psiraNumber,
         };
-      })
+      }),
     );
     this.filteredContractHistory = [...this.contractHistory];
     this.sortContracts('contractEndDate');
   }
 
   private loadComplexes(): void {
+    this.loading.update(() => true);
     this.dataService.get<any[]>('complex').subscribe({
       next: (complexes) => {
         this.onboardedComplexes = (complexes || []).map((complex) => ({
@@ -2247,21 +2546,30 @@ export class AdminPortal implements OnInit, AfterViewInit {
           unitEnd: complex.unitEnd ?? complex.numberOfUnits ?? '',
           numberOfUnits: complex.numberOfUnits ?? 0,
           parkingMode: complex.parkingMode ?? 'fixed',
-          fixedParkingCount: complex.parkingIsUnlimited ? 'unlimited' : (complex.fixedParkingCount ?? ''),
+          fixedParkingCount: complex.parkingIsUnlimited
+            ? 'unlimited'
+            : (complex.fixedParkingCount ?? ''),
           parkingIsUnlimited: Boolean(complex.parkingIsUnlimited),
           address: complex.address ?? '',
           price: complex.price ?? '',
           unitParkingConfig: complex.unitParkingConfig ?? [],
           blocks: complex.blocks ?? [],
         }));
+        this.loading.update(() => false);
       },
-      error: () => {
+      error: (err) => {
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
         this.onboardedComplexes = [];
-      }
+      },
     });
   }
 
   private loadGatedCommunities(): void {
+    this.loading.update(() => true);
     this.dataService.get<any[]>('gatedCommunity').subscribe({
       next: (communities) => {
         this.gatedCommunities = (communities || []).map((community) => ({
@@ -2273,10 +2581,16 @@ export class AdminPortal implements OnInit, AfterViewInit {
           securityAssignments: [],
         }));
         this.hydrateGatedSecurityAssignments();
+        this.loading.update(() => false);
       },
-      error: () => {
+      error: (err) => {
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
         this.gatedCommunities = [];
-      }
+      },
     });
   }
 
@@ -2284,7 +2598,10 @@ export class AdminPortal implements OnInit, AfterViewInit {
     if (!this.gatedCommunities.length || !this.registeredSecurityCompanies.length) {
       return;
     }
-    const assignmentsByCommunity = new Map<string, Array<{ companyName: string; contractStart: string; contractEnd: string }>>();
+    const assignmentsByCommunity = new Map<
+      string,
+      Array<{ companyName: string; contractStart: string; contractEnd: string }>
+    >();
     for (const company of this.registeredSecurityCompanies) {
       for (const assignment of company.assignments ?? []) {
         if (!assignment.gatedCommunityName) {
@@ -2306,6 +2623,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   private loadVisitorLogs(): void {
+    this.loading.update(() => true);
     this.dataService.get<any[]>('logs').subscribe({
       next: (logs) => {
         this.visitorHistory = (logs || []).map((log) => {
@@ -2326,11 +2644,17 @@ export class AdminPortal implements OnInit, AfterViewInit {
         });
         this.filteredVisitorHistory = [...this.visitorHistory];
         this.sortVisitors('entryTime');
+        this.loading.update(() => false);
       },
-      error: () => {
+      error: (err) => {
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
         this.visitorHistory = [];
         this.filteredVisitorHistory = [];
-      }
+      },
     });
   }
 
@@ -2351,47 +2675,46 @@ export class AdminPortal implements OnInit, AfterViewInit {
     // Apply search filter
     if (this.visitorSearchTerm.trim()) {
       const searchLower = this.visitorSearchTerm.toLowerCase();
-      filtered = filtered.filter(visit =>
-        visit.visitorName.toLowerCase().includes(searchLower) ||
-        visit.visitorPhone.includes(searchLower) ||
-        visit.unitVisited.toLowerCase().includes(searchLower) ||
-        visit.tenantName.toLowerCase().includes(searchLower) ||
-        visit.tenantSurname.toLowerCase().includes(searchLower) ||
-        visit.tenantPhone.includes(searchLower) ||
-        visit.complexName.toLowerCase().includes(searchLower) ||
-        visit.securityGuard.toLowerCase().includes(searchLower)
+      filtered = filtered.filter(
+        (visit) =>
+          visit.visitorName.toLowerCase().includes(searchLower) ||
+          visit.visitorPhone.includes(searchLower) ||
+          visit.unitVisited.toLowerCase().includes(searchLower) ||
+          visit.tenantName.toLowerCase().includes(searchLower) ||
+          visit.tenantSurname.toLowerCase().includes(searchLower) ||
+          visit.tenantPhone.includes(searchLower) ||
+          visit.complexName.toLowerCase().includes(searchLower) ||
+          visit.securityGuard.toLowerCase().includes(searchLower),
       );
     }
 
     // Apply complex filter
     if (this.selectedComplexFilter) {
-      filtered = filtered.filter(visit => visit.complexName === this.selectedComplexFilter);
+      filtered = filtered.filter((visit) => visit.complexName === this.selectedComplexFilter);
     }
 
     // Apply date range filter
     if (this.filterStartDate) {
       const startDate = new Date(this.filterStartDate);
       startDate.setHours(0, 0, 0, 0);
-      filtered = filtered.filter(visit => new Date(visit.entryTime) >= startDate);
+      filtered = filtered.filter((visit) => new Date(visit.entryTime) >= startDate);
     }
 
     if (this.filterEndDate) {
       const endDate = new Date(this.filterEndDate);
       endDate.setHours(23, 59, 59, 999);
-      filtered = filtered.filter(visit => new Date(visit.entryTime) <= endDate);
+      filtered = filtered.filter((visit) => new Date(visit.entryTime) <= endDate);
     }
 
     // Apply time window filter
     if (this.filterStartTime || this.filterEndTime) {
-      filtered = filtered.filter(visit => {
+      filtered = filtered.filter((visit) => {
         const entry = new Date(visit.entryTime);
         const entryMinutes = entry.getHours() * 60 + entry.getMinutes();
         const startMinutes = this.filterStartTime
           ? this.parseTimeToMinutes(this.filterStartTime)
           : null;
-        const endMinutes = this.filterEndTime
-          ? this.parseTimeToMinutes(this.filterEndTime)
-          : null;
+        const endMinutes = this.filterEndTime ? this.parseTimeToMinutes(this.filterEndTime) : null;
 
         if (startMinutes !== null && entryMinutes < startMinutes) {
           return false;
@@ -2461,7 +2784,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   private parseTimeToMinutes(timeValue: string): number {
-    const [hours, minutes] = timeValue.split(':').map(value => parseInt(value, 10));
+    const [hours, minutes] = timeValue.split(':').map((value) => parseInt(value, 10));
     return hours * 60 + minutes;
   }
 
@@ -2531,37 +2854,38 @@ export class AdminPortal implements OnInit, AfterViewInit {
     // Apply search filter
     if (this.contractSearchTerm.trim()) {
       const searchLower = this.contractSearchTerm.toLowerCase();
-      filtered = filtered.filter(contract =>
-        contract.companyName.toLowerCase().includes(searchLower) ||
-        contract.complexName.toLowerCase().includes(searchLower) ||
-        contract.companyEmail.toLowerCase().includes(searchLower) ||
-        contract.companyTel.includes(searchLower) ||
-        contract.psiraNumber.toLowerCase().includes(searchLower)
+      filtered = filtered.filter(
+        (contract) =>
+          contract.companyName.toLowerCase().includes(searchLower) ||
+          contract.complexName.toLowerCase().includes(searchLower) ||
+          contract.companyEmail.toLowerCase().includes(searchLower) ||
+          contract.companyTel.includes(searchLower) ||
+          contract.psiraNumber.toLowerCase().includes(searchLower),
       );
     }
 
     // Apply complex filter
     if (this.contractComplexFilter) {
-      filtered = filtered.filter(contract => contract.complexName === this.contractComplexFilter);
+      filtered = filtered.filter((contract) => contract.complexName === this.contractComplexFilter);
     }
 
     // Apply company filter
     if (this.contractCompanyFilter) {
-      filtered = filtered.filter(contract => contract.companyName === this.contractCompanyFilter);
+      filtered = filtered.filter((contract) => contract.companyName === this.contractCompanyFilter);
     }
 
     // Apply contract start date filter
     if (this.contractStartDateFilter) {
       const startDate = new Date(this.contractStartDateFilter);
       startDate.setHours(0, 0, 0, 0);
-      filtered = filtered.filter(contract => new Date(contract.contractStartDate) >= startDate);
+      filtered = filtered.filter((contract) => new Date(contract.contractStartDate) >= startDate);
     }
 
     // Apply contract end date filter
     if (this.contractEndDateFilter) {
       const endDate = new Date(this.contractEndDateFilter);
       endDate.setHours(23, 59, 59, 999);
-      filtered = filtered.filter(contract => new Date(contract.contractEndDate) <= endDate);
+      filtered = filtered.filter((contract) => new Date(contract.contractEndDate) <= endDate);
     }
 
     this.filteredContractHistory = filtered;
@@ -2584,7 +2908,10 @@ export class AdminPortal implements OnInit, AfterViewInit {
       let bValue = b[this.sortContractColumn];
 
       // Handle date sorting
-      if (this.sortContractColumn === 'contractStartDate' || this.sortContractColumn === 'contractEndDate') {
+      if (
+        this.sortContractColumn === 'contractStartDate' ||
+        this.sortContractColumn === 'contractEndDate'
+      ) {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
       } else {
@@ -2620,10 +2947,10 @@ export class AdminPortal implements OnInit, AfterViewInit {
   }
 
   protected get uniqueContractComplexes(): string[] {
-    return Array.from(new Set(this.contractHistory.map(c => c.complexName))).sort();
+    return Array.from(new Set(this.contractHistory.map((c) => c.complexName))).sort();
   }
 
   protected get uniqueContractCompanies(): string[] {
-    return Array.from(new Set(this.contractHistory.map(c => c.companyName))).sort();
+    return Array.from(new Set(this.contractHistory.map((c) => c.companyName))).sort();
   }
 }

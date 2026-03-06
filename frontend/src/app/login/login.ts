@@ -1,24 +1,35 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DataService } from '../services/data.service';
 import { ResponseBody } from '../interfaces/ResponseBody';
 import { StorageService } from '../services/storage.service';
 import { LoginFormDTO } from '../interfaces/forms/loginFormDTO';
+import {
+  MatSnackBar,
+  MatSnackBarHorizontalPosition,
+  MatSnackBarVerticalPosition,
+} from '@angular/material/snack-bar';
+import { Loader } from '../components/loader/loader';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, Loader],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
 export class Login {
+  submitting = signal(false);
+  private _snackBar = inject(MatSnackBar);
+  horizontalPosition: MatSnackBarHorizontalPosition = 'center';
+  verticalPosition: MatSnackBarVerticalPosition = 'top';
+
   private readonly stationStorageKey = 'equasec.guard.station';
   protected loginForm: LoginFormDTO = {
     email: '',
-    pinDigits: Array.from({ length: 6 }, () => '')
+    pinDigits: Array.from({ length: 6 }, () => ''),
   };
   protected get email(): string {
     return this.loginForm.email;
@@ -98,7 +109,12 @@ export class Login {
     }
 
     if (typeof value === 'object') {
-      const maybeId = value as { $oid?: unknown; _id?: unknown; toHexString?: () => string; toString?: () => string };
+      const maybeId = value as {
+        $oid?: unknown;
+        _id?: unknown;
+        toHexString?: () => string;
+        toString?: () => string;
+      };
       if (typeof maybeId.toHexString === 'function') {
         return maybeId.toHexString();
       }
@@ -123,7 +139,11 @@ export class Login {
   }
 
   private storeStationFromActiveShift(activeShift: unknown): void {
-    const station = (activeShift as { station?: { type?: unknown; gatedCommunityId?: unknown; complexId?: unknown } } | null)?.station;
+    const station = (
+      activeShift as {
+        station?: { type?: unknown; gatedCommunityId?: unknown; complexId?: unknown };
+      } | null
+    )?.station;
     const stationType = String(station?.type ?? '');
 
     if (stationType !== 'gated' && stationType !== 'complex') {
@@ -150,18 +170,22 @@ export class Login {
         stationType,
         selectedGatedCommunity,
         selectedComplex,
-      })
+      }),
     );
   }
 
   submitForm() {
+    this.submitting.update(() => true);
     this.service
-      .post<ResponseBody>('user/login', { emailAddress: this.loginForm.email.trim().toLowerCase(), password: this.getPinValue().replaceAll(',', '') })
+      .post<ResponseBody>('user/login', {
+        emailAddress: this.loginForm.email.trim().toLowerCase(),
+        password: this.getPinValue().replaceAll(',', ''),
+      })
       .subscribe({
         next: (res) => {
-          this.storage.setItem("bearer-token", res.payload.token);
+          this.storage.setItem('bearer-token', res.payload.token);
           if (res?.payload?.user) {
-            this.storage.setItem("current-user", JSON.stringify(res.payload.user));
+            this.storage.setItem('current-user', JSON.stringify(res.payload.user));
           }
           const userType = res?.payload?.type;
           const hasRole = (role: string): boolean => {
@@ -185,22 +209,47 @@ export class Login {
           const isAdminOnly = isAdmin && !isManager && !isSecurity && !isGuard && !isTenant;
 
           if (isManager) {
+            this.submitting.update(() => false);
+
+            this._snackBar.open(res.message, 'close', {
+              horizontalPosition: this.horizontalPosition,
+              verticalPosition: this.verticalPosition,
+            });
+
             this.router.navigate(['/security-manager']);
             return;
           }
 
           if (isAdminOnly) {
+            this.submitting.update(() => false);
+
+            this._snackBar.open(res.message, 'close', {
+              horizontalPosition: this.horizontalPosition,
+              verticalPosition: this.verticalPosition,
+            });
             this.router.navigate(['/admin-portal']);
             return;
           }
 
           if (isGuard || isSecurity) {
-            this.service.get<{ payload?: unknown }>('guardHistory/active').subscribe({
+            this.service.get<ResponseBody>('guardHistory/active').subscribe({
               next: (activeShiftResponse) => {
+                this.submitting.update(() => false);
+
+                this._snackBar.open(activeShiftResponse.message, 'close', {
+                  horizontalPosition: this.horizontalPosition,
+                  verticalPosition: this.verticalPosition,
+                });
                 this.storeStationFromActiveShift(activeShiftResponse?.payload ?? null);
                 this.router.navigate(['/guard-portal']);
               },
-              error: () => {
+              error: (err) => {
+                this.submitting.update(() => false);
+
+                this._snackBar.open(err.error.message, 'close', {
+                  horizontalPosition: this.horizontalPosition,
+                  verticalPosition: this.verticalPosition,
+                });
                 this.storage.removeItem(this.stationStorageKey);
                 this.router.navigate(['/guard-portal']);
               },
@@ -209,12 +258,22 @@ export class Login {
           }
 
           if (isTenant) {
+            this.submitting.update(() => false);
+
+            this._snackBar.open(res.message, 'close', {
+              horizontalPosition: this.horizontalPosition,
+              verticalPosition: this.verticalPosition,
+            });
             this.router.navigate(['/dashboard']);
             return;
           }
         },
         error: (err) => {
-          console.error(err);
+          this.submitting.update(() => false);
+          this._snackBar.open(err.error.message, 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
         },
       });
   }

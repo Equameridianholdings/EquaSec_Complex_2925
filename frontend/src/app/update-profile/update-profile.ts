@@ -6,14 +6,24 @@ import { DataService } from '../services/data.service';
 import { ResponseBody } from '../interfaces/ResponseBody';
 import { ChangePin } from './change-pin/change-pin';
 import { ChangeDp } from './change-dp/change-dp';
+import { Loader } from '../components/loader/loader';
+import {
+  MatSnackBar,
+  MatSnackBarHorizontalPosition,
+  MatSnackBarVerticalPosition,
+} from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-update-profile',
-  imports: [FormsModule],
+  imports: [FormsModule, Loader],
   templateUrl: './update-profile.html',
   styleUrl: '../dashboard/dashboard.css',
 })
 export class UpdateProfile implements OnInit {
+  submitting = signal(false);
+  private _snackBar = inject(MatSnackBar);
+  horizontalPosition: MatSnackBarHorizontalPosition = 'center';
+  verticalPosition: MatSnackBarVerticalPosition = 'top';
   service = inject(DataService);
   dialogRef = inject(MatDialogRef<UpdateProfile>);
   dialog = inject(MatDialog);
@@ -26,18 +36,28 @@ export class UpdateProfile implements OnInit {
     password: '',
     profilePhoto: '',
     surname: '',
-    type: []
+    type: [],
   });
   updatedUser: any = {};
 
   ngOnInit(): void {
+    this.submitting.update(() => true);
     this.service.get<ResponseBody>('user/current').subscribe({
       next: (res) => {
-        console.log(res.message);
         this.user.set(res.payload as UserDTO);
+
+        this._snackBar.open(res.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.submitting.update(() => false);
       },
       error: (err) => {
-        console.error(err.message);
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.submitting.update(() => false);
       },
     });
   }
@@ -84,15 +104,24 @@ export class UpdateProfile implements OnInit {
   }
 
   saveChanges() {
+    this.submitting.update(() => true);
     // TODO: Validations on data
-    
+
     this.service.put<ResponseBody>('user/update', this.updatedUser).subscribe({
       next: (res) => {
-        console.log(res.message);
+        this._snackBar.open(res.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.submitting.update(() => false);
         this.closeModal();
       },
       error: (err) => {
-        console.error(err.message);
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.submitting.update(() => false);
       },
     });
   }

@@ -1,3 +1,6 @@
+@if (submitting()) {
+  <app-loader />
+}
 <div class="modal-backdrop" (click)="closeModal()">
   <div
     class="modal"

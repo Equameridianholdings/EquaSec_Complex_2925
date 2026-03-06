@@ -1,4 +1,7 @@
 <!-- Add Security Modal -->
+ @if (loading()) {
+  <app-loader />
+}
 <div class="modal-overlay" *ngIf="showAddSecurityModal" (click)="closeAddSecurityModal()">
   <div class="modal-card" (click)="$event.stopPropagation()">
     <div class="modal-header">

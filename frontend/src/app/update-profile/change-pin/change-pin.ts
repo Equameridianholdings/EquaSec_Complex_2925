@@ -1,31 +1,41 @@
-import { AfterViewInit, Component, inject } from '@angular/core';
+import { AfterViewInit, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UserDTO } from '../../interfaces/userDTO';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { DataService } from '../../services/data.service';
 import { ResponseBody } from '../../interfaces/ResponseBody';
+import { Loader } from "../../components/loader/loader";
+import { MatSnackBar, MatSnackBarHorizontalPosition, MatSnackBarVerticalPosition } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-change-pin',
-  imports: [FormsModule],
+  imports: [FormsModule, Loader],
   templateUrl: './change-pin.html',
   styleUrl: '../../dashboard/dashboard.css',
 })
 export class ChangePin implements AfterViewInit {
+  submitting = signal(false);
+  private _snackBar = inject(MatSnackBar);
+  horizontalPosition: MatSnackBarHorizontalPosition = 'center';
+  verticalPosition: MatSnackBarVerticalPosition = 'top';
   service = inject(DataService);
   dialogRef = inject(MatDialogRef<ChangePin>);
 
   user?: UserDTO = inject(MAT_DIALOG_DATA); //import for password verifications
 
   ngAfterViewInit(): void {
+    this.submitting.update(() => true);
     if (!this.user) {
       this.service.get<ResponseBody>('user/current').subscribe({
         next: (res) => {
-          console.log(res.message);
+          this.submitting.update(() => false);
           this.user = res.payload as UserDTO;
         },
         error: (err) => {
-          console.error(err.message);
+          this._snackBar.open(err.error.message, "close", {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition
+          });
         },
       });
     }
@@ -42,6 +52,7 @@ export class ChangePin implements AfterViewInit {
   }
 
   saveChanges() {
+    this.submitting.update(() => true);
     const oldP = this.oldPassword.join().replaceAll(",", "");
     const newP = this.newPassword.join().replaceAll(",", "");
     const confirmedP = this.confirmPassword.join().replaceAll(",", "");
@@ -92,11 +103,19 @@ export class ChangePin implements AfterViewInit {
       })
       .subscribe({
         next: (res) => {
-          console.log(res.message);
+          this._snackBar.open(res.message, "close", {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition
+          });
+          this.submitting.update(() => false);
           this.dialogRef.close();
         },
         error: (err) => {
-          console.log(err.message);
+          this._snackBar.open(err.error.message, "close", {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition
+          });
+          this.submitting.update(() => false);
         },
       });
   }

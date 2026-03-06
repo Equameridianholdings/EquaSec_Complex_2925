@@ -1,20 +1,26 @@
 import { MatDialog } from '@angular/material/dialog';
-import { Component, inject, OnDestroy } from '@angular/core';
+import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { BookVisitor } from './visitors/book-visitor/book-visitor';
 import { UpdateProfile } from '../update-profile/update-profile';
 import { ChangePin } from '../update-profile/change-pin/change-pin';
 import { StorageService } from '../services/storage.service';
+import { MatSnackBar, MatSnackBarHorizontalPosition, MatSnackBarVerticalPosition } from '@angular/material/snack-bar';
+import { Loader } from "../components/loader/loader";
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [FormsModule, RouterOutlet, RouterLink, RouterLinkActive, Loader],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
 export class Dashboard implements OnDestroy {
+  submitting = signal(false);
+  private _snackBar = inject(MatSnackBar);
+  horizontalPosition: MatSnackBarHorizontalPosition = 'center';
+  verticalPosition: MatSnackBarVerticalPosition = 'top';
   menuOpen = false;
 
   tabs = [
@@ -102,7 +108,9 @@ export class Dashboard implements OnDestroy {
   }
 
   logout() {
+    this.submitting.update(() => true);
     this.storage.removeItem('bearer-token');
+    this.submitting.update(() => false);
     this.router.navigate(['/login']);
   }
 
