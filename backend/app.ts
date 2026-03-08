@@ -12,7 +12,7 @@ import vehicleRouter from "#routes/vehicle.js";
 import visitorRouter from "#routes/visitor.js";
 import cors, { CorsOptions } from "cors";
 import express from "express";
-import helmet from "helmet";
+import * as helmet from "helmet";
 
 export interface ResponseBody {
   message: string;
@@ -39,9 +39,9 @@ const corsOptions: CorsOptions = {
 };
 
 app.use(express.json());
-app.use(helmet());
 app.use(cors(corsOptions));
 
+app.use(helmet.contentSecurityPolicy());
 app.disable("x-powered-by");
 
 app.get("/", (req, res) => {

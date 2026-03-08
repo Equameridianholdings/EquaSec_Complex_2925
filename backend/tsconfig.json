@@ -4,6 +4,7 @@
     "outDir": "./dist",
     "rootDir": "./",
     "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
   },
   "include": ["**/*.ts", "*/**/*.ts", "__tests__/unit/.encryption"],
   "exclude": ["dist"]
