@@ -15,6 +15,7 @@ export class DataService {
   }
 
   post<T>(endpoint: string, data: any): Observable<T> {
+    console.log(endpoint + " -> " + data);
     return this.http.post<T>(`${this.apiUrl}/${endpoint}`, data, {
       headers: {
         "Content-Type": "application/json",
