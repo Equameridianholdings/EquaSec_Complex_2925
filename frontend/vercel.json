@@ -1,9 +1,13 @@
 {
   "version": 2,
+  "public": true,
+  "name": "equa-sec-complex-2925",
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+    { "source": "/(.*)", "destination": "/api" }
+  ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "dist/EquaSec_Complex-2925/**"
     }
-  ]
+  }
 }
