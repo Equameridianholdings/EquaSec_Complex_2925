@@ -1700,8 +1700,8 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
     }
 
     return res.status(500).json({ message: "Error issuing valid token signature. Please try again later." });
-  } catch {
-    return res.status(500).json({ message: "Internal Server Error" });
+  } catch (err) {
+    return res.status(500).json({ message: `Internal Server Error: ${err as string}` });
   }
 });
 
