@@ -1,13 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class DataService {
-  private apiUrl = environment.API_URI;
+  private apiUrl = process.env["NG_APP_API_URI"];
 
   constructor(private http: HttpClient) {}
 

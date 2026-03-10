@@ -21,7 +21,6 @@ import { AssignmentFormDTO } from '../interfaces/forms/assignmentFormDTO';
 import { GatedAssignmentFormDTO } from '../interfaces/forms/gatedAssignmentFormDTO';
 import { AdminPortalFiltersFormDTO } from '../interfaces/forms/adminPortalFiltersFormDTO';
 import { DataService } from '../services/data.service';
-import { environment } from '../../environments/environment';
 import {
   MatSnackBar,
   MatSnackBarHorizontalPosition,
@@ -455,7 +454,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
       this.loading.update(() => false);
       return;
     }
-    const apiKey = environment.GOOGLE_MAPS_API_KEY;
+    const apiKey = process.env["NG_APP_GOOGLE_MAPS_API_KEY"];
     if (!apiKey) {
       console.warn('[maps] GOOGLE_MAPS_API_KEY is missing. Address autocomplete disabled.');
       this.loading.update(() => false);

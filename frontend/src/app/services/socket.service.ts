@@ -1,7 +1,5 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
-import { environment } from '../../environments/environment';
-import { visitorDTO } from '../interfaces/visitorDTO';
 
 @Injectable({
   providedIn: 'root',
@@ -11,7 +9,7 @@ export class SocketService {
   private socket: Socket;
 
   constructor() {
-    this.socket = io(environment.SOCKET_URI);
+    this.socket = io(process.env["NG_APP_SOCKET_URI"]);
   }
 
   newVisitor() {
