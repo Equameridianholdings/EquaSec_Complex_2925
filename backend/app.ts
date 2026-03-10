@@ -22,7 +22,7 @@ export interface ResponseBody {
 const app = express();
 
 // Define your list of allowed origins
-const allowedOrigins = ["http://localhost:4200", "http://localhost:8100", "https://equasec.vercel.app"]; // Replace with your frontend URLs
+const allowedOrigins = ["http://localhost:4200", "http://localhost:8100", "https://equasec-complex-2925.pages.dev"]; // Replace with your frontend URLs
 
 // Configure CORS options
 const corsOptions: CorsOptions = {
