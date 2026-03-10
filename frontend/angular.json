@@ -23,8 +23,12 @@
             "assets": [
               {
                 "glob": "**/*",
-                "input": "public"
-              }
+                "input": "public",
+                "output": "/"
+              },
+              "src/favicon.ico",
+              "src/assets",
+              "src/_redirects"
             ],
             "styles": [
               "src/material-theme.scss",
@@ -37,17 +41,17 @@
           "configurations": {
             "production": {
               "budgets": [
-                {
-                  "type": "initial",
-                  "maximumWarning": "2MB",
-                  "maximumError": "3MB"
-                },
-                {
-                  "type": "anyComponentStyle",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
-                }
-              ],
+  {
+    "type": "initial",
+    "maximumWarning": "2mb", 
+    "maximumError": "5mb"
+  },
+  {
+    "type": "anyComponentStyle",
+    "maximumWarning": "50kb",
+    "maximumError": "100kb"
+  }
+],
               "outputHashing": "all"
             },
             "development": {
