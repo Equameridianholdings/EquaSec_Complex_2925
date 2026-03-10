@@ -1,0 +1,7 @@
+export const environment = {
+  prod: true,
+  API_URI: "NG_APP_API_URI",
+  SECRET_KEY: "NG_APP_SECRET_KEY",
+  GOOGLE_MAPS_API_KEY: "NG_APP_GOOGLE_MAPS_API_KEY",
+  SOCKET_URI: "NG_APP_SOCKET_URI"
+};
