@@ -16,7 +16,7 @@ Content-Type: application/json
 {
     "cellNumber": "0123456789",
     "confirmPassword": "123456",
-    "emailAddress": "super2@equasec.com",
+    "emailAddress": "super@equasec.com",
     "idNumber": "0987654321098",
     "movedOut": false,
     "name": "super",
