@@ -557,8 +557,7 @@ userRouter.post(
 
       return res.status(201).json({ message: "User successfully added!", payload: newUser });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Internal Server Error" });
+      return res.status(500).json({ message: `Internal Server Error! Error: ${error as string}` });
     }
   },
 );
@@ -1624,11 +1623,11 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
       .trim()
       .toLowerCase();
 
-    const user = await userSchema
-      .findOne<UserDTO>({
+    const user: UserDTO = await userSchema
+      .findOne({
         emailAddress: normalizedEmail,
       })
-      .exec();
+      .exec() as unknown as UserDTO;
 
     if (!user) return res.status(401).json({ message: "Invalid login details!" });
 

@@ -2,7 +2,7 @@ import app from "#app.js";
 import { ServerApiVersion } from "mongodb";
 import mongoose from "mongoose";
 
-const URI = process.env.ATLAS_URI as unknown as string;
+const URI = process.env.MONGODB_URI as unknown as string;
 const DB_NAME = process.env.DB_NAME as unknown as string;
 
 // MongoDB Connection
