@@ -2,7 +2,8 @@
   "name": "backend",
   "version": "1.0.0",
   "scripts": {
-    "start": "npx tsx --env-file .env server.ts",
+    "start": "npx tsx server.ts",
+    "start:dev": "npx tsx --env-file .env server.ts",
     "dev": "npx tsx --watch --env-file .env server.ts",
     "build": "tsc",
     "type-check": "tsc --noEmit",
