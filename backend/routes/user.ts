@@ -400,6 +400,38 @@ const normalizeName = (value: null | string | undefined): string => {
     .replace(/[^a-z0-9]/g, "");
 };
 
+const isAdminGuardUser = (user: unknown): boolean => {
+  const candidate: Record<string, unknown> = user && typeof user === "object" ? (user as Record<string, unknown>) : {};
+
+  const typeEntries = Array.isArray(candidate.type) ? candidate.type : [candidate.type];
+  const normalizedTypes = typeEntries
+    .map((value) => normalizeName(String(value ?? "")))
+    .filter((value) => value.length > 0);
+
+  const hasAdminType = normalizedTypes.some((value) => value === "admin" || value === "adminguard");
+  const hasGuardType = normalizedTypes.some((value) => value === "security" || value === "guard");
+  if (hasAdminType && hasGuardType) {
+    return true;
+  }
+
+  const directPosition = normalizeName(String(candidate.position ?? ""));
+  if (directPosition === "adminguard" || directPosition === "admin" || directPosition === "securityadmin") {
+    return true;
+  }
+
+  const contracts = Array.isArray(candidate.employeeContracts) ? candidate.employeeContracts : [];
+  for (const contract of contracts) {
+    const contractRecord: Record<string, unknown> =
+      contract && typeof contract === "object" ? (contract as Record<string, unknown>) : {};
+    const contractPosition = normalizeName(String(contractRecord.position ?? ""));
+    if (contractPosition === "adminguard" || contractPosition === "admin" || contractPosition === "securityadmin") {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 const findUnitByLocationAndAddress = async (location: { complexId?: string; gatedCommunityId?: string }, address: string) => {
   const complexId = String(location?.complexId ?? "").trim();
   const gatedCommunityId = String(location?.gatedCommunityId ?? "").trim();
@@ -743,6 +775,8 @@ userRouter.post(
       const normalizedPosition = (body.position ?? "").toLowerCase().replace(/[^a-z]/g, "");
       const isAdminGuard = normalizedPosition.includes("admin");
       const employeePosition: "admin-Guard" | "Guard" = isAdminGuard ? "admin-Guard" : "Guard";
+      const initialAssignedComplexes = body.assignedComplexId ? [String(body.assignedComplexId)] : [];
+      const initialAssignedCommunities = body.assignedGatedCommunityName ? [String(body.assignedGatedCommunityName)] : [];
 
       const normalizedEmail = body.emailAddress.trim().toLowerCase();
       const existingUser = await userSchema.findOne({ emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
@@ -755,6 +789,8 @@ userRouter.post(
       const hashedPassword = await bcrypt.hash(temporaryPin, salt);
 
       const employeeUser = new userSchema({
+        assignedCommunities: initialAssignedCommunities,
+        assignedComplexes: initialAssignedComplexes,
         cellNumber: body.cellNumber,
         complex: body.assignedComplexId
           ? {
@@ -763,6 +799,21 @@ userRouter.post(
             }
           : null,
         emailAddress: normalizedEmail,
+        employeeContracts: [
+          {
+            assignedCommunities: initialAssignedCommunities,
+            assignedComplexes: initialAssignedComplexes,
+            contractEndDate: body.contractEndDate ? new Date(body.contractEndDate) : null,
+            contractStartDate: body.contractStartDate ? new Date(body.contractStartDate) : new Date(),
+            createdBy: managerEmail,
+            position: employeePosition,
+            securityCompany: {
+              _id: linkedSecurityCompany._id,
+              name: linkedSecurityCompany.name,
+            },
+            status: body.status ?? "active",
+          },
+        ],
         movedOut: (body.status ?? "active") === "inactive",
         name: body.name,
         password: hashedPassword,
@@ -777,9 +828,6 @@ userRouter.post(
       });
 
       await employeeUser.save();
-
-      const initialAssignedComplexes = body.assignedComplexId ? [String(body.assignedComplexId)] : [];
-      const initialAssignedCommunities = body.assignedGatedCommunityName ? [String(body.assignedGatedCommunityName)] : [];
 
       await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
         assignedCommunities: initialAssignedCommunities,
@@ -1262,9 +1310,9 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
 userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Response) => {
   try {
     const requestId = getRequestIdParam(req);
-    const managerEmail = res.get("email");
+    const actorEmail = res.get("email");
 
-    if (!managerEmail) {
+    if (!actorEmail) {
       return res.status(401).json({ message: "Access Denied!" });
     }
 
@@ -1272,14 +1320,23 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
       return res.status(400).json({ message: "Invalid tenant id." });
     }
 
-    const managerUser = await userSchema.findOne<UserDTO>({ emailAddress: managerEmail }).select({}).exec();
-    if (!managerUser || !(Array.isArray(managerUser.type) && managerUser.type.includes("manager"))) {
+    const actorUser = await userSchema.findOne<UserDTO>({ emailAddress: actorEmail }).select({}).exec();
+    const actorRoles = Array.isArray(actorUser?.type) ? actorUser.type.map((role) => normalizeName(String(role ?? ""))) : [];
+    const isManager = actorRoles.includes("manager");
+    const isSecurity = actorRoles.includes("security");
+    const isAdminGuard = isAdminGuardUser(actorUser);
+
+    if (!actorUser || (!isManager && !isSecurity)) {
       return res.status(403).json({ message: "Access Forbidden!" });
     }
 
-    const linkedSecurityCompany = await resolveSecurityCompanyForUser(managerUser);
+    if (!isManager && !isAdminGuard) {
+      return res.status(403).json({ message: "Access Forbidden! Only managers or admin guards can remove tenants." });
+    }
+
+    const linkedSecurityCompany = await resolveSecurityCompanyForUser(actorUser);
     if (!linkedSecurityCompany) {
-      return res.status(400).json({ message: "Manager is not linked to a security company." });
+      return res.status(400).json({ message: "User is not linked to a security company." });
     }
 
     const tenantId = new ObjectId(requestId);
@@ -1301,6 +1358,75 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
       return res.status(403).json({ message: "Tenant does not belong to your security company." });
     }
 
+    if (isSecurity) {
+      const actorAssignments = resolveUserAssignments(actorUser, linkedSecurityCompany);
+      const assignedComplexes = actorAssignments.assignedComplexes;
+      const assignedCommunitiesRaw = actorAssignments.assignedCommunities;
+
+      const assignedComplexIds = new Set(assignedComplexes);
+      const assignedCommunityIds = new Set(assignedCommunitiesRaw.filter((value) => ObjectId.isValid(value)));
+      const assignedCommunityNames = new Set(
+        assignedCommunitiesRaw
+          .filter((value) => !ObjectId.isValid(value))
+          .map((value) => normalizeName(value))
+          .filter((value) => value.length > 0),
+      );
+
+      if (assignedCommunityIds.size > 0) {
+        const assignedCommunityDocs = await gatedCommunitySchema
+          .find({ _id: { $in: Array.from(assignedCommunityIds).map((id) => new ObjectId(id)) } })
+          .select({ _id: 1, name: 1 })
+          .lean();
+
+        for (const community of assignedCommunityDocs) {
+          const normalizedCommunityName = normalizeName(String(community?.name ?? ""));
+          if (normalizedCommunityName) {
+            assignedCommunityNames.add(normalizedCommunityName);
+          }
+        }
+      }
+
+      const tenantProfile = resolveTenantProfile(tenant as UserDTO & UserTenantFields, tenantResident);
+      const tenantComplexRef =
+        tenantProfile.complex && typeof tenantProfile.complex === "object"
+          ? (tenantProfile.complex as { _id?: unknown; gatedCommunityName?: null | string })
+          : null;
+      const tenantCommunityRef =
+        tenantProfile.gatedCommunity && typeof tenantProfile.gatedCommunity === "object"
+          ? (tenantProfile.gatedCommunity as { _id?: unknown; name?: string })
+          : null;
+
+      const tenantComplexId = String(tenantComplexRef?._id ?? "").trim();
+      const tenantCommunityId = String(tenantCommunityRef?._id ?? tenantProfile.communityId ?? "").trim();
+
+      let tenantCommunityName = normalizeName(
+        String(
+          tenantCommunityRef?.name ??
+            tenantComplexRef?.gatedCommunityName ??
+            "",
+        ),
+      );
+
+      if (!tenantCommunityName && tenantCommunityId && ObjectId.isValid(tenantCommunityId)) {
+        const tenantCommunityDoc = await gatedCommunitySchema
+          .findById(tenantCommunityId)
+          .select({ name: 1 })
+          .lean();
+        tenantCommunityName = normalizeName(String(tenantCommunityDoc?.name ?? ""));
+      }
+
+      const tenantResidenceType = normalizeName(String(tenantProfile.residenceType ?? ""));
+      const hasComplexScope = tenantComplexId.length > 0 && assignedComplexIds.has(tenantComplexId);
+      const hasCommunityScope =
+        (tenantCommunityId.length > 0 && assignedCommunityIds.has(tenantCommunityId)) ||
+        (tenantCommunityName.length > 0 && assignedCommunityNames.has(tenantCommunityName));
+      const hasScopeAccess = tenantResidenceType === "community" ? hasCommunityScope : hasComplexScope || hasCommunityScope;
+
+      if (!hasScopeAccess) {
+        return res.status(403).json({ message: "Access Forbidden! You can only remove tenants within your assigned station scope." });
+      }
+    }
+
     await unlinkTenantFromAllUnits(String(tenant._id ?? ""));
 
     const residentFilter = tenantResident?._id
@@ -1310,7 +1436,32 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
         };
 
     const deletedResident = await residentSchema.findOneAndDelete(residentFilter).exec();
-    await vehicleSchema.deleteMany({ "user._id": { $in: [String(tenantId), tenantId] } });
+    const tenantIdString = String(tenantId);
+    const tenantVehicleIdVariants: (ObjectId | string)[] = [tenantIdString, tenantId];
+    if (ObjectId.isValid(tenantIdString)) {
+      tenantVehicleIdVariants.push(new ObjectId(tenantIdString));
+    }
+    const tenantEmailAddress = String(tenant.emailAddress ?? "").trim().toLowerCase();
+
+    await vehicleSchema.deleteMany({
+      $or: [
+        { "user._id": { $in: tenantVehicleIdVariants } },
+        tenantEmailAddress
+          ? {
+              "user.emailAddress": tenantEmailAddress,
+            }
+          : {
+              "user.emailAddress": "",
+            },
+        tenantEmailAddress
+          ? {
+              "user.emailAdress": tenantEmailAddress,
+            }
+          : {
+              "user.emailAdress": "",
+            },
+      ],
+    });
     const deletedTenant = await userSchema.findByIdAndDelete(tenantId).select({}).exec();
 
     return res.status(200).json({
@@ -1394,6 +1545,8 @@ userRouter.patch(
           employeeId,
           {
             $set: {
+              assignedCommunities,
+              assignedComplexes,
               complex:
                 assignedComplexes.length > 0
                   ? {
@@ -1405,11 +1558,6 @@ userRouter.patch(
                 _id: linkedSecurityCompany._id,
                 name: linkedSecurityCompany.name,
               },
-            },
-            $unset: {
-              assignedCommunities: "",
-              assignedComplexes: "",
-              employeeContracts: "",
             },
           },
           { new: true },
@@ -1502,6 +1650,12 @@ userRouter.patch(
       const employeePosition: "admin-Guard" | "Guard" = isAdminGuard ? "admin-Guard" : "Guard";
 
       const existingCompanyAssignment = findCompanyAssignmentForUser(linkedSecurityCompany, String(employeeId));
+      const nextAssignedComplexes = body.assignedComplexId
+        ? [String(body.assignedComplexId)]
+        : normalizeStringList(existingCompanyAssignment?.assignedComplexes);
+      const nextAssignedCommunities = body.assignedGatedCommunityName
+        ? [String(body.assignedGatedCommunityName)]
+        : normalizeStringList(existingCompanyAssignment?.assignedCommunities);
 
       const updatedContract = {
         contractEndDate: body.contractEndDate ? new Date(body.contractEndDate) : (existingCompanyAssignment?.contractEndDate ?? null),
@@ -1520,6 +1674,8 @@ userRouter.patch(
           employeeId,
           {
             $set: {
+              assignedCommunities: nextAssignedCommunities,
+              assignedComplexes: nextAssignedComplexes,
               cellNumber: body.cellNumber.trim(),
               complex: body.assignedComplexId
                 ? {
@@ -1537,23 +1693,11 @@ userRouter.patch(
               surname: body.surname.trim(),
               type: isAdminGuard ? ["security", "admin"] : ["security"],
             },
-            $unset: {
-              assignedCommunities: "",
-              assignedComplexes: "",
-              employeeContracts: "",
-            },
           },
           { new: true },
         )
         .select({})
         .exec();
-
-      const nextAssignedComplexes = body.assignedComplexId
-        ? [String(body.assignedComplexId)]
-        : normalizeStringList(existingCompanyAssignment?.assignedComplexes);
-      const nextAssignedCommunities = body.assignedGatedCommunityName
-        ? [String(body.assignedGatedCommunityName)]
-        : normalizeStringList(existingCompanyAssignment?.assignedCommunities);
 
       await upsertCompanyEmployeeAssignment(String(linkedSecurityCompany._id), {
         assignedCommunities: nextAssignedCommunities,
@@ -1623,20 +1767,27 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
       .trim()
       .toLowerCase();
 
-    const user: UserDTO = await userSchema
+    let user: UserDTO = await userSchema
       .findOne({
         emailAddress: normalizedEmail,
       })
       .exec() as unknown as UserDTO;
 
+    if (!user) {
+      const escapedEmail = normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      user = await userSchema
+        .findOne({
+          emailAddress: { $regex: new RegExp(`^${escapedEmail}$`, "i") },
+        })
+        .exec() as unknown as UserDTO;
+    }
+
     if (!user) return res.status(401).json({ message: "Invalid login details!" });
 
-    const password = await bcrypt.hash(body.password, user.salt as unknown as string);
-    const isValidPassword = password === user.password;
+    const isValidPassword = await bcrypt.compare(body.password, user.password as unknown as string);
 
     if (!isValidPassword) return res.status(401).json({ message: "Invalid login details" });
 
-    console.log(isValidPassword);
     const token = GenerateJWT(user.emailAddress, user.type);
 
     if (VerifyToken(token)) {

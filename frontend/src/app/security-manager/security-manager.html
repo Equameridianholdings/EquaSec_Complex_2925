@@ -10,7 +10,23 @@
         <h1>Security Manager Dashboard</h1>
         <p class="subtext">{{ securityManagerEmail }}</p>
       </div>
-      <button class="btn-logout" (click)="logout()">Logout</button>
+      <div class="header-actions">
+        <div class="sos-optin-control">
+          <p class="sos-optin-label">Company SOS Alerts</p>
+          <p class="sos-optin-status" [class.enabled]="companySosOptedIn" [class.disabled]="!companySosOptedIn">
+            {{ companySosOptedIn ? 'Enabled' : 'Disabled' }}
+          </p>
+          <button
+            type="button"
+            class="btn-sos-optin"
+            [disabled]="companySosOptinUpdating"
+            (click)="toggleCompanySosOptin()"
+          >
+            {{ companySosOptinUpdating ? 'Saving...' : (companySosOptedIn ? 'Disable SOS' : 'Enable SOS') }}
+          </button>
+        </div>
+        <button class="btn-logout" (click)="logout()">Logout</button>
+      </div>
     </div>
   </header>
 
@@ -93,7 +109,16 @@
       <div class="security-managers-grid">
         <div class="manager-card" *ngFor="let manager of securityManagers">
           <div class="manager-profile">
-            <img [src]="manager.profilePicture" [alt]="manager.name" class="profile-picture">
+            <img
+              *ngIf="manager.profilePicture; else managerInitialsFallback"
+              [src]="manager.profilePicture"
+              [alt]="manager.name"
+              class="profile-picture"
+              (error)="onManagerImageError(manager)"
+            >
+            <ng-template #managerInitialsFallback>
+              <div class="profile-picture-fallback">{{ getPersonInitials(manager.name, manager.surname) }}</div>
+            </ng-template>
             <div class="manager-info">
               <h3>{{ manager.name }} {{ manager.surname }}</h3>
               <p class="position">{{ manager.position }}</p>
@@ -240,7 +265,7 @@
                   <span *ngIf="i < tenant.locationPath.length - 1" class="location-arrow">→</span>
                 </span>
               </div>
-              <div class="visitor-location-secondary">{{ tenant.residenceType === 'complex' ? 'Complex' : 'Gated Community' }}</div>
+              <div class="visitor-location-secondary">{{ getTenantLocationTypeLabel(tenant) }}</div>
             </div>
             <div class="card-info-row">
               <span class="info-label">Vehicles:</span>
@@ -468,11 +493,12 @@
 
         <div *ngIf="employeeError" class="error-message">{{ employeeError }}</div>
         <div *ngIf="employeeSuccess" class="success-message">{{ employeeSuccess }}</div>
+        <div *ngIf="employeeSubmitting" class="success-message">Please wait, processing your request...</div>
 
         <div class="modal-actions">
           <button type="button" class="btn-secondary" (click)="closeEmployeeModal()">Cancel</button>
-          <button type="button" class="btn-primary" (click)="submitEmployeeForm()">
-            {{ editingEmployeeId ? 'Update Employee' : 'Add Employee' }}
+          <button type="button" class="btn-primary" (click)="submitEmployeeForm()" [disabled]="employeeSubmitting">
+            {{ employeeSubmitting ? 'Processing...' : (editingEmployeeId ? 'Update Employee' : 'Add Employee') }}
           </button>
         </div>
       </form>
@@ -669,13 +695,6 @@
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="tenant-id">ID Number</label>
-            <input id="tenant-id" type="text" class="form-control" placeholder="13-digit ID number" [(ngModel)]="tenantForm.idNumber" name="idNumber" maxlength="13">
-          </div>
-        </div>
-
         <div class="section-divider"></div>
 
         <!-- Residence Information -->
@@ -805,11 +824,12 @@
 
         <div *ngIf="tenantError" class="error-message">{{ tenantError }}</div>
         <div *ngIf="tenantSuccess" class="success-message">{{ tenantSuccess }}</div>
+        <div *ngIf="tenantSubmitting" class="success-message">Please wait, processing your request...</div>
 
         <div class="modal-actions">
           <button type="button" class="btn-secondary" (click)="closeTenantModal()">Cancel</button>
-          <button type="button" class="btn-primary" (click)="submitTenantForm()">
-            {{ editingTenantId ? 'Update Tenant' : 'Register Tenant' }}
+          <button type="button" class="btn-primary" (click)="submitTenantForm()" [disabled]="tenantSubmitting">
+            {{ tenantSubmitting ? 'Processing...' : (editingTenantId ? 'Update Tenant' : 'Register Tenant') }}
           </button>
         </div>
       </form>

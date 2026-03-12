@@ -6,12 +6,10 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectorRef,
   Component,
-  ElementRef,
   NgZone,
   OnDestroy,
   OnInit,
   PLATFORM_ID,
-  ViewChild,
   inject,
   signal,
 } from '@angular/core';
@@ -50,11 +48,27 @@ export class GuardPortal implements OnInit, OnDestroy {
   visitorList: any;
   // Dynamic filtered lists for residents and vehicles by unit search
   protected get filteredResidents(): any[] {
+    const allResidents = Array.isArray(this.residents) ? this.residents : [];
+    const selectedComplexId = String(this.filtersForm.selectedComplex || '').trim();
+    const selectedGatedCommunityId = String(this.filtersForm.selectedGatedCommunity || '').trim();
+
+    // Always restrict tenant cards to the currently selected station.
+    let stationResidents = allResidents;
+    if (selectedComplexId) {
+      stationResidents = stationResidents.filter(
+        (resident) => String(resident?.complexId || '').trim() === selectedComplexId,
+      );
+    } else if (selectedGatedCommunityId) {
+      stationResidents = stationResidents.filter(
+        (resident) => String(resident?.gatedCommunityId || '').trim() === selectedGatedCommunityId,
+      );
+    }
+
     const unitQuery = (this.filtersForm.searchUnit || '').trim().toLowerCase();
     if (!unitQuery) {
-      return Array.isArray(this.residents) ? [...this.residents] : [];
+      return [...stationResidents];
     }
-    return (Array.isArray(this.residents) ? this.residents : []).filter((resident) => {
+    return stationResidents.filter((resident) => {
       const unit = (resident.unit || resident.houseNumber || '').toString().toLowerCase();
       return unit.includes(unitQuery);
     });
@@ -72,12 +86,6 @@ export class GuardPortal implements OnInit, OnDestroy {
       data: resident ? { resident } : undefined,
     });
   }
-  @ViewChild('cameraInput') cameraInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('profileCameraVideo')
-  private readonly profileCameraVideo?: ElementRef<HTMLVideoElement>;
-  @ViewChild('profileCameraCanvas')
-  private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
-
   protected filtersForm: GuardPortalFiltersFormDTO = {
     searchCode: '',
     searchUnit: '',
@@ -152,7 +160,6 @@ export class GuardPortal implements OnInit, OnDestroy {
   private toastTimeoutId: number | null = null;
   protected isHoldingSos = false;
   protected showSosSuccess = false;
-  protected isPhotoCameraModalOpen = false;
   protected isResidentPhotoModalOpen = false;
   protected isCodeVehicleModalOpen = false;
   protected selectedResidentPhotoUrl = '';
@@ -160,13 +167,19 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected selectedCodeVehicle: any | null = null;
   protected selectedCodeVisitorName = '';
   protected isTenantModalOpen = false;
-  protected cameraError = '';
-  protected isSavingProfilePhoto = false;
-  protected hasCameraStream = false;
-  protected guardPhotoData = '';
+  protected isDeleteTenantModalOpen = false;
+  protected selectedTenantToDelete: null | {
+    email: string;
+    id: string;
+    name: string;
+    unit: string;
+  } = null;
+  protected deletingTenant = false;
   protected tenantError = '';
   protected tenantSuccess = '';
+  protected tenantSubmitting = false;
   protected canRegisterTenant = false;
+  protected isSosEnabledForCompany = false;
   protected showStationPrompt = false;
   protected stationLocked = false;
   protected stationType: 'gated' | 'complex' | '' = '';
@@ -196,7 +209,6 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   private sosHoldTimer: number | null = null;
   private sosAutoCloseTimer: number | null = null;
-  private profileCameraStream: MediaStream | null = null;
   protected guardName = 'James Mthembu';
   protected guardPhotoUrl = '';
   protected activeShiftStationName = '';
@@ -482,6 +494,7 @@ export class GuardPortal implements OnInit, OnDestroy {
   }
 
   protected residents: Array<{
+    id: string;
     name: string;
     unit: string;
     houseNumber: string;
@@ -556,6 +569,52 @@ export class GuardPortal implements OnInit, OnDestroy {
     return [];
   }
 
+  private collectAssignedIdsFromUser(
+    user: any,
+    kind: 'complex' | 'community',
+  ): string[] {
+    if (!user || typeof user !== 'object') {
+      return [];
+    }
+
+    const idSet = new Set<string>();
+    const directKey = kind === 'complex' ? 'assignedComplexes' : 'assignedCommunities';
+    const legacyKey = kind === 'complex' ? 'assignedComplex' : 'assignedCommunity';
+    const contractKey = kind === 'complex' ? 'assignedComplexes' : 'assignedCommunities';
+
+    const directValues = user?.[directKey];
+    if (Array.isArray(directValues)) {
+      for (const value of directValues) {
+        const normalized = String(value ?? '').trim();
+        if (normalized) {
+          idSet.add(normalized);
+        }
+      }
+    }
+
+    const legacyValue = String(user?.[legacyKey] ?? '').trim();
+    if (legacyValue) {
+      idSet.add(legacyValue);
+    }
+
+    const contracts = Array.isArray(user?.employeeContracts) ? user.employeeContracts : [];
+    for (const contract of contracts) {
+      const contractValues = contract?.[contractKey];
+      if (!Array.isArray(contractValues)) {
+        continue;
+      }
+
+      for (const value of contractValues) {
+        const normalized = String(value ?? '').trim();
+        if (normalized) {
+          idSet.add(normalized);
+        }
+      }
+    }
+
+    return Array.from(idSet);
+  }
+
   private hydrateGuardFromStorage(): void {
     const currentUser = this.getStoredCurrentUser();
     if (!currentUser) {
@@ -568,6 +627,47 @@ export class GuardPortal implements OnInit, OnDestroy {
     }
     this.guardPhotoUrl = currentUser?.profilePhoto ?? this.guardPhotoUrl;
     this.canRegisterTenant = this.isAdminGuard(currentUser);
+    this.isSosEnabledForCompany = Boolean(currentUser?.securityCompany?.sosOptin);
+  }
+
+  private resolveSosOptinForCompany(
+    currentUser: any,
+    storedCurrentUser: any,
+    securityCompanies: any[],
+  ): boolean {
+    const companyList = Array.isArray(securityCompanies) ? securityCompanies : [];
+    const users = [currentUser, storedCurrentUser].filter(Boolean);
+
+    for (const user of users) {
+      const directSosOptin = user?.securityCompany?.sosOptin;
+      if (typeof directSosOptin === 'boolean') {
+        return directSosOptin;
+      }
+
+      const companyId = String(user?.securityCompany?._id ?? '').trim();
+      if (companyId) {
+        const companyById = companyList.find((company) => {
+          const id = String(company?._id ?? company?.id ?? '').trim();
+          return id === companyId;
+        });
+        if (companyById && typeof companyById?.sosOptin === 'boolean') {
+          return Boolean(companyById.sosOptin);
+        }
+      }
+
+      const companyName = this.normalizeName(user?.securityCompany?.name);
+      if (companyName) {
+        const companyByName = companyList.find((company) => {
+          const name = this.normalizeName(company?.name);
+          return name === companyName;
+        });
+        if (companyByName && typeof companyByName?.sosOptin === 'boolean') {
+          return Boolean(companyByName.sosOptin);
+        }
+      }
+    }
+
+    return false;
   }
 
   private getStoredCurrentUser(): any | null {
@@ -606,28 +706,14 @@ export class GuardPortal implements OnInit, OnDestroy {
             this.canRegisterTenant = this.isAdminGuard(currentUser);
           }
 
-          this.assignedComplexIds = new Set(
-            Array.isArray(currentUser?.assignedComplexes)
-              ? currentUser.assignedComplexes
-                  .map((value: unknown) => String(value ?? ''))
-                  .filter((value: string) => value.length > 0)
-              : Array.isArray(storedCurrentUser?.assignedComplexes)
-                ? storedCurrentUser.assignedComplexes
-                    .map((value: unknown) => String(value ?? ''))
-                    .filter((value: string) => value.length > 0)
-                : [],
-          );
-          this.assignedCommunityIds = new Set(
-            Array.isArray(currentUser?.assignedCommunities)
-              ? currentUser.assignedCommunities
-                  .map((value: unknown) => String(value ?? ''))
-                  .filter((value: string) => value.length > 0)
-              : Array.isArray(storedCurrentUser?.assignedCommunities)
-                ? storedCurrentUser.assignedCommunities
-                    .map((value: unknown) => String(value ?? ''))
-                    .filter((value: string) => value.length > 0)
-                : [],
-          );
+          this.assignedComplexIds = new Set([
+            ...this.collectAssignedIdsFromUser(currentUser, 'complex'),
+            ...this.collectAssignedIdsFromUser(storedCurrentUser, 'complex'),
+          ]);
+          this.assignedCommunityIds = new Set([
+            ...this.collectAssignedIdsFromUser(currentUser, 'community'),
+            ...this.collectAssignedIdsFromUser(storedCurrentUser, 'community'),
+          ]);
 
           const guardId = currentUser?._id as string | undefined;
           // Ensure guardId is set from current user
@@ -645,30 +731,42 @@ export class GuardPortal implements OnInit, OnDestroy {
           return forkJoin({
             gated: this.dataService.get<any[]>('gatedCommunity').pipe(catchError(() => of([]))),
             complexes: this.dataService.get<any[]>('complex').pipe(catchError(() => of([]))),
+            securityCompanies: this.dataService
+              .get<any[]>('securityCompany')
+              .pipe(catchError(() => of([]))),
             units: this.dataService.get<any[]>('unit').pipe(catchError(() => of([]))),
             users: this.dataService.get<any[]>('user').pipe(catchError(() => of([]))),
             vehicles: this.dataService.get<any[]>('vehicle').pipe(catchError(() => of([]))),
             visitors: visitors$.pipe(catchError(() => of([]))),
+            userContext: of({ currentUser, storedCurrentUser }),
           });
         }),
         catchError(() =>
           forkJoin({
             gated: of([]),
             complexes: of([]),
+            securityCompanies: of([]),
             units: of([]),
             users: of([]),
             vehicles: of([]),
             visitors: of([]),
+            userContext: of({ currentUser: null, storedCurrentUser: null }),
           }),
         ),
       )
-      .subscribe(({ gated, complexes, units, users, vehicles, visitors }) => {
+      .subscribe(({ gated, complexes, securityCompanies, units, users, vehicles, visitors, userContext }) => {
         const gatedList = this.ensureArray<any>(gated);
         const complexList = this.ensureArray<any>(complexes);
+        const securityCompanyList = this.ensureArray<any>(securityCompanies);
         const unitList = this.ensureArray<any>(units);
         const userList = this.ensureArray<any>(users);
         const vehicleList = this.ensureArray<any>(vehicles);
         this.visitorList = this.ensureArray<any>(visitors);
+        this.isSosEnabledForCompany = this.resolveSosOptinForCompany(
+          userContext?.currentUser ?? null,
+          userContext?.storedCurrentUser ?? null,
+          securityCompanyList,
+        );
 
         this.cdr.markForCheck();
         this.stationContextReady = true;
@@ -833,6 +931,7 @@ export class GuardPortal implements OnInit, OnDestroy {
             const linkedTenantLocation = userId ? tenantLocationByUserId.get(userId) : null;
 
             return {
+              id: userId,
               name: `${user.name ?? ''} ${user.surname ?? ''}`.trim(),
               unit:
                 linkedTenantLocation?.unit ??
@@ -894,7 +993,12 @@ export class GuardPortal implements OnInit, OnDestroy {
             return userVehicles.map((vehicle: any) => ({
               make: vehicle?.make ?? '',
               model: vehicle?.model ?? '',
-              regNumber: vehicle?.reg ?? vehicle?.regNumber ?? vehicle?.registerationNumber ?? '',
+              regNumber:
+                vehicle?.reg ??
+                vehicle?.regNumber ??
+                vehicle?.registrationNumber ??
+                vehicle?.registerationNumber ??
+                '',
               color: vehicle?.color ?? '',
               unit,
               houseNumber,
@@ -936,7 +1040,12 @@ export class GuardPortal implements OnInit, OnDestroy {
           return {
             make: vehicle.make ?? '',
             model: vehicle.model ?? '',
-            regNumber: vehicle.registerationNumber ?? vehicle.regNumber ?? '',
+            regNumber:
+              vehicle.reg ??
+              vehicle.registrationNumber ??
+              vehicle.registerationNumber ??
+              vehicle.regNumber ??
+              '',
             color: vehicle.color ?? '',
             unit: resolvedUnit,
             houseNumber: resolvedHouseNumber,
@@ -1367,15 +1476,95 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.isTenantModalOpen = true;
     this.tenantError = '';
     this.tenantSuccess = '';
+    this.tenantSubmitting = false;
     this.resetTenantForm();
   }
 
   protected closeTenantModal(): void {
     this.isTenantModalOpen = false;
+    this.tenantSubmitting = false;
     this.resetTenantForm();
   }
 
+  protected openDeleteTenantModal(resident: any): void {
+    if (!this.canRegisterTenant || this.deletingTenant) {
+      return;
+    }
+
+    const tenantId = String(resident?.id ?? '').trim();
+    if (!tenantId) {
+      this._snackBar.open('Tenant record is missing an id. Reload and try again.', 'close', {
+        horizontalPosition: this.horizontalPosition,
+        verticalPosition: this.verticalPosition,
+      });
+      return;
+    }
+
+    this.selectedTenantToDelete = {
+      email: String(resident?.email ?? '').trim(),
+      id: tenantId,
+      name: String(resident?.name ?? '').trim(),
+      unit: String(resident?.unit ?? '').trim(),
+    };
+    this.isDeleteTenantModalOpen = true;
+  }
+
+  protected closeDeleteTenantModal(): void {
+    if (this.deletingTenant) {
+      return;
+    }
+
+    this.isDeleteTenantModalOpen = false;
+    this.selectedTenantToDelete = null;
+  }
+
+  protected confirmDeleteTenant(): void {
+    if (this.deletingTenant) {
+      return;
+    }
+
+    const tenantId = String(this.selectedTenantToDelete?.id ?? '').trim();
+    if (!tenantId) {
+      this.closeDeleteTenantModal();
+      return;
+    }
+
+    this.deletingTenant = true;
+    this.submitting.update(() => true);
+
+    this.dataService.delete<ResponseBody>(`user/tenant/${tenantId}`).subscribe({
+      next: (response) => {
+        this._snackBar.open(response?.message ?? 'Tenant deleted successfully!', 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+
+        this.isDeleteTenantModalOpen = false;
+        this.selectedTenantToDelete = null;
+        this.deletingTenant = false;
+        this.submitting.update(() => false);
+        this.loadGuardPortalData();
+      },
+      error: (error: HttpErrorResponse) => {
+        this._snackBar.open(error?.error?.message ?? 'Unable to delete tenant.', 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+
+        this.deletingTenant = false;
+        this.submitting.update(() => false);
+      },
+    });
+  }
+
   protected submitTenantForm(): void {
+    if (this.tenantSubmitting) {
+      return;
+    }
+
+    this.tenantSubmitting = true;
+    this.tenantError = '';
+    this.tenantSuccess = 'Registering tenant...';
     this.submitting.update(() => true);
     if (
       !this.tenantForm.name ||
@@ -1385,6 +1574,8 @@ export class GuardPortal implements OnInit, OnDestroy {
       !this.tenantForm.address
     ) {
       this.tenantError = 'Please fill in all required fields.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1393,6 +1584,8 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     if (!/^0\d{9}$/.test(this.tenantForm.phone)) {
       this.tenantError = 'Phone number must be 10 digits and start with 0.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1400,18 +1593,24 @@ export class GuardPortal implements OnInit, OnDestroy {
     const allowedResidenceTypes = this.availableTenantResidenceTypes.map((type) => type.value);
     if (!allowedResidenceTypes.includes(this.tenantForm.residenceType)) {
       this.tenantError = 'Selected residence type is not available for your assigned sites.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
 
     if (this.tenantForm.residenceType === 'complex' && !this.tenantForm.complexId) {
       this.tenantError = 'Please select a complex.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
 
     if (this.tenantForm.residenceType === 'community' && !this.tenantForm.communityId) {
       this.tenantError = 'Please select a gated community.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1422,6 +1621,8 @@ export class GuardPortal implements OnInit, OnDestroy {
       !this.tenantForm.communityComplexId
     ) {
       this.tenantError = 'Please select a complex within the gated community.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1431,6 +1632,8 @@ export class GuardPortal implements OnInit, OnDestroy {
       !this.availableCommunityResidenceTypes.includes(this.tenantForm.communityResidenceType)
     ) {
       this.tenantError = 'Selected community residence type is not available.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1466,6 +1669,8 @@ export class GuardPortal implements OnInit, OnDestroy {
     );
     if (existingTenant) {
       this.tenantError = 'A tenant with this email already exists.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1498,22 +1703,32 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     this.dataService.post<ResponseBody>('user/tenant', payload).subscribe({
       next: (response) => {
-        this._snackBar.open(response.message, 'close', {
+        const emailSent = response?.payload?.emailSent !== false;
+        const successMessage = emailSent
+          ? `${response.message} Login credentials were sent by email.`
+          : `${response.message} Tenant created, but credentials email was not confirmed.`;
+
+        this._snackBar.open(successMessage, 'close', {
           horizontalPosition: this.horizontalPosition,
           verticalPosition: this.verticalPosition,
         });
+        this.tenantSuccess = successMessage;
 
         setTimeout(() => {
+          this.tenantSubmitting = false;
           this.submitting.update(() => false);
           this.closeTenantModal();
           this.loadGuardPortalData();
         }, 1500);
       },
       error: (error: HttpErrorResponse) => {
+        this.tenantSuccess = '';
+        this.tenantError = error?.error?.message ?? 'Unable to register tenant.';
         this._snackBar.open(error.error.message, 'close', {
           horizontalPosition: this.horizontalPosition,
           verticalPosition: this.verticalPosition,
         });
+        this.tenantSubmitting = false;
         this.submitting.update(() => false);
       },
     });
@@ -2697,166 +2912,8 @@ export class GuardPortal implements OnInit, OnDestroy {
     };
   }
 
-  protected triggerCameraInput(): void {
-    this.isPhotoCameraModalOpen = true;
-    console.log(
-      'DEBUG: triggerCameraInput called, isPhotoCameraModalOpen =',
-      this.isPhotoCameraModalOpen,
-    );
-    this.cdr.detectChanges();
-    void this.startProfileCamera();
-  }
-
-  protected onPhotoCapture(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      const file = input.files[0];
-      const reader = new FileReader();
-      reader.onload = (e: ProgressEvent<FileReader>) => {
-        this.guardPhotoData = e.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    }
-  }
-
-  protected async startProfileCamera(): Promise<void> {
-    this.cameraError = '';
-    this.guardPhotoData = '';
-
-    try {
-      // Stop any previous stream
-      this.profileCameraStream?.getTracks().forEach((track) => track.stop());
-      this.profileCameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-        audio: false,
-      });
-
-      // Delay stream attachment to ensure video element exists
-      setTimeout(() => {
-        const video = this.profileCameraVideo?.nativeElement;
-        if (video) {
-          video.srcObject = this.profileCameraStream;
-          video.style.display = 'block';
-          video.style.background = '#000';
-          video.style.zIndex = '10001';
-          video.play();
-          console.log('DEBUG: Camera stream attached to video element');
-        } else {
-          this.cameraError = 'Camera video element not found.';
-        }
-        this.hasCameraStream = true;
-      }, 200);
-    } catch (error) {
-      this.cameraError = 'Unable to access the camera. Please allow camera permissions.';
-      this.profileCameraStream?.getTracks().forEach((track) => track.stop());
-      this.profileCameraStream = null;
-      this.hasCameraStream = false;
-      console.error('DEBUG: Camera error', error);
-    }
-  }
-
-  protected captureProfilePhoto(): void {
-    const video = this.profileCameraVideo?.nativeElement;
-    const canvas = this.profileCameraCanvas?.nativeElement;
-    if (!video || !canvas) {
-      return;
-    }
-
-    const width = video.videoWidth || 640;
-    const height = video.videoHeight || 480;
-    canvas.width = width;
-    canvas.height = height;
-
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return;
-    }
-
-    context.drawImage(video, 0, 0, width, height);
-    this.guardPhotoData = canvas.toDataURL('image/jpeg', 0.9);
-    this.stopProfileCamera();
-  }
-
-  protected retakeProfilePhoto(): void {
-    void this.startProfileCamera();
-  }
-
-  protected closeProfilePhotoModal(): void {
-    this.stopProfileCamera();
-    this.isPhotoCameraModalOpen = false;
-  }
-
-  protected saveProfilePhoto(): void {
-    this.submitting.update(() => true);
-    if (!this.guardPhotoData || this.isSavingProfilePhoto) {
-      return;
-    }
-
-    this.isSavingProfilePhoto = true;
-    this.cameraError = '';
-
-    this.dataService.put<any>('user/update', { profilePhoto: this.guardPhotoData }).subscribe({
-      next: (response) => {
-        this._snackBar.open(response.message, 'close', {
-          horizontalPosition: this.horizontalPosition,
-          verticalPosition: this.verticalPosition,
-        });
-        const savedPhoto = response?.payload?.profilePhoto ?? this.guardPhotoData;
-        this.guardPhotoUrl = savedPhoto;
-        this.guardPhotoData = savedPhoto;
-        this.updateCurrentUserProfilePhoto(savedPhoto);
-        this.isSavingProfilePhoto = false;
-        this.closeProfilePhotoModal();
-        this.submitting.update(() => false);
-      },
-      error: (error) => {
-        this._snackBar.open(error.error.message, 'close', {
-          horizontalPosition: this.horizontalPosition,
-          verticalPosition: this.verticalPosition,
-        });
-        this.submitting.update(() => false);
-        this.isSavingProfilePhoto = false;
-      },
-    });
-  }
-
-  private updateCurrentUserProfilePhoto(profilePhoto: string): void {
-    if (!isPlatformBrowser(this.platformId)) {
-      return;
-    }
-
-    const rawUser =
-      this.storage?.getItem?.('current-user') ?? window.localStorage.getItem('current-user');
-
-    if (!rawUser) {
-      return;
-    }
-
-    try {
-      const currentUser = JSON.parse(rawUser);
-      const nextUser = {
-        ...currentUser,
-        profilePhoto,
-      };
-      this.storage.setItem('current-user', JSON.stringify(nextUser));
-    } catch {
-      return;
-    }
-  }
-
-  protected stopProfileCamera(): void {
-    this.profileCameraStream?.getTracks().forEach((track) => track.stop());
-    this.profileCameraStream = null;
-    this.hasCameraStream = false;
-    const video = this.profileCameraVideo?.nativeElement;
-    if (video) {
-      video.srcObject = null;
-    }
-  }
-
   ngOnDestroy(): void {
     this.clearSosHoldTimer();
     this.clearSosAutoCloseTimer();
-    this.stopProfileCamera();
   }
 }

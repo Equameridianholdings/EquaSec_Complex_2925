@@ -12,6 +12,31 @@ import { ObjectId } from "mongodb";
 
 const gatedCommunityRouter = Router();
 
+const getMongoDebug = (error: unknown): null | {
+  code?: number;
+  keyPattern?: Record<string, number>;
+  keyValue?: Record<string, unknown>;
+  message?: string;
+} => {
+  if (typeof error !== "object" || error === null) {
+    return null;
+  }
+
+  const mongoError = error as {
+    code?: number;
+    keyPattern?: Record<string, number>;
+    keyValue?: Record<string, unknown>;
+    message?: string;
+  };
+
+  return {
+    code: mongoError.code,
+    keyPattern: mongoError.keyPattern,
+    keyValue: mongoError.keyValue,
+    message: mongoError.message,
+  };
+};
+
 interface ExistingCommunityUnit {
   _id?: unknown;
   gatedCommunity?: {
@@ -158,8 +183,15 @@ gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), valida
     res.status(201).json({ message: "Gated Community added successfully!", payload: newGatedCommunity });
     return;
   } catch (error) {
-    console.error("[gatedCommunity] create failed", error);
-    res.status(500).json({ message: "Internal Server Error!" });
+    const debug = getMongoDebug(error);
+    console.error("[gatedCommunity] create failed", {
+      debug,
+      requestBody: req.body as unknown,
+    });
+    res.status(500).json({
+      debug,
+      message: "Internal Server Error! Unable to create gated community.",
+    });
     return;
   }
 });
@@ -243,8 +275,16 @@ gatedCommunityRouter.patch("/:id", validateObjectId, async (req: Request, res: R
     res.status(200).json({ message: "Gated Community successfully updated!" });
     return;
   } catch (error) {
-    console.error("[gatedCommunity] update failed", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    const debug = getMongoDebug(error);
+    console.error("[gatedCommunity] update failed", {
+      body,
+      debug,
+      id: _id,
+    });
+    res.status(500).json({
+      debug,
+      message: "Internal Server Error. Unable to update gated community.",
+    });
     return;
   }
 });

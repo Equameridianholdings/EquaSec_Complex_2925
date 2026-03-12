@@ -62,54 +62,67 @@ export class BookVisitor implements OnInit {
       this.selectedUser = currentUser;
       this.userSearch = `${currentUser?.name ?? ''} ${currentUser?.surname ?? ''}`.trim();
       this.filteredUsers = [];
+      this.submitting.update(() => false);
       return;
     }
 
     // Fetch all users (residents/tenants) from the /user endpoint
-    this.service.get<any>('user').subscribe((response) => {
-      let users = response && Array.isArray(response.payload) ? response.payload : [];
+    this.service.get<any>('user').subscribe({
+      next: (response) => {
+        let users = response && Array.isArray(response.payload) ? response.payload : [];
       // Get current guard's assigned complexes/communities from localStorage
-      let assignedComplexes: string[] = [];
-      let assignedCommunities: string[] = [];
-      try {
-        const rawUser = localStorage.getItem('current-user');
-        if (rawUser) {
-          const currentUser = JSON.parse(rawUser);
-          assignedComplexes = Array.isArray(currentUser.assignedComplexes)
-            ? currentUser.assignedComplexes
-            : [];
-          assignedCommunities = Array.isArray(currentUser.assignedCommunities)
-            ? currentUser.assignedCommunities
-            : [];
+        let assignedComplexes: string[] = [];
+        let assignedCommunities: string[] = [];
+        try {
+          const rawUser = localStorage.getItem('current-user');
+          if (rawUser) {
+            const currentUser = JSON.parse(rawUser);
+            assignedComplexes = Array.isArray(currentUser.assignedComplexes)
+              ? currentUser.assignedComplexes
+              : [];
+            assignedCommunities = Array.isArray(currentUser.assignedCommunities)
+              ? currentUser.assignedCommunities
+              : [];
+          }
+        } catch (e) {
+          this._snackBar.open('Could not parse current-user from localStorage', 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
+          console.warn(e);
         }
-      } catch (e) {
-        this._snackBar.open('Could not parse current-user from localStorage', 'close', {
+        // Only show users (tenants) that belong to the guard's assigned complexes/communities
+        users = users.filter((u: any) => {
+          // Complex match
+          if (u.complex && u.complex._id && assignedComplexes.includes(u.complex._id)) return true;
+          // Community match (if user has a communityId or similar field)
+          if (u.communityId && assignedCommunities.includes(u.communityId)) return true;
+          return false;
+        });
+        this.users = users;
+
+        this.filteredUsers = this.users;
+        // If resident was passed, ensure selectedUser is in users
+        if (this.selectedUser) {
+          const match = this.users.find((u) => u._id === this.selectedUser._id);
+          if (match) {
+            this.selectedUser = match;
+            this.userSearch = `${match.name ?? ''} ${match.surname ?? ''}`.trim();
+          }
+        }
+
+        this.submitting.update(() => false);
+      },
+      error: (error) => {
+        const errorMessage = error?.error?.message ?? 'Unable to load residents.';
+        this._snackBar.open(errorMessage, 'close', {
           horizontalPosition: this.horizontalPosition,
           verticalPosition: this.verticalPosition,
         });
-        console.warn(e);
-      }
-      // Only show users (tenants) that belong to the guard's assigned complexes/communities
-      users = users.filter((u: any) => {
-        // Complex match
-        if (u.complex && u.complex._id && assignedComplexes.includes(u.complex._id)) return true;
-        // Community match (if user has a communityId or similar field)
-        if (u.communityId && assignedCommunities.includes(u.communityId)) return true;
-        return false;
-      });
-      this.users = users;
-
-      this.filteredUsers = this.users;
-      // If resident was passed, ensure selectedUser is in users
-      if (this.selectedUser) {
-        const match = this.users.find((u) => u._id === this.selectedUser._id);
-        if (match) {
-          this.selectedUser = match;
-          this.userSearch = `${match.name ?? ''} ${match.surname ?? ''}`.trim();
-        }
-      }
-
-      this.submitting.update(() => false);
+        this.users = [];
+        this.filteredUsers = [];
+        this.submitting.update(() => false);
+      },
     });
   }
 
@@ -181,7 +194,6 @@ export class BookVisitor implements OnInit {
   readonly dialogRef = inject(MatDialogRef<BookVisitor>);
   dialog = inject(MatDialog);
 
-  visitorIdNumber: string = ''; //Encryption still in dev
   newVehicle: vehicleDTO = {
     color: '',
     make: '',
@@ -214,6 +226,7 @@ export class BookVisitor implements OnInit {
         horizontalPosition: this.horizontalPosition,
         verticalPosition: this.verticalPosition,
       });
+      this.submitting.update(() => false);
       return;
     }
     if (!this.newVisitor.driving) this.newVisitor.vehicle = undefined;
@@ -260,6 +273,7 @@ export class BookVisitor implements OnInit {
         horizontalPosition: this.horizontalPosition,
         verticalPosition: this.verticalPosition,
       });
+      this.submitting.update(() => false);
       return;
     }
     this.dialog.open(ConfirmVisitor, {

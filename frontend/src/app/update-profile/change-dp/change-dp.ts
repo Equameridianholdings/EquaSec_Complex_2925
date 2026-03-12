@@ -42,7 +42,11 @@ export class ChangeDp {
   private async requestCameraStream(): Promise<MediaStream> {
     try {
       return await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
+        video: {
+          facingMode: { ideal: 'user' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
         audio: false,
       });
     } catch {
@@ -80,6 +84,13 @@ export class ChangeDp {
     this.profilePhotoData = '';
 
     try {
+      if (typeof window !== 'undefined' && !window.isSecureContext) {
+        this.cameraError =
+          'Camera is blocked on mobile over insecure HTTP. Use HTTPS (or localhost) and allow camera permission.';
+        this.hasCameraStream = false;
+        return;
+      }
+
       if (!navigator.mediaDevices?.getUserMedia) {
         this.cameraError = 'Camera is not supported in this browser.';
         this.hasCameraStream = false;
@@ -102,6 +113,9 @@ export class ChangeDp {
       }
 
       video.srcObject = this.profileCameraStream;
+      video.muted = true;
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('autoplay', 'true');
       await new Promise<void>((resolve) => {
         if (video.readyState >= 1) {
           resolve();
@@ -116,8 +130,24 @@ export class ChangeDp {
 
       await video.play();
       this.hasCameraStream = true;
-    } catch {
-      this.cameraError = 'Unable to access the camera. Please allow camera permissions.';
+    } catch (error: unknown) {
+      const errorName =
+        error && typeof error === 'object' && 'name' in error
+          ? String((error as { name?: unknown }).name ?? '')
+          : '';
+
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+        this.cameraError = 'Camera permission was denied. Please allow camera access in browser settings.';
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+        this.cameraError = 'No camera device was found on this phone.';
+      } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
+        this.cameraError =
+          'Camera is currently in use by another app. Close that app and try again.';
+      } else if (errorName === 'OverconstrainedError') {
+        this.cameraError = 'Requested camera settings are not supported on this device.';
+      } else {
+        this.cameraError = 'Unable to access the camera. Please allow camera permissions.';
+      }
       this.stopProfileCamera();
     }
   }

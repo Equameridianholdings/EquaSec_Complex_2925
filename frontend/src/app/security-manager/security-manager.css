@@ -167,6 +167,63 @@
 	gap: 20px;
 }
 
+.header-actions {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.sos-optin-control {
+	background: rgba(255, 255, 255, 0.12);
+	border: 1px solid rgba(255, 255, 255, 0.35);
+	border-radius: 12px;
+	padding: 10px 12px;
+	min-width: 180px;
+}
+
+.sos-optin-label {
+	margin: 0;
+	font-size: 11px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	opacity: 0.9;
+}
+
+.sos-optin-status {
+	margin: 4px 0 8px;
+	font-weight: 700;
+	font-size: 14px;
+}
+
+.sos-optin-status.enabled {
+	color: #bbf7d0;
+}
+
+.sos-optin-status.disabled {
+	color: #fecaca;
+}
+
+.btn-sos-optin {
+	width: 100%;
+	padding: 8px 10px;
+	border-radius: 8px;
+	border: 1px solid rgba(255, 255, 255, 0.35);
+	background: rgba(15, 23, 42, 0.25);
+	color: #ffffff;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.btn-sos-optin:hover:not(:disabled) {
+	background: rgba(15, 23, 42, 0.4);
+}
+
+.btn-sos-optin:disabled {
+	opacity: 0.7;
+	cursor: not-allowed;
+}
+
 .manager-header h1 {
 	font-size: 36px;
 	font-weight: 900;
@@ -407,6 +464,23 @@
 	border-radius: 50%;
 	object-fit: cover;
 	border: 2px solid var(--manager-accent);
+	flex-shrink: 0;
+}
+
+.profile-picture-fallback {
+	width: 80px;
+	height: 80px;
+	border-radius: 50%;
+	border: 2px solid var(--manager-accent);
+	background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+	color: var(--manager-accent);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 24px;
+	font-weight: 800;
+	letter-spacing: 0.5px;
+	text-transform: uppercase;
 	flex-shrink: 0;
 }
 
@@ -1682,6 +1756,15 @@ table tbody tr:hover {
 
 	.header-content {
 		flex-direction: column;
+	}
+
+	.header-actions {
+		width: 100%;
+		flex-direction: column;
+	}
+
+	.sos-optin-control {
+		width: 100%;
 	}
 
 	.manager-header h1 {

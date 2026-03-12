@@ -6,6 +6,8 @@ import { complexDTO } from "./complexDTO.js";
 export interface UserDTO {
     _id?: ObjectId;
     address?: string;
+    assignedCommunities?: string[];
+    assignedComplexes?: string[];
     cellNumber: string;
     communityComplexId?: string;
     communityId?: string;
@@ -13,6 +15,7 @@ export interface UserDTO {
     complex?: complexDTO;
     confirmPassword: string;
     emailAddress: string;
+    employeeContracts?: unknown[];
     gatedCommunity?: null | { _id: ObjectId; name: string };
     houseNumber?: string;
     idNumber?: string;

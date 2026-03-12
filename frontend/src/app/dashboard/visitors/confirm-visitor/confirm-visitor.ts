@@ -46,6 +46,9 @@ export class ConfirmVisitor {
           verticalPosition: this.verticalPosition,
         });
         this.submitting.update(() => false);
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
       },
       error: (err) => {
         this._snackBar.open(err.error.message, 'close', {

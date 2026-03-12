@@ -34,6 +34,8 @@ export class SecurityManager implements OnInit {
   private currentManagerEmail = '';
   private managerSecurityCompanyId = '';
   private managerSecurityCompanyName = '';
+  protected companySosOptedIn = false;
+  protected companySosOptinUpdating = false;
   private contractedComplexNames = new Set<string>();
   private contractedCommunityNames = new Set<string>();
   private complexContractDates = new Map<string, { startDate: string; endDate: string }>();
@@ -161,6 +163,7 @@ export class SecurityManager implements OnInit {
   protected editingEmployeeId: string | null = null;
   protected employeeError = '';
   protected employeeSuccess = '';
+  protected employeeSubmitting = false;
 
   protected assignmentForm: ManagerAssignmentFormDTO = {
     securityManagerId: '',
@@ -194,6 +197,7 @@ export class SecurityManager implements OnInit {
   protected editingTenantId: string | null = null;
   protected tenantError = '';
   protected tenantSuccess = '';
+  protected tenantSubmitting = false;
   protected tenantSearchTerm = '';
   protected tenantFilterResidenceType: 'all' | 'complex' | 'community' = 'all';
   protected tenantFilterComplexId = '';
@@ -291,6 +295,9 @@ export class SecurityManager implements OnInit {
       this.currentManagerEmail = user?.emailAddress ?? this.currentManagerEmail;
       this.managerSecurityCompanyId = user?.securityCompany?._id ?? '';
       this.managerSecurityCompanyName = user?.securityCompany?.name ?? '';
+      if (typeof user?.securityCompany?.sosOptin === 'boolean') {
+        this.companySosOptedIn = Boolean(user.securityCompany.sosOptin);
+      }
       this.loadCompanyContracts();
     } catch {
       return;
@@ -311,6 +318,14 @@ export class SecurityManager implements OnInit {
     this.communityContractDates.clear();
     this.complexContractDisplayNames.clear();
     this.companyEmployeeAssignmentUserIds.clear();
+
+    if (company?._id || company?.id) {
+      this.managerSecurityCompanyId = String(company._id ?? company.id);
+    }
+    if (company?.name) {
+      this.managerSecurityCompanyName = String(company.name);
+    }
+    this.companySosOptedIn = Boolean(company?.sosOptin);
 
     const employeeAssignments = Array.isArray(company?.employeeAssignments)
       ? company.employeeAssignments
@@ -345,6 +360,51 @@ export class SecurityManager implements OnInit {
         this.communityContractDates.set(communityName, { startDate, endDate });
       }
     }
+  }
+
+  protected toggleCompanySosOptin(): void {
+    if (this.companySosOptinUpdating) {
+      return;
+    }
+
+    const companyId = String(this.managerSecurityCompanyId ?? '').trim();
+    if (!companyId) {
+      this._snackBar.open('No linked security company found.', 'close', {
+        horizontalPosition: this.horizontalPosition,
+        verticalPosition: this.verticalPosition,
+      });
+      return;
+    }
+
+    const nextSosOptin = !this.companySosOptedIn;
+    this.companySosOptinUpdating = true;
+
+    this.dataService
+      .put<any>(`securityCompany/${companyId}`, { sosOptin: nextSosOptin })
+      .subscribe({
+        next: (response) => {
+          const persistedOptin = response?.payload?.sosOptin;
+          this.companySosOptedIn =
+            typeof persistedOptin === 'boolean' ? Boolean(persistedOptin) : nextSosOptin;
+          this.companySosOptinUpdating = false;
+
+          this._snackBar.open(
+            this.companySosOptedIn ? 'SOS opt-in enabled.' : 'SOS opt-in disabled.',
+            'close',
+            {
+              horizontalPosition: this.horizontalPosition,
+              verticalPosition: this.verticalPosition,
+            },
+          );
+        },
+        error: (error) => {
+          this.companySosOptinUpdating = false;
+          this._snackBar.open(error?.error?.message ?? 'Unable to update SOS opt-in.', 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
+        },
+      });
   }
 
   private formatDateValue(dateValue: unknown): string {
@@ -444,12 +504,16 @@ export class SecurityManager implements OnInit {
         const resolvedEmail = resolvedUser.emailAddress ?? '';
         const resolvedCompanyId = resolvedUser.securityCompany?._id ?? '';
         const resolvedCompanyName = resolvedUser.securityCompany?.name ?? '';
+        const resolvedCompanySosOptin = resolvedUser.securityCompany?.sosOptin;
 
         this.securityManagerName = resolvedName || this.securityManagerName;
         this.securityManagerEmail = resolvedEmail || this.securityManagerEmail;
         this.currentManagerEmail = resolvedEmail || this.currentManagerEmail;
         this.managerSecurityCompanyId = resolvedCompanyId || this.managerSecurityCompanyId;
         this.managerSecurityCompanyName = resolvedCompanyName || this.managerSecurityCompanyName;
+        if (typeof resolvedCompanySosOptin === 'boolean') {
+          this.companySosOptedIn = Boolean(resolvedCompanySosOptin);
+        }
 
         this.loadCompanyContracts();
       },
@@ -597,9 +661,126 @@ export class SecurityManager implements OnInit {
       next: (response) => {
         const users = Array.isArray(response) ? response : (response?.payload ?? []);
 
+        const applyUsersWithUnitLocations = (baseUsers: any[]): void => {
+          this.dataService.get<any[]>('unit').subscribe({
+            next: (unitsResponse) => {
+              const units = Array.isArray(unitsResponse)
+                ? unitsResponse
+                : Array.isArray((unitsResponse as { payload?: unknown })?.payload)
+                  ? ((unitsResponse as { payload?: any[] }).payload ?? [])
+                  : [];
+
+              const tenantLocationByUserId = new Map<
+                string,
+                {
+                  complexId: string;
+                  gatedCommunityId: string;
+                  houseNumber: string;
+                  unit: string;
+                }
+              >();
+
+              for (const unit of units) {
+                const complexId = String(unit?.complex?._id ?? unit?.complex?.id ?? '').trim();
+                const gatedCommunityId = String(
+                  unit?.gatedCommunity?._id ?? unit?.gatedCommunity?.id ?? '',
+                ).trim();
+                const unitNumber = String(unit?.number ?? '').trim();
+
+                const linkedUsers = Array.isArray(unit?.users) ? unit.users : [];
+                for (const linkedUser of linkedUsers) {
+                  const linkedUserId = String(
+                    linkedUser && typeof linkedUser === 'object'
+                      ? ((linkedUser as any)?._id ?? (linkedUser as any)?.id ?? '')
+                      : (linkedUser ?? ''),
+                  ).trim();
+
+                  if (!linkedUserId) {
+                    continue;
+                  }
+
+                  const previous = tenantLocationByUserId.get(linkedUserId);
+                  const unitValue = unitNumber || previous?.unit || '';
+                  const houseNumberValue = (!complexId && unitNumber) || previous?.houseNumber || '';
+
+                  tenantLocationByUserId.set(linkedUserId, {
+                    complexId: complexId || previous?.complexId || '',
+                    gatedCommunityId: gatedCommunityId || previous?.gatedCommunityId || '',
+                    houseNumber: houseNumberValue,
+                    unit: unitValue,
+                  });
+                }
+              }
+
+              const usersWithUnitLocations = baseUsers.map((user: any) => {
+                const userId = String(user?._id ?? user?.id ?? '').trim();
+                const linkedTenantLocation = userId ? tenantLocationByUserId.get(userId) : null;
+
+                if (!linkedTenantLocation) {
+                  return user;
+                }
+
+                const isCommunityLinked = Boolean(linkedTenantLocation.gatedCommunityId);
+                const isCommunityComplex =
+                  isCommunityLinked && Boolean(linkedTenantLocation.complexId);
+
+                return {
+                  ...user,
+                  residenceType: isCommunityLinked ? 'community' : 'complex',
+                  complex: linkedTenantLocation.complexId
+                    ? {
+                        ...(user?.complex ?? {}),
+                        _id: linkedTenantLocation.complexId,
+                        id: linkedTenantLocation.complexId,
+                      }
+                    : user?.complex,
+                  communityId: isCommunityLinked
+                    ? linkedTenantLocation.gatedCommunityId
+                    : (user?.communityId ?? ''),
+                  gatedCommunity: isCommunityLinked
+                    ? {
+                        ...(user?.gatedCommunity ?? {}),
+                        _id: linkedTenantLocation.gatedCommunityId,
+                        id: linkedTenantLocation.gatedCommunityId,
+                      }
+                    : user?.gatedCommunity,
+                  communityResidenceType: isCommunityLinked
+                    ? (isCommunityComplex ? 'complex' : 'house')
+                    : user?.communityResidenceType,
+                  communityComplexId: isCommunityComplex
+                    ? linkedTenantLocation.complexId
+                    : (user?.communityComplexId ?? ''),
+                  address:
+                    linkedTenantLocation.unit ||
+                    linkedTenantLocation.houseNumber ||
+                    String(user?.address ?? ''),
+                  unit: linkedTenantLocation.unit || String(user?.unit ?? ''),
+                  houseNumber:
+                    linkedTenantLocation.houseNumber || String(user?.houseNumber ?? ''),
+                };
+              });
+
+              this.usersLoadPending = usersWithUnitLocations;
+              this.tryBuildDashboardUsers();
+            },
+            error: (error) => {
+              this.usersLoadPending = baseUsers;
+              this.tryBuildDashboardUsers();
+              this._snackBar.open(error.error.message, 'close', {
+                horizontalPosition: this.horizontalPosition,
+                verticalPosition: this.verticalPosition,
+              });
+            },
+          });
+        };
+
         this.dataService.get<any[]>('vehicle').subscribe({
           next: (vehiclesResponse) => {
-            const vehicles = Array.isArray(vehiclesResponse) ? vehiclesResponse : [];
+            const vehicles = Array.isArray(vehiclesResponse)
+              ? vehiclesResponse
+              : Array.isArray((vehiclesResponse as { payload?: unknown })?.payload)
+                ? ((vehiclesResponse as { payload?: any[] }).payload ?? [])
+                : [];
             const vehiclesByUserId = new Map<string, any[]>();
 
             for (const vehicle of vehicles) {
@@ -637,12 +818,10 @@ export class SecurityManager implements OnInit {
               };
             });
 
-            this.usersLoadPending = mergedUsers;
-            this.tryBuildDashboardUsers();
+            applyUsersWithUnitLocations(mergedUsers);
           },
           error: (error) => {
-            this.usersLoadPending = users;
-            this.tryBuildDashboardUsers();
+            applyUsersWithUnitLocations(users);
             this._snackBar.open(error.error.message, 'close', {
               horizontalPosition: this.horizontalPosition,
               verticalPosition: this.verticalPosition,
@@ -965,13 +1144,19 @@ export class SecurityManager implements OnInit {
           phone: user.cellNumber ?? '',
           idNumber: user.idNumber ?? '',
           residenceType: mappedResidenceType,
-          complexId: mappedResidenceType === 'complex' ? (user.complex?._id ?? '') : '',
-          communityId: mappedResidenceType === 'community' ? (user.communityId ?? '') : '',
+          complexId:
+            mappedResidenceType === 'complex'
+              ? String(user.complex?._id ?? user.complex?.id ?? '')
+              : '',
+          communityId:
+            mappedResidenceType === 'community'
+              ? String(user.communityId ?? user.gatedCommunity?._id ?? user.gatedCommunity?.id ?? '')
+              : '',
           communityResidenceType:
             mappedResidenceType === 'community' ? mappedCommunityResidenceType : undefined,
           communityComplexId:
             mappedResidenceType === 'community' && mappedCommunityResidenceType === 'complex'
-              ? (user.communityComplexId ?? user.complex?._id ?? '')
+              ? String(user.communityComplexId ?? user.complex?._id ?? user.complex?.id ?? '')
               : '',
           address: user.address ?? '',
           vehicles: Array.isArray(user.vehicles)
@@ -1005,6 +1190,19 @@ export class SecurityManager implements OnInit {
       return normalizedType === normalizedRole || normalizedType.includes(normalizedRole);
     }
     return false;
+  }
+
+  protected getPersonInitials(name: string, surname?: string): string {
+    const first = String(name ?? '').trim().charAt(0);
+    const second = String(surname ?? '').trim().charAt(0);
+    const initials = `${first}${second}`.trim().toUpperCase();
+    return initials || 'NA';
+  }
+
+  protected onManagerImageError(manager: any): void {
+    if (manager) {
+      manager.profilePicture = '';
+    }
   }
 
   private loadVisitors(): void {
@@ -1155,11 +1353,13 @@ export class SecurityManager implements OnInit {
     this.resetEmployeeForm();
     this.employeeError = '';
     this.employeeSuccess = '';
+    this.employeeSubmitting = false;
   }
 
   protected closeEmployeeModal(): void {
     this.isEmployeeModalOpen = false;
     this.resetEmployeeForm();
+    this.employeeSubmitting = false;
   }
 
   protected resetEmployeeForm(): void {
@@ -1225,6 +1425,13 @@ export class SecurityManager implements OnInit {
   }
 
   protected submitEmployeeForm(): void {
+    if (this.employeeSubmitting) {
+      return;
+    }
+
+    this.employeeSubmitting = true;
+    this.employeeError = '';
+    this.employeeSuccess = this.editingEmployeeId ? 'Updating employee...' : 'Adding employee...';
     this.submitting.update(() => true);
     if (
       !this.employeeForm.name ||
@@ -1234,6 +1441,8 @@ export class SecurityManager implements OnInit {
       !this.employeeForm.position
     ) {
       this.employeeError = 'Please fill in all required fields.';
+      this.employeeSuccess = '';
+      this.employeeSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1242,12 +1451,16 @@ export class SecurityManager implements OnInit {
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.employeeForm.email)) {
       this.employeeError = 'Please enter a valid email address.';
+      this.employeeSuccess = '';
+      this.employeeSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
 
     if (!/^0\d{9}$/.test(this.employeeForm.phone)) {
       this.employeeError = 'Phone number must be 10 digits and start with 0.';
+      this.employeeSuccess = '';
+      this.employeeSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1304,16 +1517,21 @@ export class SecurityManager implements OnInit {
               horizontalPosition: this.horizontalPosition,
               verticalPosition: this.verticalPosition,
             });
+            this.employeeSuccess = response.message;
             setTimeout(() => {
+              this.employeeSubmitting = false;
               this.submitting.update(() => false);
               this.closeEmployeeModal();
             }, 1500);
           },
           error: (error) => {
+            this.employeeSuccess = '';
+            this.employeeError = error?.error?.message ?? 'Unable to update employee.';
             this._snackBar.open(error.error.message, 'close', {
               horizontalPosition: this.horizontalPosition,
               verticalPosition: this.verticalPosition,
             });
+            this.employeeSubmitting = false;
             this.submitting.update(() => false);
           },
         });
@@ -1348,8 +1566,16 @@ export class SecurityManager implements OnInit {
           const createdUser = response?.payload?.user;
           if (!createdUser) {
             this.employeeError = 'Unable to add employee.';
+            this.employeeSuccess = '';
+            this.employeeSubmitting = false;
+            this.submitting.update(() => false);
             return;
           }
+
+          const emailSent = response?.payload?.emailSent !== false;
+          const successMessage = emailSent
+            ? `${response.message} Login credentials were sent by email.`
+            : `${response.message} Employee created, but credentials email was not confirmed.`;
 
           const newEmployee = {
             id: createdUser._id ?? `emp-${Date.now()}`,
@@ -1367,20 +1593,25 @@ export class SecurityManager implements OnInit {
           };
 
           this.employees.push(newEmployee);
-          this._snackBar.open(response.message, 'close', {
+          this._snackBar.open(successMessage, 'close', {
             horizontalPosition: this.horizontalPosition,
             verticalPosition: this.verticalPosition,
           });
+          this.employeeSuccess = successMessage;
           setTimeout(() => {
+            this.employeeSubmitting = false;
             this.submitting.update(() => false);
             this.closeEmployeeModal();
           }, 1500);
         },
         error: (error) => {
+          this.employeeSuccess = '';
+          this.employeeError = error?.error?.message ?? 'Unable to add employee.';
           this._snackBar.open(error.error.message, 'close', {
             horizontalPosition: this.horizontalPosition,
             verticalPosition: this.verticalPosition,
           });
+          this.employeeSubmitting = false;
           this.submitting.update(() => false);
         },
       });
@@ -1749,31 +1980,62 @@ export class SecurityManager implements OnInit {
 
     if (tenant.residenceType === 'complex') {
       // Complex → Unit
-      const complexName = this.getComplexName(tenant.complexId);
-      path.push(complexName);
-      path.push(tenant.address);
+      const complexName = this.getComplexName(String(tenant.complexId ?? ''));
+      if (complexName && complexName !== 'Unknown') {
+        path.push(complexName);
+      }
+      if (String(tenant.address ?? '').trim()) {
+        path.push(String(tenant.address ?? '').trim());
+      }
     } else if (tenant.residenceType === 'community') {
       // Gated Community → ...
-      const communityName = this.getCommunityName(tenant.communityId);
-      path.push(communityName);
+      const communityName = this.getCommunityName(String(tenant.communityId ?? ''));
+      if (communityName && communityName !== 'Unknown') {
+        path.push(communityName);
+      } else {
+        path.push('Gated Community');
+      }
 
       if (tenant.communityResidenceType === 'house') {
         // → House Number
-        path.push(tenant.address);
+        const houseNumber = String(tenant.address ?? '').trim();
+        if (houseNumber) {
+          path.push(`House ${houseNumber}`);
+        }
       } else if (tenant.communityResidenceType === 'complex') {
         // → Complex → Unit
-        const community = this.gatedCommunities.find((gc) => gc.id === tenant.communityId);
-        const complexInCommunity = community?.complexesInCommunity?.find(
-          (c) => c.id === tenant.communityComplexId,
+        const community = this.gatedCommunities.find(
+          (gc) => gc.id === String(tenant.communityId ?? ''),
         );
-        if (complexInCommunity) {
+        const complexInCommunity = community?.complexesInCommunity?.find(
+          (c) => c.id === String(tenant.communityComplexId ?? ''),
+        );
+        if (complexInCommunity?.name) {
           path.push(complexInCommunity.name);
+        } else {
+          const fallbackComplexName = this.getComplexName(String(tenant.communityComplexId ?? ''));
+          if (fallbackComplexName && fallbackComplexName !== 'Unknown') {
+            path.push(fallbackComplexName);
+          }
         }
-        path.push(tenant.address);
+        if (String(tenant.address ?? '').trim()) {
+          path.push(String(tenant.address ?? '').trim());
+        }
       }
     }
 
+    if (path.length === 0) {
+      path.push('Location not set');
+    }
+
     return path;
+  }
+
+  protected getTenantLocationTypeLabel(tenant: any): string {
+    if (tenant?.residenceType === 'community') {
+      return tenant?.communityResidenceType === 'house' ? 'Gated Community • House' : 'Gated Community • Complex';
+    }
+    return 'Complex';
   }
 
   private refreshTenantLocationPaths(): void {
@@ -1791,11 +2053,13 @@ export class SecurityManager implements OnInit {
     this.isTenantModalOpen = true;
     this.tenantError = '';
     this.tenantSuccess = '';
+    this.tenantSubmitting = false;
   }
 
   protected closeTenantModal(): void {
     this.isTenantModalOpen = false;
     this.resetTenantForm();
+    this.tenantSubmitting = false;
   }
 
   protected editTenant(tenant: any): void {
@@ -1819,6 +2083,13 @@ export class SecurityManager implements OnInit {
   }
 
   protected submitTenantForm(): void {
+    if (this.tenantSubmitting) {
+      return;
+    }
+
+    this.tenantSubmitting = true;
+    this.tenantError = '';
+    this.tenantSuccess = this.editingTenantId ? 'Updating tenant...' : 'Registering tenant...';
     this.submitting.update(() => true);
     // Validation
     if (
@@ -1829,6 +2100,8 @@ export class SecurityManager implements OnInit {
       !this.tenantForm.address
     ) {
       this.tenantError = 'Please fill in all required fields.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1837,6 +2110,8 @@ export class SecurityManager implements OnInit {
 
     if (!/^0\d{9}$/.test(this.tenantForm.phone)) {
       this.tenantError = 'Phone number must be 10 digits and start with 0.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1844,18 +2119,24 @@ export class SecurityManager implements OnInit {
     const allowedResidenceTypes = this.availableTenantResidenceTypes.map((type) => type.value);
     if (!allowedResidenceTypes.includes(this.tenantForm.residenceType)) {
       this.tenantError = 'Selected residence type is not available for your assigned sites.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
 
     if (this.tenantForm.residenceType === 'complex' && !this.tenantForm.complexId) {
       this.tenantError = 'Please select a complex.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
 
     if (this.tenantForm.residenceType === 'community' && !this.tenantForm.communityId) {
       this.tenantError = 'Please select a gated community.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1866,6 +2147,8 @@ export class SecurityManager implements OnInit {
       !this.tenantForm.communityComplexId
     ) {
       this.tenantError = 'Please select a complex within the gated community.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1875,6 +2158,8 @@ export class SecurityManager implements OnInit {
       !this.availableCommunityResidenceTypes.includes(this.tenantForm.communityResidenceType)
     ) {
       this.tenantError = 'Selected community residence type is not available.';
+      this.tenantSuccess = '';
+      this.tenantSubmitting = false;
       this.submitting.update(() => false);
       return;
     }
@@ -1957,16 +2242,21 @@ export class SecurityManager implements OnInit {
             horizontalPosition: this.horizontalPosition,
             verticalPosition: this.verticalPosition,
           });
+          this.tenantSuccess = response.message;
           setTimeout(() => {
+            this.tenantSubmitting = false;
             this.submitting.update(() => false);
             this.closeTenantModal();
           }, 1500);
         },
         error: (error: HttpErrorResponse) => {
+          this.tenantSuccess = '';
+          this.tenantError = error?.error?.message ?? 'Unable to update tenant.';
           this._snackBar.open(error.error.message, 'close', {
             horizontalPosition: this.horizontalPosition,
             verticalPosition: this.verticalPosition,
           });
+          this.tenantSubmitting = false;
           this.submitting.update(() => false);
         },
       });
@@ -1978,6 +2268,8 @@ export class SecurityManager implements OnInit {
       if (existingTenant) {
         this.tenantError =
           'A tenant with this email already exists. Open Edit to update the tenant.';
+        this.tenantSuccess = '';
+        this.tenantSubmitting = false;
         this.submitting.update(() => false);
         return;
       }
@@ -1985,6 +2277,10 @@ export class SecurityManager implements OnInit {
       this.dataService.post<ResponseBody>('user/tenant', payload).subscribe({
         next: (response) => {
           const createdUser = response?.payload?.user;
+          const emailSent = response?.payload?.emailSent !== false;
+          const successMessage = emailSent
+            ? `${response.message} Login credentials were sent by email.`
+            : `${response.message} Tenant created, but credentials email was not confirmed.`;
           const mappedTenant = {
             ...tenantData,
             id: createdUser?._id ?? tenantData.id,
@@ -1994,21 +2290,26 @@ export class SecurityManager implements OnInit {
           };
 
           this.tenants.push(mappedTenant);
-          this._snackBar.open(response.message, 'close', {
+          this._snackBar.open(successMessage, 'close', {
             horizontalPosition: this.horizontalPosition,
             verticalPosition: this.verticalPosition,
           });
+          this.tenantSuccess = successMessage;
 
           setTimeout(() => {
+            this.tenantSubmitting = false;
             this.submitting.update(() => false);
             this.closeTenantModal();
           }, 1500);
         },
         error: (error) => {
+          this.tenantSuccess = '';
+          this.tenantError = error?.error?.message ?? 'Unable to register tenant.';
           this._snackBar.open(error.error.message, 'close', {
             horizontalPosition: this.horizontalPosition,
             verticalPosition: this.verticalPosition,
           });
+          this.tenantSubmitting = false;
           this.submitting.update(() => false);
         },
       });

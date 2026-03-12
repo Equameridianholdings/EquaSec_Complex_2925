@@ -2,15 +2,18 @@ import mongoose from "mongoose";
 
 const user = new mongoose.Schema({
     address: { required: false, type: String },
+    assignedCommunities: { default: [], required: false, type: [String] },
+    assignedComplexes: { default: [], required: false, type: [String] },
     cellNumber: {required: true, type: String},
     communityComplexId: { required: false, type: String },
     communityId: { required: false, type: String },
     communityResidenceType: { required: false, type: String },
     complex: {type: Object},
     emailAddress: {required: true, type: String, unique: true},
+    employeeContracts: { default: [], required: false, type: Array },
     gatedCommunity: { required: false, type: Object },
     houseNumber: { required: false, type: String },
-    idNumber: { required: false, type: String, unique: true},
+    idNumber: { required: false, trim: true, type: String },
     movedOut: {type: Boolean},
     name: {required: true, type: String},
     password: { required: true, type: String, unique: true},
@@ -24,6 +27,16 @@ const user = new mongoose.Schema({
     verificationCode: { required: false, type: String },
     verificationCodeCreatedAt: { required: false, type: Date },
 })
+
+user.index(
+    { idNumber: 1 },
+    {
+        partialFilterExpression: {
+            idNumber: { $type: "string" },
+        },
+        unique: true,
+    },
+);
 
 const userSchema = mongoose.model("User", user);
 

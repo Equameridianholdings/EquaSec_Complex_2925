@@ -24,12 +24,12 @@
         <div class="validation-error" *ngIf="telInput.invalid && telInput.touched">Enter a valid 10-digit number.</div>
       </div>
       <div class="form-group">
-        <label>CIPC Registration</label>
-        <input class="form-control" name="cipcReg" [(ngModel)]="newSecurityCompany.cipcReg" required />
+        <label>CIPC Registration (Optional)</label>
+        <input class="form-control" name="cipcReg" [(ngModel)]="newSecurityCompany.cipcReg" />
       </div>
       <div class="form-group">
-        <label>PSIRA Number</label>
-        <input class="form-control" name="psiraNumber" [(ngModel)]="newSecurityCompany.psiraNumber" required />
+        <label>PSIRA Number (Optional)</label>
+        <input class="form-control" name="psiraNumber" [(ngModel)]="newSecurityCompany.psiraNumber" />
       </div>
       <div class="form-group">
         <label class="checkbox-row">
@@ -66,12 +66,12 @@
         <input type="text" id="updateCompanyTel" class="form-control" [(ngModel)]="editingSecurityCompany.companyTel" name="updateCompanyTel" required />
       </div>
       <div class="form-group">
-        <label for="updateCipcReg">CIPC Registration</label>
-        <input type="text" id="updateCipcReg" class="form-control" [(ngModel)]="editingSecurityCompany.cipcReg" name="updateCipcReg" required />
+        <label for="updateCipcReg">CIPC Registration (Optional)</label>
+        <input type="text" id="updateCipcReg" class="form-control" [(ngModel)]="editingSecurityCompany.cipcReg" name="updateCipcReg" />
       </div>
       <div class="form-group">
-        <label for="updatePsiraNumber">PSIRA Number</label>
-        <input type="text" id="updatePsiraNumber" class="form-control" [(ngModel)]="editingSecurityCompany.psiraNumber" name="updatePsiraNumber" required />
+        <label for="updatePsiraNumber">PSIRA Number (Optional)</label>
+        <input type="text" id="updatePsiraNumber" class="form-control" [(ngModel)]="editingSecurityCompany.psiraNumber" name="updatePsiraNumber" />
       </div>
       <div class="modal-actions">
         <button type="button" class="btn-secondary" (click)="closeUpdateSecurityModal()">Cancel</button>
@@ -242,9 +242,14 @@
                       <span class="detail-label">Total Houses:</span>
                       <span class="detail-value">{{ getCommunityHouseCount(community) }}</span>
                     </div>
+                    <div class="detail-item" *ngIf="community.price !== '' && community.price !== null && community.price !== undefined">
+                      <span class="detail-label">Price:</span>
+                      <span class="detail-value">R {{ community.price }}</span>
+                    </div>
                   </div>
                 </div>
                 <div class="community-actions">
+                  <button class="btn-secondary" type="button" (click)="openGatedComplexAssignModal(community)">🏘️ Assign Complex</button>
                   <button class="btn-secondary" type="button" (click)="openGatedSecurityAssignModal(community)" *ngIf="!community.securityAssignments || community.securityAssignments.length === 0">🛡️ Assign Security</button>
                   <button class="btn-primary" type="button" (click)="openGatedCommunityModal(community)">✏️ Edit</button>
                   <button class="btn-danger" type="button" (click)="deleteGatedCommunity(community)">🗑️ Delete</button>
@@ -266,6 +271,10 @@
                             <div class="detail-item">
                               <span class="detail-label">Total Units:</span>
                               <span class="detail-value">{{ linkedComplex.numberOfUnits }}</span>
+                            </div>
+                            <div class="detail-item" *ngIf="linkedComplex.price !== '' && linkedComplex.price !== null && linkedComplex.price !== undefined">
+                              <span class="detail-label">Price:</span>
+                              <span class="detail-value">R {{ linkedComplex.price }}</span>
                             </div>
                             <div class="detail-item" *ngIf="linkedComplex.blocks && linkedComplex.blocks.length > 0">
                               <span class="detail-label">Units per Block:</span>
@@ -292,6 +301,12 @@
                               <span style="vertical-align:middle;font-size:13px;">Update</span>
                             </span>
                           </button>
+                          <button class="btn-secondary" type="button" (click)="openGatedSecurityAssignModal(community, linkedComplex)">
+                            🛡️ Assign Security
+                          </button>
+                          <button class="btn-danger" type="button" (click)="unassignComplexFromGatedCommunity(community, linkedComplex)">
+                            🔓 Unassign Complex
+                          </button>
                         </div>
                         <div class="complex-status-wrapper" *ngIf="isComplexAssigned(linkedComplex.complexName)">
                           <div class="security-assigned">
@@ -303,6 +318,9 @@
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg>
                               <span style="vertical-align:middle;font-size:13px;">Update</span>
                             </span>
+                          </button>
+                          <button class="btn-danger" type="button" (click)="unassignComplexFromGatedCommunity(community, linkedComplex)">
+                            🔓 Unassign Complex
                           </button>
                         </div>
                       </div>
@@ -431,6 +449,12 @@
                       <span style="vertical-align:middle;font-size:15px;">Delete</span>
                     </span>
                   </button>
+                  <button class="btn-update-small" type="button" (click)="openUpdateComplexModal(complex)">
+                    <span class="update-icon-text">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"/></svg>
+                      <span style="vertical-align:middle;font-size:13px;">Update</span>
+                    </span>
+                  </button>
                 </div>
                 <div class="complex-status-wrapper" *ngIf="isComplexAssigned(complex.complexName)">
                   <div class="security-assigned">
@@ -502,7 +526,7 @@
             </div>
             <div class="form-group">
               <label for="updateComplexPrice">Price (ZAR)</label>
-              <input type="number" id="updateComplexPrice" class="form-control" [(ngModel)]="editingComplex.price" name="updateComplexPrice" required min="0" />
+              <input type="text" id="updateComplexPrice" class="form-control" [(ngModel)]="editingComplex.price" name="updateComplexPrice" required inputmode="decimal" placeholder="e.g., 5000.50" />
             </div>
             <div class="form-group">
               <label for="updateParkingMode">Parking Configuration</label>
@@ -746,13 +770,18 @@
 
         <div class="form-group">
           <label for="complexAddress">Address</label>
-          <gmp-place-autocomplete
+          <input
+            type="text"
             id="complexAddress"
+            name="complexAddress"
             class="form-control"
             placeholder="e.g., 12 Main Rd, Johannesburg"
+            [ngModel]="complexAddress"
+            (ngModelChange)="complexAddress = $event"
+            (input)="markTouched($event)"
             #complexAddressInput
-          ></gmp-place-autocomplete>
-          <input type="hidden" name="complexAddress" [(ngModel)]="complexAddress" required>
+            required
+          >
         </div>
 
         <div class="form-group">
@@ -830,7 +859,7 @@
           <div class="form-group">
             <label for="complexPrice">Price (ZAR)</label>
             <input
-              type="number"
+              type="text"
               id="complexPrice"
               name="complexPrice"
               placeholder="e.g., 5000"
@@ -838,8 +867,8 @@
               [(ngModel)]="complexPrice"
               [readonly]="selectedGatedCommunityForOnboarding && getGatedCommunityPrice(selectedGatedCommunityForOnboarding) !== null"
               [value]="selectedGatedCommunityForOnboarding && getGatedCommunityPrice(selectedGatedCommunityForOnboarding) !== null ? getGatedCommunityPrice(selectedGatedCommunityForOnboarding) : complexPrice"
+              inputmode="decimal"
               required
-              min="0"
             >
             <small *ngIf="selectedGatedCommunityForOnboarding && getGatedCommunityPrice(selectedGatedCommunityForOnboarding) !== null" class="note-text">
               Price is set by the selected gated community.
@@ -1047,7 +1076,7 @@
       </div>
 
       <div class="form-group">
-        <label for="cipcReg">CIPC Registration Number</label>
+        <label for="cipcReg">CIPC Registration Number (Optional)</label>
         <input
           type="text"
           id="cipcReg"
@@ -1057,7 +1086,6 @@
           [ngModel]="cipcReg"
           (ngModelChange)="cipcReg = $event"
           (input)="markTouched($event)"
-          required
         >
       </div>
 
@@ -1097,7 +1125,7 @@
       </div>
 
       <div class="form-group">
-        <label for="psiraNumber">PSIRA Number</label>
+        <label for="psiraNumber">PSIRA Number (Optional)</label>
         <input
           type="text"
           id="psiraNumber"
@@ -1107,7 +1135,6 @@
           [ngModel]="psiraNumber"
           (ngModelChange)="psiraNumber = $event"
           (input)="markTouched($event)"
-          required
         >
       </div>
 
@@ -1263,7 +1290,7 @@
       <div class="form-group">
         <label for="gatedCommunityPrice">Price (ZAR)</label>
         <input
-          type="number"
+          type="text"
           id="gatedCommunityPrice"
           name="gatedCommunityPrice"
           placeholder="e.g., 5000"
@@ -1271,8 +1298,8 @@
           [ngModel]="gatedCommunityPrice"
           (ngModelChange)="gatedCommunityPrice = $event"
           (input)="markTouched($event)"
+          inputmode="decimal"
           required
-          min="0"
         >
       </div>
 
@@ -1328,24 +1355,34 @@
     <form class="modal-form">
       <div class="form-group">
         <label for="gatedComplexName">Complex Name</label>
-        <input 
-          type="text"
+        <select
           id="gatedComplexName"
           name="gatedComplexName"
           [(ngModel)]="gatedAssignmentComplexName"
-          placeholder="Enter complex name"
           class="form-control"
           required
-        />
+        >
+          <option value="">-- Select a complex --</option>
+          <option *ngFor="let complex of standaloneComplexes" [value]="complex.complexName">
+            {{ complex.complexName }} (Current price: R {{ complex.price || 0 }})
+          </option>
+        </select>
+        <small class="note-text" *ngIf="standaloneComplexes.length === 0">
+          No standalone complexes available. Add a complex first or unassign one from another gated community.
+        </small>
       </div>
 
-      <div *ngIf="gatedCommunityError" class="error-message">{{ gatedCommunityError }}</div>
-      <div *ngIf="gatedCommunitySuccess" class="success-message">{{ gatedCommunitySuccess }}</div>
+      <small class="note-text" *ngIf="selectedGatedCommunity?.price !== null && selectedGatedCommunity?.price !== undefined">
+        Assigned complex price will be set to: R {{ selectedGatedCommunity?.price }}
+      </small>
+
+      <div *ngIf="gatedAssignmentError" class="error-message">{{ gatedAssignmentError }}</div>
+      <div *ngIf="gatedAssignmentSuccess" class="success-message">{{ gatedAssignmentSuccess }}</div>
     </form>
 
     <div class="modal-actions">
       <button class="btn-secondary" type="button" (click)="closeGatedComplexAssignModal()">Cancel</button>
-      <button class="btn-primary" type="button" (click)="submitGatedComplexAssignment()" [disabled]="!gatedAssignmentComplexName">Assign Complex</button>
+      <button class="btn-primary" type="button" (click)="submitGatedComplexAssignment()" [disabled]="!gatedAssignmentComplexName || standaloneComplexes.length === 0">Assign Complex</button>
     </div>
   </div>
 </div>
@@ -1357,6 +1394,10 @@
       <h2>Assign Security Company to {{ selectedGatedCommunity?.gatedCommunityName }}</h2>
       <button class="close-btn" type="button" (click)="closeGatedSecurityAssignModal()">✕</button>
     </div>
+
+    <p class="modal-subtitle" *ngIf="gatedSecurityTargetComplexName">
+      Target Complex: <strong>{{ gatedSecurityTargetComplexName }}</strong>
+    </p>
 
     <form class="modal-form" #gatedSecurityForm="ngForm">
       <div class="form-group">

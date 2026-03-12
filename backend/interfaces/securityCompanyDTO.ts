@@ -4,13 +4,13 @@ import { complexDTO } from "./complexDTO.js";
 
 export interface SecurityCompanyDTO {
     _id?: string;
-    cipcRegistrationNumber: string;
+    cipcRegistrationNumber?: string;
     contactNumber: string;
     contract?: Contract[];
     email: string;
     employeeAssignments?: EmployeeAssignmentDTO[];
     name: string;
-    psiraNumber: string;
+    psiraNumber?: string;
     sosOptin: boolean;
     userName?: string;
 }
@@ -36,14 +36,17 @@ interface EmployeeAssignmentDTO {
 
 export const securityCompanyBodyValidation = checkSchema({
     cipcRegistrationNumber: {
-        errorMessage: "Field is required",
-        isEmpty: false,
         isLength: {
             errorMessage: "Invalid CIPC Registration number",
             options: {
                 max: 50,
                 min: 1,
             }
+        },
+        optional: {
+            options: {
+                checkFalsy: true,
+            },
         },
     },
     contactNumber: {
@@ -65,9 +68,12 @@ export const securityCompanyBodyValidation = checkSchema({
             },
         },
     },
-        psiraNumber: {
-        errorMessage: "Field is required",
-        isEmpty: false,
+    psiraNumber: {
+        optional: {
+            options: {
+                checkFalsy: true,
+            },
+        },
     },
     sosOptin: {
         errorMessage: "Field is required",

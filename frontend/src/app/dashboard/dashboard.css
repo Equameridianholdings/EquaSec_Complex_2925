@@ -753,11 +753,14 @@
   border: 2px solid #1e3a5f;
   border-radius: 12px;
   padding: 0;
+  width: min(720px, calc(100vw - 30px));
+  display: flex;
+  flex-direction: column;
   box-shadow:
     0 20px 60px rgba(30, 58, 95, 0.2),
     0 0 1px rgba(30, 58, 95, 0.1);
-  overflow: auto;
-  max-height: 600px;
+  overflow-y: auto;
+  max-height: min(90vh, 680px);
 }
 
 .modal-header {
@@ -807,6 +810,8 @@
   flex-direction: column;
   gap: 24px;
   padding: 24px;
+  flex: 1 1 auto;
+  min-height: 0;
   max-height: 60vh;
   overflow-y: auto;
 }
@@ -978,9 +983,15 @@
 .modal-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 16px 24px;
   border-top: 1px solid #e2e8f0;
+}
+
+.modal-actions > button {
+  flex: 1 1 150px;
+  max-width: 220px;
 }
 
 .camera-card {
@@ -1166,12 +1177,44 @@
     font-size: 12px;
   }
 
+  .modal {
+    width: calc(100vw - 20px);
+    max-height: 92vh;
+  }
+
+  .modal-body {
+    padding: 16px;
+    gap: 16px;
+    max-height: 62vh;
+  }
+
+  .modal-actions {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+
+  .modal-actions > button {
+    flex: 1 1 calc(50% - 10px);
+    max-width: none;
+  }
+
+  .modal-actions .btn-main {
+    min-width: 0;
+  }
+
   .tile-icon {
     font-size: 28px;
   }
 
   .tile-label {
     font-size: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .modal-actions > button {
+    flex: 1 1 100%;
+    width: 100%;
   }
 }
 

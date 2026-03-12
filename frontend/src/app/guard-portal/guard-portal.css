@@ -19,6 +19,39 @@
 	box-shadow: 0 4px 16px rgba(37,99,235,0.15);
 	transform: translateY(-2px) scale(1.03);
 }
+
+.tenant-card-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	margin-top: 1rem;
+}
+
+.tenant-card-actions .btn-book-visitor {
+	margin-top: 0;
+}
+
+.btn-delete-tenant {
+	display: block;
+	width: 100%;
+	padding: 0.72rem 0;
+	font-size: 0.98rem;
+	font-weight: 700;
+	background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+	color: #fff;
+	border: none;
+	border-radius: 8px;
+	box-shadow: 0 2px 8px rgba(220, 38, 38, 0.12);
+	transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+	cursor: pointer;
+}
+
+.btn-delete-tenant:hover,
+.btn-delete-tenant:focus {
+	background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%);
+	box-shadow: 0 4px 14px rgba(185, 28, 28, 0.2);
+	transform: translateY(-1px);
+}
 :host {
 	display: block;
 	min-height: 100vh;
@@ -77,34 +110,6 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-}
-
-.camera-button {
-	position: absolute;
-	bottom: 0;
-	right: 0;
-	width: 50px;
-	height: 50px;
-	border-radius: 50%;
-	background: #1e3a5f;
-	border: 2px solid #ffffff;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 24px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-	box-shadow: 0 2px 8px rgba(30, 58, 95, 0.2);
-}
-
-.camera-button:hover {
-	background: #154a8b;
-	transform: scale(1.1);
-	box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
-}
-
-.camera-button:active {
-	transform: scale(0.95);
 }
 
 .guard-header h1 {
@@ -1004,48 +1009,6 @@
 	padding: 24px;
 	max-height: 60vh;
 	overflow-y: auto;
-}
-
-.camera-card {
-	position: relative;
-	width: 100%;
-	height: 360px;
-	background: #000000;
-	border-radius: 12px;
-	overflow: hidden;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	margin-bottom: 16px;
-}
-
-.camera-video {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-}
-
-.camera-canvas {
-	display: none;
-}
-
-.camera-preview {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-}
-
-.camera-actions {
-	display: flex;
-	gap: 12px;
-	padding: 16px 0;
-	flex-wrap: wrap;
-	justify-content: center;
-}
-
-.camera-actions button {
-	flex: 1;
-	min-width: 120px;
 }
 
 .modal-actions {
