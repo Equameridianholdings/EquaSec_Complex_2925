@@ -25,7 +25,7 @@ const DB_NAME = process.env.DB_NAME as unknown as string;
 const app = express();
 
 // Define your list of allowed origins
-const allowedOrigins = ["http://localhost:4200", "http://localhost:8100", "https://equa-sec-complex-2925-ldhl.vercel.app"]; // Replace with your frontend URLs
+const allowedOrigins = ["http://localhost:4200", "http://localhost:8100", "https://www.equasec.co.za"]; // Replace with your frontend URLs
 
 // Configure CORS options
 const corsOptions: CorsOptions = {
