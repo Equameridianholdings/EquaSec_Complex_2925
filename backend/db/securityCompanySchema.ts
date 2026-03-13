@@ -38,7 +38,6 @@ securityCompany.index(
         partialFilterExpression: {
             cipcRegistrationNumber: { $type: "string" },
         },
-        unique: true,
     },
 );
 
