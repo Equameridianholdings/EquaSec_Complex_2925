@@ -7,8 +7,6 @@ import { visitorBodyValidation, visitorDTO } from "#interfaces/visitorDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import Code_Generator from "#utils/code_generator.js";
-import validateObjectId from "#utils/validateObjectId.js";
-import { ValidObjectId } from "#utils/validObjectId.js";
 import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 import { isValidObjectId } from "mongoose";
@@ -205,25 +203,20 @@ const cleanupExpiredVisitors = async () => {
     .exec();
 };
 
-visitorRouter.get("/security/", validateObjectId, async (req, res) => {
-  const guardId = req.get("id");
-  if (!guardId) {
-    console.log('[GET /visitor/security] Missing id header');
+visitorRouter.get("/security/", async (req, res) => {
+  const guardEmail = res.get("email");
+  
+  if (!guardEmail) {
     return res.status(400).json({ message: "Bad Request! Invalid request." });
   }
-
-  const _id = ValidObjectId(guardId as unknown as string);
 
   try {
     await cleanupExpiredVisitors();
 
     //load visitors based on security guard => complex specific visitors
-    const security = await userSchema.findById<UserDTO>(_id);
-    // console.log('[GET /visitor/security] Guard ID:', guardId);
-    // console.log('[GET /visitor/security] Security user:', security);
+    const security = await userSchema.findOne<UserDTO>({ emailAddress: guardEmail }).exec();
 
     if (security == null) {
-      console.log('[GET /visitor/security] Security company not found for ID:', guardId);
       res.status(404).json({ message: "Security company not found!" });
       return;
     }
@@ -268,25 +261,15 @@ visitorRouter.get("/security/", validateObjectId, async (req, res) => {
       return inComplex || inCommunity;
     });
 
-    console.log('[GET /visitor/security] Visitors found:', filteredVisitors.length);
-    // Log each visitor vehicle for debugging registration/color fields
-    filteredVisitors.forEach((v, idx) => {
-      if (v.vehicle) {
-        console.log(`[GET /visitor/security] Visitor #${String(idx)} vehicle:`, v.vehicle);
-      }
-    });
-
     if (filteredVisitors.length == 0) {
-      console.log('[GET /visitor/security] No visitors found for the guard station assignments');
       res.status(404).json({ message: "No visitors today!" });
       return;
     }
 
     res.status(200).json(filteredVisitors);
     return;
-  } catch (err) {
-    console.log('[GET /visitor/security] Error:', err);
-    res.status(500).json({ message: "Internal Server Error!" });
+  } catch (err: unknown) {
+    res.status(500).json({ message: `Internal Server Error! ${err as string}` });
     return;
   }
 });

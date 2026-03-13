@@ -1,6 +1,6 @@
-POST http://localhost:3000/user/register 
+GET http://localhost:3000/visitor/security/ 
 Content-Type: application/json
-# Authorization: eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InN1cGVyQGVxdWFzZWMuY29tIiwicm9sZSI6WyJhZG1pbiIsInNlY3VyaXR5IiwibWFuYWdlciIsInRlbmFudCJdLCJpYXQiOjE3NzE1MDAxNTksImV4cCI6MTc3MTU4NjU1OX0.8_HKxo0JVXNxpdXBZ4Gfqghi9EqYl9VcVrIgshoKvAUmooCTP8PPATFuULardN2pEqZXcegnVmrUrPnagbj6zw
+Authorization: eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InN1cGVyQGVxdWFzZWMuY29tIiwicm9sZSI6WyJhZG1pbiIsInNlY3VyaXR5IiwibWFuYWdlciIsInRlbmFudCJdLCJpYXQiOjE3NzM0MDc3NDYsImV4cCI6MTc3MzQ5NDE0Nn0.DaqHhAB0dBQPhhV97wkkkcSr-JHYjzyt5UTqUDOskZjnJV6rOKSHHoFbSpdOCEwr_fdUlNClBxA-teAkLGCKWA
 
 # {
 #     "name": "Gated Estates",
@@ -9,20 +9,20 @@ Content-Type: application/json
 # }
 
 # {
-#     "emailAddress": "super2@equasec.com",
-#     "password": "123456"
+#     "emailAddress": "super@equasec.com",
+#     "password": "654321"
 # }
 
-{
-    "cellNumber": "0123456789",
-    "confirmPassword": "123456",
-    "emailAddress": "super@equasec.com",
-    "idNumber": "0987654321098",
-    "movedOut": false,
-    "name": "super",
-    "password": "123456",
-    "profilePhoto": "",
-    "salt": "",
-    "surname": "user",
-    "type": ["admin", "security", "manager", "tenant"]
-}
+# {
+#     "cellNumber": "0123456789",
+#     "confirmPassword": "123456",
+#     "emailAddress": "super@equasec.com",
+#     "idNumber": "0987654321098",
+#     "movedOut": false,
+#     "name": "super",
+#     "password": "123456",
+#     "profilePhoto": "",
+#     "salt": "",
+#     "surname": "user",
+#     "type": ["admin", "security", "manager", "tenant"]
+# }
