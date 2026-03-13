@@ -1,6 +1,7 @@
 # Miscellaneous
 .nvmrc
 /.vscode
+**.http
 
 # Environments
 .**.env

@@ -1,7 +1,10 @@
-import { Component, ElementRef, inject, OnDestroy, ViewChild } from '@angular/core';
+import { Component, ElementRef, inject, OnDestroy, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UserDTO } from '../../interfaces/userDTO';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarHorizontalPosition, MatSnackBarVerticalPosition } from '@angular/material/snack-bar';
+import { ResponseBody } from '../../interfaces/ResponseBody';
+import { DataService } from '../../services/data.service';
 
 @Component({
   selector: 'app-change-dp',
@@ -10,6 +13,11 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
   styleUrl: '../../dashboard/dashboard.css',
 })
 export class ChangeDp {
+  submitting = signal(false);
+  private _snackBar = inject(MatSnackBar);
+  horizontalPosition: MatSnackBarHorizontalPosition = 'center';
+  verticalPosition: MatSnackBarVerticalPosition = 'top';
+  service = inject(DataService);
   dialogRef = inject(MatDialogRef<ChangeDp>);
   user: UserDTO = inject(MAT_DIALOG_DATA);
 
@@ -18,9 +26,9 @@ export class ChangeDp {
   @ViewChild('profileCameraCanvas')
   private readonly profileCameraCanvas?: ElementRef<HTMLCanvasElement>;
 
-  profilePhotoData: string = '';
-  cameraError: string = '';
-  hasCameraStream: boolean = false;
+  profilePhotoData = signal("");
+  cameraError = signal('');
+  hasCameraStream = signal(false);
   private profileCameraStream: MediaStream | null = null;
 
   closeModal() {
@@ -28,7 +36,10 @@ export class ChangeDp {
     this.dialogRef.close();
   }
 
-  private async waitForProfileCameraVideo(maxAttempts = 12, delayMs = 50): Promise<HTMLVideoElement | null> {
+  private async waitForProfileCameraVideo(
+    maxAttempts = 12,
+    delayMs = 50,
+  ): Promise<HTMLVideoElement | null> {
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       const video = this.profileCameraVideo?.nativeElement;
       if (video) {
@@ -75,32 +86,32 @@ export class ChangeDp {
     }
 
     context.drawImage(video, 0, 0, width, height);
-    this.profilePhotoData = canvas.toDataURL('image/jpeg', 0.9);
+    const photo = canvas.toDataURL('image/jpeg', 0.5);
+    this.profilePhotoData.update(() => photo.toString());
     this.stopProfileCamera();
   }
 
   async startProfileCamera() {
-    this.cameraError = '';
-    this.profilePhotoData = '';
+    this.cameraError.update(() => '');
+    this.profilePhotoData.update(() => '');
 
     try {
       if (typeof window !== 'undefined' && !window.isSecureContext) {
-        this.cameraError =
-          'Camera is blocked on mobile over insecure HTTP. Use HTTPS (or localhost) and allow camera permission.';
-        this.hasCameraStream = false;
+        this.cameraError.update(() => 'Camera is blocked on mobile over insecure HTTP. Use HTTPS (or localhost) and allow camera permission.');
+        this.hasCameraStream.update(() => false);
         return;
       }
 
       if (!navigator.mediaDevices?.getUserMedia) {
-        this.cameraError = 'Camera is not supported in this browser.';
-        this.hasCameraStream = false;
+        this.cameraError.update(() => 'Camera is not supported in this browser.');
+        this.hasCameraStream.update(() => false);
         return;
       }
 
       const video = await this.waitForProfileCameraVideo();
       if (!video) {
-        this.cameraError = 'Camera preview is not ready. Please try again.';
-        this.hasCameraStream = false;
+        this.cameraError.update(() => 'Camera preview is not ready. Please try again.');
+        this.hasCameraStream.update(() => false);
         return;
       }
 
@@ -129,7 +140,7 @@ export class ChangeDp {
       });
 
       await video.play();
-      this.hasCameraStream = true;
+      this.hasCameraStream.update(() => true);
     } catch (error: unknown) {
       const errorName =
         error && typeof error === 'object' && 'name' in error
@@ -137,16 +148,15 @@ export class ChangeDp {
           : '';
 
       if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
-        this.cameraError = 'Camera permission was denied. Please allow camera access in browser settings.';
+        this.cameraError.update(() => 'Camera permission was denied. Please allow camera access in browser settings.');
       } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
-        this.cameraError = 'No camera device was found on this phone.';
+        this.cameraError.update(() => 'No camera device was found on this phone.');
       } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
-        this.cameraError =
-          'Camera is currently in use by another app. Close that app and try again.';
+        this.cameraError.update(() => 'Camera is currently in use by another app. Close that app and try again.');
       } else if (errorName === 'OverconstrainedError') {
-        this.cameraError = 'Requested camera settings are not supported on this device.';
+        this.cameraError.update(() => 'Requested camera settings are not supported on this device.');
       } else {
-        this.cameraError = 'Unable to access the camera. Please allow camera permissions.';
+        this.cameraError.update(() => 'Unable to access the camera. Please allow camera permissions.');
       }
       this.stopProfileCamera();
     }
@@ -157,14 +167,35 @@ export class ChangeDp {
   }
 
   useCapturedProfilePhoto(): void {
+    this.submitting.update(() => true);
     this.stopProfileCamera();
+    // TODO: Validations on data
+
+    this.service.put<ResponseBody>('user/update', { profilePhoto: this.profilePhotoData()}).subscribe({
+      next: (res) => {
+        this._snackBar.open(res.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.submitting.update(() => false);
+        this.closeModal();
+      },
+      error: (err) => {
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.submitting.update(() => false);
+      },
+    });
+    
     this.dialogRef.close(this.profilePhotoData || null);
   }
 
   private stopProfileCamera(): void {
     this.profileCameraStream?.getTracks().forEach((track) => track.stop());
     this.profileCameraStream = null;
-    this.hasCameraStream = false;
+    this.hasCameraStream.update(() => false);
     const video = this.profileCameraVideo?.nativeElement;
     if (video) {
       video.srcObject = null;

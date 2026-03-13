@@ -15,8 +15,8 @@
       <div class="camera-card">
         <video #profileCameraVideo class="camera-video" autoplay playsinline muted></video>
         <canvas #profileCameraCanvas class="camera-canvas"></canvas>
-        @if (profilePhotoData) {
-          <img [src]="profilePhotoData" alt="Profile preview" class="camera-preview" />
+        @if (profilePhotoData()) {
+          <img [src]="profilePhotoData()" alt="Profile preview" class="camera-preview" />
         }
       </div>
       <div class="camera-actions">
@@ -24,7 +24,7 @@
           type="button"
           class="btn-secondary"
           (click)="startProfileCamera()"
-          [disabled]="hasCameraStream"
+          [disabled]="hasCameraStream()"
         >
           Start Camera
         </button>
@@ -32,7 +32,7 @@
           type="button"
           class="btn-secondary"
           (click)="captureProfilePhoto()"
-          [disabled]="!hasCameraStream"
+          [disabled]="!hasCameraStream()"
         >
           Capture
         </button>
@@ -40,15 +40,15 @@
           type="button"
           class="btn-secondary"
           (click)="retakeProfilePhoto()"
-          [disabled]="!profilePhotoData"
+          [disabled]="!profilePhotoData()"
         >
           Retake
         </button>
       </div>
-      @if (cameraError) {
-        <small class="error-text">{{ cameraError }}</small>
+      @if (cameraError()) {
+        <small class="error-text">{{ cameraError() }}</small>
       }
-      @if (!cameraError && !profilePhotoData) {
+      @if (!cameraError() && !profilePhotoData()) {
         <small>Position your face in the center and tap Capture.</small>
       }
     </div>
@@ -57,7 +57,7 @@
       <button type="button" class="btn-secondary" (click)="closeModal()">
         <span class="btn-icon-inline">✕</span>Cancel
       </button>
-      <button type="button" class="btn-main" [disabled]="!profilePhotoData" (click)="useCapturedProfilePhoto()">
+      <button type="button" class="btn-main" [disabled]="!profilePhotoData()" (click)="useCapturedProfilePhoto()">
         <span class="btn-icon-inline">✓</span>Use Photo
       </button>
     </div>

@@ -11,7 +11,7 @@ import userRouter from "#routes/user.js";
 import vehicleRouter from "#routes/vehicle.js";
 import visitorRouter from "#routes/visitor.js";
 import cors, { CorsOptions } from "cors";
-import express from "express";
+import express, { urlencoded } from "express";
 import * as helmet from "helmet";
 
 export interface ResponseBody {
@@ -41,7 +41,9 @@ const corsOptions: CorsOptions = {
   },
 };
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb'}));
+app.use(urlencoded({ extended: true ,limit: '10mb'}))
+
 app.use(cors(corsOptions));
 
 app.use(helmet.contentSecurityPolicy());

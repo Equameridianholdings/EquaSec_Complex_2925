@@ -436,7 +436,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
       sosOptin: Boolean(form.sosOptin),
     };
 
-    this.dataService.post<{ emailError?: string; emailSent?: boolean; message?: string }>('securityCompany', payload).subscribe({
+    this.dataService.post<{ emailError?: string; emailSent?: boolean; message?: string }>('securityCompany/', payload).subscribe({
       next: (response) => {
         if (response?.emailSent === false) {
           console.warn('[admin-portal][addSecurityCompany] email delivery warning', {
