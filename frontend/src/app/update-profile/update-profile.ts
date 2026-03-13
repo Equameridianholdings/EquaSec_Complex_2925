@@ -45,11 +45,6 @@ export class UpdateProfile implements OnInit {
     this.service.get<ResponseBody>('user/current').subscribe({
       next: (res) => {
         this.user.set(res.payload as UserDTO);
-
-        this._snackBar.open(res.message, 'close', {
-          horizontalPosition: this.horizontalPosition,
-          verticalPosition: this.verticalPosition,
-        });
         this.submitting.update(() => false);
       },
       error: (err) => {

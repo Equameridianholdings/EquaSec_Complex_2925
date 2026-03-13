@@ -753,14 +753,12 @@
   border: 2px solid #1e3a5f;
   border-radius: 12px;
   padding: 0;
-  width: min(720px, calc(100vw - 30px));
   display: flex;
   flex-direction: column;
   box-shadow:
     0 20px 60px rgba(30, 58, 95, 0.2),
     0 0 1px rgba(30, 58, 95, 0.1);
   overflow-y: auto;
-  max-height: min(90vh, 680px);
 }
 
 .modal-header {
