@@ -1884,7 +1884,8 @@ userRouter.patch("/update", AuthMiddleware, async (req, res) => {
     }
 
     const updatePayload = req.body as Partial<UserDTO>;
-    const user = await userSchema.findOneAndUpdate({ emailAddress: email }, { $set: updatePayload }, { new: true }).lean().exec();
+    
+    const user = await userSchema.findOneAndUpdate({ emailAddress: email }, { $set: updatePayload }, { returnDocument: 'after' }).exec();
 
     if (!user) {
       return res.status(404).json({ message: "User details not found!" });
