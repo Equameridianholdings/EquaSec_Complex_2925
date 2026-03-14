@@ -729,14 +729,14 @@ export class GuardPortal implements OnInit, OnDestroy {
               })
             : of([]);
           return forkJoin({
-            gated: this.dataService.get<any[]>('gatedCommunity').pipe(catchError(() => of([]))),
-            complexes: this.dataService.get<any[]>('complex').pipe(catchError(() => of([]))),
+            gated: this.dataService.get<any[]>('gatedCommunity/').pipe(catchError(() => of([]))),
+            complexes: this.dataService.get<any[]>('complex/').pipe(catchError(() => of([]))),
             securityCompanies: this.dataService
-              .get<any[]>('securityCompany')
+              .get<any[]>('securityCompany/')
               .pipe(catchError(() => of([]))),
-            units: this.dataService.get<any[]>('unit').pipe(catchError(() => of([]))),
-            users: this.dataService.get<any[]>('user').pipe(catchError(() => of([]))),
-            vehicles: this.dataService.get<any[]>('vehicle').pipe(catchError(() => of([]))),
+            units: this.dataService.get<any[]>('unit/').pipe(catchError(() => of([]))),
+            users: this.dataService.get<any[]>('user/').pipe(catchError(() => of([]))),
+            vehicles: this.dataService.get<any[]>('vehicle/').pipe(catchError(() => of([]))),
             visitors: visitors$.pipe(catchError(() => of([]))),
             userContext: of({ currentUser, storedCurrentUser }),
           });

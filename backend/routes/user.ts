@@ -1,6 +1,5 @@
 import complexSchema from "#db/complexSchema.js";
 import gatedCommunitySchema from "#db/gatedCommunity.js";
-import residentSchema from "#db/residentSchema.js";
 import securityCompanySchema from "#db/securityCompanySchema.js";
 import unitSchema from "#db/unitSchema.js";
 import userSchema from "#db/userSchema.js";
@@ -96,11 +95,8 @@ interface UserTenantFields {
   unitNumber?: null | string;
 }
 
-const resolveTenantProfile = (tenantUser: UserDTO & UserTenantFields, tenantResident: null | TenantResidentLike): TenantResidentLike => {
-  if (tenantResident) {
-    return tenantResident;
-  }
-
+const resolveTenantProfile = (tenantUser: UserDTO & UserTenantFields): TenantResidentLike => {
+  
   return {
     address: tenantUser.address ?? "",
     communityComplexId: tenantUser.communityComplexId ?? "",
@@ -226,27 +222,6 @@ const syncTenantVehiclesForUser = async (
   }));
 
   await vehicleSchema.insertMany(docs);
-};
-
-const resolveResidentForTenantUser = async (user: TenantUserLike): Promise<null | TenantResidentLike> => {
-  const userId = String(user._id ?? "");
-  if (userId && ObjectId.isValid(userId)) {
-    const byUserId = await residentSchema.findOne({ userId: new ObjectId(userId) }).lean();
-    if (byUserId) {
-      return byUserId;
-    }
-  }
-
-  const emailAddress = String(user.emailAddress ?? "").trim();
-  if (!emailAddress) {
-    return null;
-  }
-
-  return await residentSchema.findOne({ emailAddress }).lean();
-};
-
-const resolveCompanyIdFromTenantContext = (tenantUser: TenantUserLike, tenantResident: null | TenantResidentLike): string => {
-  return String(tenantResident?.securityCompany?._id ?? tenantUser.securityCompany?._id ?? "");
 };
 
 const getCompanyEmployeeAssignments = (company: CompanyWithAssignments | null): CompanyAssignment[] => {
@@ -1105,7 +1080,8 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       return res.status(400).json({ message: "Invalid tenant id." });
     }
 
-    const managerUser = await userSchema.findOne<UserDTO>({ emailAddress: managerEmail }).select({}).exec();
+    const managerUser = await userSchema.findOne({ emailAddress: managerEmail }).select({}).exec();
+    
     if (!managerUser || !(Array.isArray(managerUser.type) && managerUser.type.includes("manager"))) {
       return res.status(403).json({ message: "Access Forbidden!" });
     }
@@ -1125,13 +1101,6 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
     const tenantRoles = Array.isArray(existingTenant.type) ? existingTenant.type : [];
     if (!tenantRoles.includes("tenant") && !tenantRoles.includes("user")) {
       return res.status(400).json({ message: "Selected record is not a tenant." });
-    }
-
-    const existingResident = await resolveResidentForTenantUser(existingTenant);
-
-    const tenantCompanyId = resolveCompanyIdFromTenantContext(existingTenant, existingResident);
-    if (tenantCompanyId && tenantCompanyId !== String(linkedSecurityCompany._id)) {
-      return res.status(403).json({ message: "Tenant does not belong to your security company." });
     }
 
     const body = req.body as {
@@ -1157,18 +1126,6 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       .lean();
     if (duplicateUser) {
       return res.status(409).json({ message: "User with this email already exists." });
-    }
-
-    const duplicateResident = await residentSchema
-      .findOne({
-        _id: { $ne: existingResident?._id ?? null },
-        emailAddress: normalizedEmail,
-        userId: { $ne: tenantId },
-      })
-      .select({ _id: 1 })
-      .lean();
-    if (duplicateResident) {
-      return res.status(409).json({ message: "Resident with this email already exists." });
     }
 
     const trimmedAddress = body.address.trim();
@@ -1243,7 +1200,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
             vehicles: "",
           },
         },
-        { new: true },
+        { returnDocument: "after" },
       )
       .select({})
       .exec();
@@ -1282,8 +1239,6 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
       );
     }
 
-    const updatedResident = existingResident ? await residentSchema.findById(existingResident._id).exec() : null;
-
     await syncTenantVehiclesForUser(
       {
         _id: updatedTenant._id,
@@ -1297,10 +1252,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
 
     return res.status(200).json({
       message: "Tenant updated successfully!",
-      payload: {
-        resident: updatedResident,
-        user: updatedTenant,
-      },
+      payload: updatedTenant,
     });
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
@@ -1351,91 +1303,11 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
       return res.status(400).json({ message: "Selected record is not a tenant." });
     }
 
-    const tenantResident = await resolveResidentForTenantUser(tenant);
-
-    const tenantCompanyId = resolveCompanyIdFromTenantContext(tenant, tenantResident);
-    if (tenantCompanyId && tenantCompanyId !== String(linkedSecurityCompany._id)) {
-      return res.status(403).json({ message: "Tenant does not belong to your security company." });
-    }
-
-    if (isSecurity) {
-      const actorAssignments = resolveUserAssignments(actorUser, linkedSecurityCompany);
-      const assignedComplexes = actorAssignments.assignedComplexes;
-      const assignedCommunitiesRaw = actorAssignments.assignedCommunities;
-
-      const assignedComplexIds = new Set(assignedComplexes);
-      const assignedCommunityIds = new Set(assignedCommunitiesRaw.filter((value) => ObjectId.isValid(value)));
-      const assignedCommunityNames = new Set(
-        assignedCommunitiesRaw
-          .filter((value) => !ObjectId.isValid(value))
-          .map((value) => normalizeName(value))
-          .filter((value) => value.length > 0),
-      );
-
-      if (assignedCommunityIds.size > 0) {
-        const assignedCommunityDocs = await gatedCommunitySchema
-          .find({ _id: { $in: Array.from(assignedCommunityIds).map((id) => new ObjectId(id)) } })
-          .select({ _id: 1, name: 1 })
-          .lean();
-
-        for (const community of assignedCommunityDocs) {
-          const normalizedCommunityName = normalizeName(String(community?.name ?? ""));
-          if (normalizedCommunityName) {
-            assignedCommunityNames.add(normalizedCommunityName);
-          }
-        }
-      }
-
-      const tenantProfile = resolveTenantProfile(tenant as UserDTO & UserTenantFields, tenantResident);
-      const tenantComplexRef =
-        tenantProfile.complex && typeof tenantProfile.complex === "object"
-          ? (tenantProfile.complex as { _id?: unknown; gatedCommunityName?: null | string })
-          : null;
-      const tenantCommunityRef =
-        tenantProfile.gatedCommunity && typeof tenantProfile.gatedCommunity === "object"
-          ? (tenantProfile.gatedCommunity as { _id?: unknown; name?: string })
-          : null;
-
-      const tenantComplexId = String(tenantComplexRef?._id ?? "").trim();
-      const tenantCommunityId = String(tenantCommunityRef?._id ?? tenantProfile.communityId ?? "").trim();
-
-      let tenantCommunityName = normalizeName(
-        String(
-          tenantCommunityRef?.name ??
-            tenantComplexRef?.gatedCommunityName ??
-            "",
-        ),
-      );
-
-      if (!tenantCommunityName && tenantCommunityId && ObjectId.isValid(tenantCommunityId)) {
-        const tenantCommunityDoc = await gatedCommunitySchema
-          .findById(tenantCommunityId)
-          .select({ name: 1 })
-          .lean();
-        tenantCommunityName = normalizeName(String(tenantCommunityDoc?.name ?? ""));
-      }
-
-      const tenantResidenceType = normalizeName(String(tenantProfile.residenceType ?? ""));
-      const hasComplexScope = tenantComplexId.length > 0 && assignedComplexIds.has(tenantComplexId);
-      const hasCommunityScope =
-        (tenantCommunityId.length > 0 && assignedCommunityIds.has(tenantCommunityId)) ||
-        (tenantCommunityName.length > 0 && assignedCommunityNames.has(tenantCommunityName));
-      const hasScopeAccess = tenantResidenceType === "community" ? hasCommunityScope : hasComplexScope || hasCommunityScope;
-
-      if (!hasScopeAccess) {
-        return res.status(403).json({ message: "Access Forbidden! You can only remove tenants within your assigned station scope." });
-      }
+    if (!isSecurity) {
+      return res.status(403).json({ message: "Access Forbidden! You can only remove tenants within your assigned station scope." });
     }
 
     await unlinkTenantFromAllUnits(String(tenant._id ?? ""));
-
-    const residentFilter = tenantResident?._id
-      ? { _id: tenantResident._id }
-      : {
-          $or: [{ userId: tenantId }, { emailAddress: tenant.emailAddress }],
-        };
-
-    const deletedResident = await residentSchema.findOneAndDelete(residentFilter).exec();
     const tenantIdString = String(tenantId);
     const tenantVehicleIdVariants: (ObjectId | string)[] = [tenantIdString, tenantId];
     if (ObjectId.isValid(tenantIdString)) {
@@ -1466,10 +1338,7 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
 
     return res.status(200).json({
       message: "Tenant deleted successfully!",
-      payload: {
-        resident: deletedResident,
-        user: deletedTenant,
-      },
+      payload: {deletedTenant},
     });
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
@@ -1796,8 +1665,7 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
       const resolvedEmployeeContracts = resolveUserEmployeeContracts(user, linkedSecurityCompany);
       const userRoles = Array.isArray(user.type) ? user.type : [];
       const isTenant = userRoles.includes("tenant") || userRoles.includes("user");
-      const tenantResident = isTenant ? await resolveResidentForTenantUser(user) : null;
-      const tenantProfile = resolveTenantProfile(user as UserDTO & UserTenantFields, tenantResident);
+      const tenantProfile = resolveTenantProfile(user as UserDTO & UserTenantFields);
       const tenantVehicles = isTenant ? await vehicleSchema.find({ "user._id": { $in: [String(user._id ?? ""), user._id] } }).lean() : [];
       const normalizedTenantVehicles = normalizeTenantVehicles(tenantVehicles).map((vehicle) => ({
         color: vehicle.color ?? "",

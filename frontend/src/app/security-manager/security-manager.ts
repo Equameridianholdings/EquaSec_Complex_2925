@@ -2382,6 +2382,8 @@ export class SecurityManager implements OnInit {
       color: '',
     };
     this.tenantError = '';
+
+    console.log(this.tenantForm);
   }
 
   protected removeVehicle(index: number): void {
