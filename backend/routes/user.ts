@@ -1803,6 +1803,44 @@ userRouter.get(
   },
 );
 
+//gets tenants by area of security occupation
+userRouter.get(
+  "/tenants",
+  AuthMiddleware, async (req, res) => {
+    try {
+      const email = res.get('email');
+      const users = await userSchema.find({}).select({}).exec();
+      const security = users.find((x) => x.emailAddress === email) as unknown as UserDTO;
+
+      const unitsQuery = {
+        $or: [{
+          'complex._id': security.complex?._id
+        }, {
+          'gatedCommunity._id': security.gatedCommunity?._id
+        }]
+      }
+      const units = await unitSchema.find(unitsQuery).select({}).exec()
+
+      let residents: unknown[] = []
+      units.forEach((unit) => {
+        if (unit.users.length > 0) {
+          unit.users.forEach((id: string) => {
+            residents = [...residents, users.find(x => x._id.toString() === id)];
+          })
+        }
+      });
+
+      if (users.length > 0) {
+        return res.status(200).json({ message: "Residents found", payload: residents });
+      } else {
+        return res.status(404).json({ message: "Residents not found!" });
+      }
+    } catch {
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
+);
+
 userRouter.patch("/changePin", AuthMiddleware, async (req, res) => {
   try {
     const email = res.get("email");

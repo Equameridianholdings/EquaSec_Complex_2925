@@ -18,6 +18,7 @@ import {
 } from '@angular/material/snack-bar';
 import { logDTO } from '../interfaces/logDTO';
 import { complexDTO } from '../interfaces/complexDTO';
+import { UserDTO } from '../interfaces/userDTO';
 
 @Component({
   selector: 'app-security-manager',
@@ -657,9 +658,9 @@ export class SecurityManager implements OnInit {
   }
   private loadUsers(): void {
     this.submitting.update(() => true);
-    this.dataService.get<any>('user').subscribe({
+    this.dataService.get<ResponseBody>('user/tenants').subscribe({
       next: (response) => {
-        const users = Array.isArray(response) ? response : (response?.payload ?? []);
+        const users = response?.payload as UserDTO[];
 
         const applyUsersWithUnitLocations = (baseUsers: any[]): void => {
           this.dataService.get<any[]>('unit').subscribe({
