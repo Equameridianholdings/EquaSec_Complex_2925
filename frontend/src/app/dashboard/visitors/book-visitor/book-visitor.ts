@@ -70,7 +70,7 @@ export class BookVisitor implements OnInit {
     this.service.get<any>('user').subscribe({
       next: (response) => {
         let users = response && Array.isArray(response.payload) ? response.payload : [];
-      // Get current guard's assigned complexes/communities from localStorage
+        // Get current guard's assigned complexes/communities from localStorage
         let assignedComplexes: string[] = [];
         let assignedCommunities: string[] = [];
         try {
@@ -201,18 +201,18 @@ export class BookVisitor implements OnInit {
     registrationNumber: '',
   };
   newVisitor: visitorDTO = {
-    access: true,
+    access: false,
     contact: '',
+    destination: {
+      house: false,
+      number: 0,
+      numberOfParkingBays: 0,
+      users: []
+    },
     driving: false,
     name: '',
     surname: '',
-    validity: true,
-    vehicle: {
-      make: '',
-      model: '',
-      registrationNumber: '',
-      color: '',
-    },
+    validity: false
   };
 
   closeModal() {
@@ -231,51 +231,7 @@ export class BookVisitor implements OnInit {
     }
     if (!this.newVisitor.driving) this.newVisitor.vehicle = undefined;
     else this.newVisitor.vehicle = this.newVehicle;
-    // Accept selectedUser with _id, id, or (complexId or gatedCommunityId)
-    if (
-      this.selectedUser &&
-      typeof this.selectedUser === 'object' &&
-      (this.selectedUser._id ||
-        this.selectedUser.id ||
-        this.selectedUser.complexId ||
-        this.selectedUser.gatedCommunityId)
-    ) {
-      // Only include allowed fields for the user object
-      const allowedFields = [
-        '_id',
-        'cellNumber',
-        'emailAddress',
-        'idNumber',
-        'movedOut',
-        'name',
-        'profilePhoto',
-        'surname',
-        // Optionally include: 'complex', 'complexId', 'gatedCommunityId', 'unit', 'houseNumber', etc.
-        'complex',
-        'complexId',
-        'gatedCommunityId',
-        'unit',
-        'houseNumber',
-      ];
-      const sanitizedUser: any = {};
-      for (const key of allowedFields) {
-        if (this.selectedUser[key] !== undefined) {
-          sanitizedUser[key] = this.selectedUser[key];
-        }
-      }
-      // Mask offensive words in name and surname
-      const mask = (str: string) => str?.replace(/nigg[a|er]/gi, '***');
-      if (sanitizedUser.name) sanitizedUser.name = mask(sanitizedUser.name);
-      if (sanitizedUser.surname) sanitizedUser.surname = mask(sanitizedUser.surname);
-      this.newVisitor.user = sanitizedUser;
-    } else {
-      this._snackBar.open('Invalid resident/tenant selected. Please try again.', 'close', {
-        horizontalPosition: this.horizontalPosition,
-        verticalPosition: this.verticalPosition,
-      });
-      this.submitting.update(() => false);
-      return;
-    }
+
     this.dialog.open(ConfirmVisitor, {
       data: { ...this.newVisitor },
     });

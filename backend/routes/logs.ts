@@ -1,7 +1,7 @@
 import logSchema from "#db/logsSchema.js";
 import { logDTO } from "#interfaces/logDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
-import validateObjectId from "#utils/validateObjectId.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import { Router } from "express";
 import { ObjectId } from "mongodb";
 import { isValidObjectId } from "mongoose";
@@ -19,7 +19,7 @@ logsRouter.get("/", async (req, res) => {
       return;
     }
 
-    res.status(200).json(logs);
+    res.status(200).json({message: "All logs retrieved", payload: logs});
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error" });
@@ -27,13 +27,11 @@ logsRouter.get("/", async (req, res) => {
   }
 });
 
-logsRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+logsRouter.get("/:id", async (req, res) => {
+  const { id } = req.params;
 
   const logQuery = {
-    "guard.securityCompany._id": _id,
+    "guard.securityCompany._id": ValidObjectId(id),
   };
   try {
     const logs = await logSchema.find(logQuery);

@@ -1,19 +1,12 @@
 import mongoose from "mongoose";
 
-interface UnitDocument {
-    complex?: Record<string, unknown>;
-    gatedCommunity?: Record<string, unknown>;
-    number: number;
-    numberOfParkingBays: number;
-    users: unknown[];
-}
-
-const unit = new mongoose.Schema<UnitDocument>({
+const unit = new mongoose.Schema({
     complex: { required: false, type: Object},
     gatedCommunity: { required: false, type: Object},
+    house: {default: false, required: false, type: Boolean},
     number: { required: true, type: Number},
     numberOfParkingBays: {required: true, type: Number},
-    users: {type: Array},
+    users: {required: true, type: Array}, 
 }, {
     toJSON: {
         transform: (_doc, ret) => {
@@ -33,6 +26,6 @@ const unit = new mongoose.Schema<UnitDocument>({
     },
 });
 
-const unitSchema = mongoose.model<UnitDocument>("Unit", unit);
+const unitSchema = mongoose.model("Unit", unit);
 
 export default unitSchema;

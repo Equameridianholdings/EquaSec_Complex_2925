@@ -1,9 +1,10 @@
 import unitSchema from "#db/unitSchema.js";
 import userSchema from "#db/userSchema.js";
 import { unitBodyValidation, unitDTO } from "#interfaces/unitDTO.js";
+import { UserDTO } from "#interfaces/userDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
-import validateObjectId from "#utils/validateObjectId.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 import { isValidObjectId } from "mongoose";
@@ -16,7 +17,7 @@ unitRouter.post("/", unitBodyValidation, validateSchema, async (req: Request, re
   try {
     const unit = req.body as unitDTO;
 
-    const hasComplex = Boolean(unit.complex._id);
+    const hasComplex = Boolean(unit.complex?._id);
     const hasGatedCommunity = Boolean(unit.gatedCommunity?._id);
     if (!hasComplex && !hasGatedCommunity) {
       res.status(400).json({ message: "Invalid details. Unit must link to a complex or gated community." });
@@ -24,7 +25,7 @@ unitRouter.post("/", unitBodyValidation, validateSchema, async (req: Request, re
     }
 
     const allUnitsQuery = hasComplex
-      ? { "complex._id": new ObjectId(String(unit.complex._id)) }
+      ? { "complex._id": new ObjectId(String(unit.complex?._id)) }
       : { "gatedCommunity._id": new ObjectId(String(unit.gatedCommunity?._id)) };
     const allUnits = await unitSchema.find(allUnitsQuery).select({}).exec();
 
@@ -76,16 +77,14 @@ unitRouter.get("/complex/:name", async (req, res) => {
   }
 });
 
-unitRouter.patch("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+unitRouter.patch("/:id", async (req, res) => {
+  const { id } = req.params;
 
   const unitQuery = {
     $set: req.body as object,
   };
   try {
-    const updatedUnit = await unitSchema.findByIdAndUpdate(_id, unitQuery, { new: true }).exec();
+    const updatedUnit = await unitSchema.findByIdAndUpdate(ValidObjectId(id), unitQuery, { new: true }).exec();
 
     if (!updatedUnit) {
       res.status(404).json({ message: "Unit not found" });
@@ -115,19 +114,20 @@ unitRouter.get("/user/", async (req, res) => {
     }
     
     const unitQuery = {
-      "users": user._id.toString(),
+      "users._id": user._id.toString(),
     };
 
-    const Unit = await unitSchema.findOne(unitQuery).exec();
+    const Unit = await unitSchema.findOne<unitDTO>(unitQuery).exec();
 
     if (!Unit) {
       res.status(404).json({ message: "Unit not found" });
       return;
     }
 
+    const users = await userSchema.find({}).select({}).exec() as unknown as UserDTO[];
     for (let i = 0; i < Unit.users.length; i++) {
       if (isValidObjectId(Unit.users[i]))
-        Unit.users[i] = await userSchema.findOne({_id: new ObjectId(Unit.users[i] as string)});
+        Unit.users[i] = users[i];
     }
 
     res.status(200).json({ message: "Unit successfully found!", payload: Unit });
@@ -138,12 +138,10 @@ unitRouter.get("/user/", async (req, res) => {
   }
 });
 
-unitRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+unitRouter.delete("/:id", async (req, res) => {
+  const { id } = req.params;
   try {
-    const deletedUnit = await unitSchema.findByIdAndDelete(_id).exec();
+    const deletedUnit = await unitSchema.findByIdAndDelete(ValidObjectId(id)).exec();
 
     if (!deletedUnit) {
       res.status(404).json({ message: "Unit not found" });

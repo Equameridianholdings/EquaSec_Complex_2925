@@ -56,6 +56,7 @@
           inputmode="numeric"
           placeholder="000000"
           [(ngModel)]="searchCode"
+          (input)="filterCodes($event)"
           class="search-input"
           (focus)="clearOtherSearches('code')"
         >
@@ -101,9 +102,9 @@
             type="button"
             class="typeahead-item"
             *ngFor="let reg of filteredRegOptions"
-            (mousedown)="selectReg(reg)"
+            (mousedown)="selectReg(reg.regNumber)"
           >
-            {{ reg }}
+            {{ reg.regNumber }}
           </button>
         </div>
       </div>
@@ -122,39 +123,39 @@
         </div>
       </div>
       <div class="code-grid">
-        <ng-container *ngIf="filteredCodes && filteredCodes.length > 0; else emptyState">
-          <article class="code-card" *ngFor="let code of filteredCodes">
+        <div *ngIf="visitorList() && visitorList().length > 0; else emptyState">
+          <article class="code-card" *ngFor="let code of visitorList()">
             <div class="code-header">
               <div>
                 <span class="code-label">Access Code</span>
                 <h3>{{ code.code }}</h3>
               </div>
-              <span class="badge" [class.driving]="code.isDriving" [class.walking]="!code.isDriving">
-                {{ code.isDriving ? 'Driving' : 'Walking' }}
+              <span class="badge" [class.driving]="code.driving" [class.walking]="!code.driving">
+                {{ code.driving ? 'Driving' : 'Walking' }}
               </span>
             </div>
             <div class="code-body">
               <div class="detail">
                 <span>Visitor</span>
-                <strong>{{ code.visitorName }}</strong>
+                <strong>{{ code.name }}</strong>
               </div>
               <div class="detail">
                 <span>Tenant</span>
-                <strong>{{ code.tenantName }}</strong>
+                <strong>{{ code.destination.users[0].name }}</strong>
               </div>
               <div class="detail">
                 <span>Tenant Number</span>
-                <strong>{{ code.cellphone }}</strong>
+                <strong>{{ code.destination.users[0].cellNumber }}</strong>
               </div>
               <div class="detail">
                 <span>{{ residenceSearchLabel }}</span>
-                <strong>{{ formatResidenceValue(code.unit) }}</strong>
+                <strong>{{ formatResidenceValue(code.destination.complex?.name) }}</strong>
               </div>
               <div class="detail">
                 <span>Expires</span>
-                <strong>{{ code.expires }}</strong>
+                <strong>{{ code.expiry }}</strong>
               </div>
-              <ng-container *ngIf="code.isDriving && code.vehicle">
+              <div *ngIf="code.driving && code.vehicle">
                 <div class="detail">
                   <span>Vehicle Make</span>
                   <strong>{{ code.vehicle.make || '-' }}</strong>
@@ -165,19 +166,19 @@
                 </div>
                 <div class="detail">
                   <span>Registration</span>
-                  <strong>{{ code.vehicle.regNumber || code.vehicle.registration || '-' }}</strong>
+                  <strong>{{ code.vehicle.registrationNumber || '-' }}</strong>
                 </div>
                 <div class="detail">
                   <span>Colour</span>
                   <strong>{{ code.vehicle.color || '-' }}</strong>
                 </div>
-              </ng-container>
+              </div>
             </div>
             <div class="code-actions">
               <button class="btn-main" type="button" (click)="onGrantAccess(code)">Grant Access</button>
             </div>
           </article>
-        </ng-container>
+        </div>
       </div>
       <ng-template #emptyState>
         <div class="empty-state">

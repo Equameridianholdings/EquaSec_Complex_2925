@@ -1,16 +1,18 @@
-import { UserDTO } from './userDTO.js';
+import { unitDTO } from './unitDTO.js';
 import { vehicleDTO } from './vehicleDTO.js';
 
 export interface visitorDTO {
   _id?: string;
   access: boolean;
+  arrivedAt?: Date;
+  bookedAt?: Date;
   code?: number;
   contact: string;
+  destination: unitDTO;
   driving: boolean;
   expiry?: Date;
   name: string;
   surname: string;
-  user?: UserDTO;
   validity: boolean;
   vehicle?: vehicleDTO;
 }
@@ -18,8 +20,8 @@ export interface visitorDTO {
 const getVisitorInviteMessage = (visitor: visitorDTO): string => {
   const pin = String(visitor.code ?? '').trim() || 'N/A';
   const location =
-    String(visitor.user?.complex?.name ?? '').trim() ||
-    String(visitor.user?.gatedCommunity?.name ?? '').trim();
+    String(visitor.destination?.complex?.name ?? '').trim() ||
+    String(visitor.destination?.gatedCommunity?.name ?? '').trim();
 
   if (location) {
     return `Dear Visitor, your access PIN is ${pin}. This PIN expires in 24 hours. Complex: ${location}. Thank you.`;

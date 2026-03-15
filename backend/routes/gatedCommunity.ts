@@ -5,7 +5,7 @@ import unitSchema from "#db/unitSchema.js";
 import { gatedCommunityBodyValidation, gatedCommunityDTO } from "#interfaces/gatedCommunityDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
-import validateObjectId from "#utils/validateObjectId.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import { Request, Response, Router } from "express";
 import { checkSchema } from "express-validator/lib/middlewares/schema.js";
 import { ObjectId } from "mongodb";
@@ -63,8 +63,6 @@ const toObjectIdString = (value: unknown): string => {
   }
   return "";
 };
-
-const getRouteId = (value: string | string[]): string => (Array.isArray(value) ? (value[0] ?? "") : value);
 
 const syncUnitsForGatedCommunity = async (gatedCommunity: GatedCommunityLike): Promise<void> => {
   if (!gatedCommunity._id) {
@@ -196,11 +194,11 @@ gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), valida
   }
 });
 
-gatedCommunityRouter.get("/:id", validateObjectId, async (req: Request, res: Response) => {
-  const _id = new ObjectId(getRouteId(req.params.id));
+gatedCommunityRouter.get("/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
 
   try {
-    const gatedCommunity = await gatedCommunitySchema.findById(_id).exec();
+    const gatedCommunity = await gatedCommunitySchema.findById(ValidObjectId(id as string)).exec();
 
     if (gatedCommunity === null) {
       res.status(404).json({ message: "Gated Community not found!" });
@@ -232,7 +230,7 @@ gatedCommunityRouter.get("/", async (req: Request, res: Response) => {
   }
 });
 
-gatedCommunityRouter.patch("/:id", validateObjectId, async (req: Request, res: Response) => {
+gatedCommunityRouter.patch("/:id", async (req: Request, res: Response) => {
   const body = req.body as Partial<gatedCommunityDTO> & { unitEnd?: unknown; unitStart?: unknown };
   delete body.unitStart;
   delete body.unitEnd;
@@ -240,17 +238,16 @@ gatedCommunityRouter.patch("/:id", validateObjectId, async (req: Request, res: R
   const gatedCommunityQuery = {
     $set: body as object,
   };
-  const _id = new ObjectId(getRouteId(req.params.id));
+  const { id } = req.params;
 
   try {
-    console.log("[gatedCommunity] update request", { body, id: _id });
-    const existingGatedCommunity = await gatedCommunitySchema.findById(_id).exec();
+    const existingGatedCommunity = await gatedCommunitySchema.findById(ValidObjectId(id as string)).exec();
     if (existingGatedCommunity === null) {
       res.status(404).json({ message: "Gated Community does not exist!" });
       return;
     }
 
-    const updatedGatedCommunity = await gatedCommunitySchema.findOneAndUpdate({ _id }, gatedCommunityQuery, { new: true }).exec();
+    const updatedGatedCommunity = await gatedCommunitySchema.findOneAndUpdate(ValidObjectId(id as string), gatedCommunityQuery, { new: true }).exec();
 
     if (updatedGatedCommunity === null) {
       res.status(404).json({ message: "Gated Community does not exist!" });
@@ -270,7 +267,7 @@ gatedCommunityRouter.patch("/:id", validateObjectId, async (req: Request, res: R
       );
     }
 
-    console.log("[gatedCommunity] updated", { id: _id, name: nextName });
+    console.log("[gatedCommunity] updated", { id: ValidObjectId(id as string), name: nextName });
 
     res.status(200).json({ message: "Gated Community successfully updated!" });
     return;
@@ -279,7 +276,7 @@ gatedCommunityRouter.patch("/:id", validateObjectId, async (req: Request, res: R
     console.error("[gatedCommunity] update failed", {
       body,
       debug,
-      id: _id,
+      id: ValidObjectId(id as string),
     });
     res.status(500).json({
       debug,
@@ -289,8 +286,8 @@ gatedCommunityRouter.patch("/:id", validateObjectId, async (req: Request, res: R
   }
 });
 
-gatedCommunityRouter.delete("/:id", validateObjectId, async (req: Request, res: Response) => {
-  const _id = new ObjectId(getRouteId(req.params.id));
+gatedCommunityRouter.delete("/:id", async (req: Request, res: Response) => {
+  const _id = req.params;
 
   try {
     console.log("[gatedCommunity] delete request", { id: _id });

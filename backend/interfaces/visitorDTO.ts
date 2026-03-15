@@ -1,6 +1,6 @@
 import { checkSchema } from "express-validator/lib/middlewares/schema.js";
 
-import { UserDTO } from "./userDTO.js";
+import { unitDTO } from "./unitDTO.js";
 import { vehicleDTO } from "./vehicleDTO.js";
 
 export interface visitorDTO {
@@ -10,11 +10,11 @@ export interface visitorDTO {
   bookedAt?: Date;
   code?: number;
   contact: string;
+  destination?: unitDTO;
   driving: boolean;
   expiry?: Date;
   name: string;
   surname: string;
-  user?: UserDTO;
   validity: boolean;
   vehicle?: vehicleDTO;
 }

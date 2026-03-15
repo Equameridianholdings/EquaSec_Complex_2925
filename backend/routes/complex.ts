@@ -5,7 +5,7 @@ import unitSchema from "#db/unitSchema.js";
 import { complexBodyValidation, complexDTO } from "#interfaces/complexDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
-import validateObjectId from "#utils/validateObjectId.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import { Router } from "express";
 import { Request, Response } from "express";
 import { ObjectId } from "mongodb";
@@ -62,8 +62,6 @@ const toObjectIdString = (value: unknown): string => {
 };
 
 const asString = (value: unknown): string => (typeof value === "string" ? value : "");
-
-const getRouteId = (value: string | string[]): string => (Array.isArray(value) ? (value[0] ?? "") : value);
 
 const getUnitNumbersFromComplex = (complex: ComplexLike): number[] => {
   const blocks = Array.isArray(complex.blocks) ? complex.blocks : [];
@@ -153,7 +151,7 @@ const syncUnitsForComplex = async (complex: ComplexLike, unitParkingConfig?: unk
   }
   const payloadPerUnitParking = createPerUnitParkingMap(unitParkingConfig);
   const existingUnits = await unitSchema
-    .find({ "complex._id": { $in: [complexId, complex._id] } })
+    .find({ "complex?._id": { $in: [complexId, complex._id] } })
     .select({ number: 1, numberOfParkingBays: 1 })
     .lean();
 
@@ -171,7 +169,7 @@ const syncUnitsForComplex = async (complex: ComplexLike, unitParkingConfig?: unk
     existingPerUnitParking.set(number, numberOfParkingBays);
   }
 
-  await unitSchema.deleteMany({ "complex._id": { $in: [complexId, complex._id] } });
+  await unitSchema.deleteMany({ "complex?._id": { $in: [complexId, complex._id] } });
 
   const unitNumbers = getUnitNumbersFromComplex(complex);
   if (unitNumbers.length === 0) {
@@ -275,11 +273,11 @@ complexRouter.post("/", complexBodyValidation, validateSchema, async (req: Reque
   }
 });
 
-complexRouter.get("/:id", validateObjectId, async (req: Request, res: Response) => {
-  const _id = new ObjectId(getRouteId(req.params.id));
+complexRouter.get("/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
 
   try {
-    const complex = await complexSchema.findById(_id).select("-unitParkingConfig");
+    const complex = await complexSchema.findById(ValidObjectId(id as string)).select("-unitParkingConfig");
 
     if (complex === null) {
       res.status(404).json({ message: "Complex not found!" });
@@ -311,7 +309,7 @@ complexRouter.get("/", async (req: Request, res: Response) => {
       return;
     }
 
-    res.status(200).json(complexes);
+    res.status(200).json({ message: "Retrieved all complexes.", payload: complexes });
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error" });
@@ -319,12 +317,12 @@ complexRouter.get("/", async (req: Request, res: Response) => {
   }
 });
 
-complexRouter.patch("/:id", validateObjectId, async (req: Request, res: Response) => {
-  const _id = new ObjectId(getRouteId(req.params.id));
+complexRouter.patch("/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
 
   try {
     const patchBody = req.body as ComplexRequestBody;
-    const existingComplex = await complexSchema.findById(_id).exec();
+    const existingComplex = await complexSchema.findById(ValidObjectId(id as string)).exec();
     if (existingComplex === null) {
       res.status(404).json({ message: "Complex does not exist!" });
       return;
@@ -371,7 +369,7 @@ complexRouter.patch("/:id", validateObjectId, async (req: Request, res: Response
       $set: patchBody as object,
     };
 
-    const updatedComplex = await complexSchema.findOneAndUpdate({ _id }, complexQuery, { new: true }).exec();
+    const updatedComplex = await complexSchema.findOneAndUpdate(ValidObjectId(id as string), complexQuery, { new: true }).exec();
 
     if (updatedComplex === null) {
       res.status(404).json({ message: "Complex does not exist!" });
@@ -396,18 +394,18 @@ complexRouter.patch("/:id", validateObjectId, async (req: Request, res: Response
   }
 });
 
-complexRouter.delete("/:id", validateObjectId, async (req: Request, res: Response) => {
-  const _id = new ObjectId(getRouteId(req.params.id));
+complexRouter.delete("/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
 
   try {
-    const deletedComplex = await complexSchema.findByIdAndDelete(_id).exec();
+    const deletedComplex = await complexSchema.findByIdAndDelete(ValidObjectId(id as string)).exec();
 
     if (deletedComplex === null) {
       res.status(404).json({ message: "Complex does not exist!" });
       return;
     }
 
-    await unitSchema.deleteMany({ "complex._id": { $in: [toObjectIdString(_id), _id] } });
+    await unitSchema.deleteMany({ "complex?._id": { $in: [id, id] } });
     await syncGatedCommunityComplexCount(deletedComplex.gatedCommunityName ?? "");
 
     res.status(200).json({ message: "Complex successfully deleted!" });

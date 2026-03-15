@@ -2,6 +2,7 @@ import logSchema from "#db/logsSchema.js";
 import unitSchema from "#db/unitSchema.js";
 import userSchema from "#db/userSchema.js";
 import visitorShema from "#db/visitorSchema.js";
+import { unitDTO } from "#interfaces/unitDTO.js";
 import { UserDTO } from "#interfaces/userDTO.js";
 import { visitorBodyValidation, visitorDTO } from "#interfaces/visitorDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
@@ -9,7 +10,6 @@ import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import Code_Generator from "#utils/code_generator.js";
 import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
-import { isValidObjectId } from "mongoose";
 
 const visitorRouter = Router();
 
@@ -85,22 +85,19 @@ const toBoolean = (value: unknown): boolean => {
 };
 
 const buildResidenceLookup = async (userIds: string[]) => {
-  const normalizedUserIds = Array.from(
-    new Set(
-      userIds
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0),
-    ),
-  );
+  const normalizedUserIds = Array.from(new Set(userIds.map((value) => value.trim()).filter((value) => value.length > 0)));
 
-  const residenceLookup = new Map<string, {
-    complex: unknown;
-    complexId: string;
-    gatedCommunity: unknown;
-    gatedCommunityId: string;
-    houseNumber: string;
-    unit: string;
-  }>();
+  const residenceLookup = new Map<
+    string,
+    {
+      complex: unknown;
+      complexId: string;
+      gatedCommunity: unknown;
+      gatedCommunityId: string;
+      houseNumber: string;
+      unit: string;
+    }
+  >();
 
   if (normalizedUserIds.length === 0) {
     return residenceLookup;
@@ -114,7 +111,7 @@ const buildResidenceLookup = async (userIds: string[]) => {
   });
 
   const units = await unitSchema
-    .find({ users: { $in: userIdVariants } })
+    .find({ "users._id": { $in: userIdVariants } })
     .select({ complex: 1, gatedCommunity: 1, number: 1, users: 1 })
     .lean<UnitLookupRecord[]>();
 
@@ -145,14 +142,17 @@ const buildResidenceLookup = async (userIds: string[]) => {
 
 const enrichVisitorResidence = (
   visitor: Record<string, unknown>,
-  residenceLookup: Map<string, {
-    complex: unknown;
-    complexId: string;
-    gatedCommunity: unknown;
-    gatedCommunityId: string;
-    houseNumber: string;
-    unit: string;
-  }>,
+  residenceLookup: Map<
+    string,
+    {
+      complex: unknown;
+      complexId: string;
+      gatedCommunity: unknown;
+      gatedCommunityId: string;
+      houseNumber: string;
+      unit: string;
+    }
+  >,
 ) => {
   const user = toRecord(visitor.user);
   const userId = toIdString(user._id);
@@ -205,7 +205,7 @@ const cleanupExpiredVisitors = async () => {
 
 visitorRouter.get("/security/", async (req, res) => {
   const guardEmail = res.get("email");
-  
+
   if (!guardEmail) {
     return res.status(400).json({ message: "Bad Request! Invalid request." });
   }
@@ -221,52 +221,26 @@ visitorRouter.get("/security/", async (req, res) => {
       return;
     }
 
-    const securityRecord = security as unknown as Record<string, unknown>;
+    const guardVisitorQuery = {
+      $or: [
+        {
+          "destination.complex.name": security.complex?.name,
+          validity: true,
+        },
+        {
+          "destination.gatedCommunity.name": security.gatedCommunity?.name,
+          validity: true,
+        },
+      ],
+    };
 
-    const guardComplexIds = new Set<string>(
-      [
-        toIdString(security.complex?._id),
-        toIdString(securityRecord.complexId),
-        ...(Array.isArray(securityRecord.assignedComplexes)
-          ? toUnknownArray(securityRecord.assignedComplexes).map((value) => toIdString(value))
-          : []),
-      ].filter((value) => value.length > 0),
-    );
-
-    const guardCommunityIds = new Set<string>(
-      [
-        toIdString(security.gatedCommunity?._id),
-        toIdString(securityRecord.communityId),
-        ...(Array.isArray(securityRecord.assignedCommunities)
-          ? toUnknownArray(securityRecord.assignedCommunities).map((value) => toIdString(value))
-          : []),
-      ].filter((value) => value.length > 0),
-    );
-
-    const plainVisitors = await visitorShema.find({}).lean<Record<string, unknown>[]>().exec();
-    const userIds = plainVisitors
-      .map((visitor) => toIdString(toRecord(visitor.user)._id))
-      .filter((value) => value.length > 0);
-    const residenceLookup = await buildResidenceLookup(userIds);
-    const enrichedVisitors = plainVisitors.map((visitor) => enrichVisitorResidence(visitor, residenceLookup));
-    const filteredVisitors = enrichedVisitors.filter((visitor) => {
-      const visitorUser = toRecord(visitor.user);
-      const visitorComplexId = toIdString(visitorUser.complexId) || toIdString(toRecord(visitorUser.complex)._id);
-      const visitorCommunityId =
-        toIdString(visitorUser.gatedCommunityId) ||
-        toIdString(toRecord(visitorUser.gatedCommunity)._id);
-
-      const inComplex = visitorComplexId.length > 0 && guardComplexIds.has(visitorComplexId);
-      const inCommunity = visitorCommunityId.length > 0 && guardCommunityIds.has(visitorCommunityId);
-      return inComplex || inCommunity;
-    });
-
+    const filteredVisitors = await visitorShema.find<visitorDTO>(guardVisitorQuery).select({}).exec();
     if (filteredVisitors.length == 0) {
       res.status(404).json({ message: "No visitors today!" });
       return;
     }
 
-    res.status(200).json(filteredVisitors);
+    res.status(200).json({ message: "Successfully retrieved visitors", payload: filteredVisitors });
     return;
   } catch (err: unknown) {
     res.status(500).json({ message: `Internal Server Error! ${err as string}` });
@@ -282,33 +256,24 @@ visitorRouter.get("/user/", async (req, res) => {
   try {
     await cleanupExpiredVisitors();
 
-    const loggedInUser = await userSchema.findOne({ emailAddress: email }).select({ _id: 1, emailAddress: 1 }).lean();
-    const loggedInUserId = toIdString(loggedInUser?._id);
+    const userUnits = await userSchema.findOne({ emailAddress: email }).select({ _id: 1, emailAddress: 1 }).lean();
+    const userUnitsId = toIdString(userUnits?._id);
 
     const userIdVariants: (ObjectId | string)[] = [];
-    if (loggedInUserId) {
-      userIdVariants.push(loggedInUserId);
-      if (ObjectId.isValid(loggedInUserId)) {
-        userIdVariants.push(new ObjectId(loggedInUserId));
+    if (userUnitsId) {
+      userIdVariants.push(userUnitsId);
+      if (ObjectId.isValid(userUnitsId)) {
+        userIdVariants.push(new ObjectId(userUnitsId));
       }
     }
 
-    const visitorQuery = loggedInUserId
+    const visitorQuery = userUnitsId
       ? {
-          $or: [
-            { "user._id": { $in: userIdVariants } },
-            { "user.emailAddress": email },
-          ],
+          $or: [{ "destination.users._id": { $in: userIdVariants } }, { "destination.users.emailAddress": email }],
         }
-      : { "user.emailAddress": email };
-    const plainVisitors = await visitorShema
-      .find(visitorQuery)
-      .select({})
-      .lean<Record<string, unknown>[]>()
-      .exec();
-    const userIds = plainVisitors
-      .map((visitor) => toIdString(toRecord(visitor.user)._id))
-      .filter((value) => value.length > 0);
+      : { "destination.users.emailAddress": email };
+    const plainVisitors = await visitorShema.find(visitorQuery).select({}).lean<Record<string, unknown>[]>().exec();
+    const userIds = plainVisitors.map((visitor) => toIdString(toRecord(visitor.user)._id)).filter((value) => value.length > 0);
     const residenceLookup = await buildResidenceLookup(userIds);
     const enrichedVisitors = plainVisitors.map((visitor) => enrichVisitorResidence(visitor, residenceLookup));
 
@@ -327,57 +292,32 @@ visitorRouter.get("/user/", async (req, res) => {
 
 visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Request, res: Response) => {
   try {
+    const body = req.body as visitorDTO;
+    const email = res.get("email");
+    const getUser = (await userSchema.findOne({ emailAddress: email }).exec()) as unknown as UserDTO;
+    const _id = getUser._id as unknown as ObjectId;
 
-    const loggedInUser = await userSchema.findOne({ emailAddress: res.get("email") }).lean<null | UserDTO>().exec();
-
-    if (loggedInUser === null) {
+    const userUnits = await unitSchema.findOne<unitDTO>({ "users": _id.toString() }).exec();
+    
+    if (userUnits === null) {
       res.status(404).json({ message: "User not found!" });
       return;
     }
 
-    // Logging incoming request for debugging
-    // console.log('[POST /visitor] Incoming body:', req.body);
-    // console.log('[POST /visitor] Logged-in user:', loggedInUser);
+    userUnits.users = [getUser] as unknown[] as UserDTO[];
 
-    const requestBody = toRecord(req.body);
-    // Use req.body.user if present (guard booking for resident), else use logged-in user (tenant self-booking)
-    const requestUser = toRecord(requestBody.user);
-    const selectedUserId = toIdString(requestUser._id) || toIdString(loggedInUser._id);
+    const actorTypes = Array.isArray(userUnits.users[0].type) ? userUnits.users[0].type : [];
+    const normalizedActorTypes = actorTypes.map((value) => toTrimmedText(value).toLowerCase()).filter((value) => value.length > 0);
+    const isSecurityBooking = normalizedActorTypes.some((value) => value.includes("security") || value.includes("guard"));
 
-    if (!selectedUserId) {
-      res.status(400).json({ message: "Bad Request! User id is required." });
-      return;
-    }
-
-    const userToAssign = {
-      _id: selectedUserId,
-      cellNumber: toTrimmedText(requestUser.cellNumber) || toTrimmedText(loggedInUser.cellNumber),
-      emailAddress: toTrimmedText(requestUser.emailAddress) || toTrimmedText(loggedInUser.emailAddress),
-      name: toTrimmedText(requestUser.name) || toTrimmedText(loggedInUser.name),
-      surname: toTrimmedText(requestUser.surname) || toTrimmedText(loggedInUser.surname),
-    };
-
-    const actorTypes = Array.isArray(loggedInUser.type) ? loggedInUser.type : [];
-    const normalizedActorTypes = actorTypes
-      .map((value) => toTrimmedText(value).toLowerCase())
-      .filter((value) => value.length > 0);
-    const isSecurityBooking = normalizedActorTypes.some(
-      (value) => value.includes("security") || value.includes("guard"),
-    );
-
-    const incomingVehicle = toRecord(requestBody.vehicle);
+    const incomingVehicle = toRecord(body.vehicle);
     const hasIncomingVehicle = Object.keys(incomingVehicle).length > 0;
-    const makeModelParts = toTrimmedText(incomingVehicle.makeModel)
-      .trim()
-      .split(" ")
-      .filter(Boolean);
+    const makeModelParts = toTrimmedText(incomingVehicle.makeModel).trim().split(" ").filter(Boolean);
     const normalizedVehicle = hasIncomingVehicle
       ? {
           color: toTrimmedText(incomingVehicle.color) || toTrimmedText(incomingVehicle.colour),
           make: toTrimmedText(incomingVehicle.make) || makeModelParts[0] || "",
-          model:
-            toTrimmedText(incomingVehicle.model) ||
-            (makeModelParts.length > 1 ? makeModelParts.slice(1).join(" ") : ""),
+          model: toTrimmedText(incomingVehicle.model) || (makeModelParts.length > 1 ? makeModelParts.slice(1).join(" ") : ""),
           registrationNumber:
             toTrimmedText(incomingVehicle.registrationNumber) ||
             toTrimmedText(incomingVehicle.registerationNumber) ||
@@ -389,12 +329,12 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
       access: isSecurityBooking ? false : true,
       bookedAt: new Date(),
       code: isSecurityBooking ? undefined : Code_Generator(),
-      contact: toTrimmedText(requestBody.contact),
-      driving: toBoolean(requestBody.driving),
+      contact: toTrimmedText(body.contact),
+      destination: userUnits,
+      driving: toBoolean(body.driving),
       expiry: new Date(new Date().setHours(new Date().getHours() + 24)),
-      name: toTrimmedText(requestBody.name),
-      surname: toTrimmedText(requestBody.surname),
-      user: userToAssign as unknown as UserDTO,
+      name: toTrimmedText(body.name),
+      surname: toTrimmedText(body.surname),
       validity: isSecurityBooking ? false : true,
       vehicle: normalizedVehicle,
     };
@@ -403,38 +343,25 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
 
     const newVisitor = new visitorShema(visitor);
     await newVisitor.save();
-    console.log('[POST /visitor] Visitor saved:', newVisitor);
     res.status(201).json({ message: "Visitor successfully added!", payload: newVisitor });
     return;
-  } catch (err) {
-    console.error('[POST /visitor] Error:', err);
-    res.status(500).json("Internal Server Error!");
+  } catch (err: unknown) {
+    res.status(500).json({ message: `Internal Server Error! ${err as string}` });
   }
 });
 
-visitorRouter.patch("/grant/:id/:access", async (req, res) => {
+visitorRouter.patch("/grant", async (req, res) => {
   try {
     // Access Granted or Denied Logic
-    const { id } = req.params;
+    const email = res.get("email");
 
     const visitor = req.body as visitorDTO;
     const visitorRecord = toRecord(req.body);
     const visitorId = toIdString(visitorRecord._id) || toIdString(visitorRecord.id);
 
     await cleanupExpiredVisitors();
-
-    if (!isValidObjectId(id)) {
-      res.status(400).json({ message: "Bad Request! Invalid Onject id" });
-      return;
-    }
-
-    if (!visitorId || !isValidObjectId(visitorId)) {
-      res.status(400).json({ message: "Bad Request! Invalid visitor id" });
-      return;
-    }
-
-    const objectId = new ObjectId(id);
-    const securityQuery = { _id: objectId };
+    
+    const securityQuery = { emailAddress: email };
     const security = await userSchema.findOne<UserDTO>(securityQuery).exec();
 
     if (security === null) {
@@ -451,9 +378,7 @@ visitorRouter.patch("/grant/:id/:access", async (req, res) => {
 
     const persistedExpiry = persistedBeforeUpdate.expiry ? new Date(persistedBeforeUpdate.expiry) : null;
     if (persistedExpiry && persistedExpiry < new Date()) {
-      await visitorShema
-        .findByIdAndUpdate(new ObjectId(visitorId), { validity: false }, { new: false })
-        .exec();
+      await visitorShema.findByIdAndUpdate(new ObjectId(visitorId), { validity: false }, { returnDocument: "after" }).exec();
 
       if (!persistedBeforeUpdate.arrivedAt) {
         await visitorShema.findByIdAndDelete(new ObjectId(visitorId)).exec();
@@ -475,11 +400,9 @@ visitorRouter.patch("/grant/:id/:access", async (req, res) => {
       validity: nextValidity,
     };
 
-    const persistedVisitor = await visitorShema.findByIdAndUpdate<visitorDTO>(
-      new ObjectId(visitorId),
-      updatePayload,
-      { new: true }
-    ).exec();
+    const persistedVisitor = await visitorShema
+      .findByIdAndUpdate<visitorDTO>(new ObjectId(visitorId), updatePayload, { returnDocument: "after" })
+      .exec();
 
     if (!persistedVisitor) {
       res.status(404).json({ message: "Visitor not found!" });

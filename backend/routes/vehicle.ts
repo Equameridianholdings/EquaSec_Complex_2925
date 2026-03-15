@@ -1,11 +1,13 @@
 import unitSchema from "#db/unitSchema.js";
 import userSchema from "#db/userSchema.js";
 import vehicleSchema from "#db/vehicleSchema.js";
+import { unitDTO } from "#interfaces/unitDTO.js";
 import { vehicleBodyValidation, vehicleDTO } from "#interfaces/vehicleDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
+import RoleMiddleware from "#middleware/role.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
-import validateObjectId from "#utils/validateObjectId.js";
 import validateUser from "#utils/validateUser.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import { Router } from "express";
 import { Request, Response } from "express";
 import { checkSchema } from "express-validator/lib/middlewares/schema.js";
@@ -15,7 +17,7 @@ const vehicleRouter = Router();
 
 vehicleRouter.use(AuthMiddleware);
 
-vehicleRouter.get("/", async (req, res) => {
+vehicleRouter.get("/", RoleMiddleware(["security", "manager", "admin"]), async (req, res) => {
   try {
     const vehicles = await vehicleSchema.find({});
 
@@ -32,16 +34,16 @@ vehicleRouter.get("/", async (req, res) => {
   }
 });
 
-vehicleRouter.get("/user/", async (req, res) => {
+vehicleRouter.get("/user/", RoleMiddleware(["tenant"]), async (req, res) => {
   try {
     const email = res.get("email");
 
     const user = await userSchema.findOne({ emailAddress: email }).exec();
     
     const units = await unitSchema
-      .find({ users: user?._id.toString() })
+      .find({ "users._id": user?._id.toString() })
       .select({})
-      .exec();
+      .exec() as unknown as unitDTO[];
     
     const allVehicles: vehicleDTO[] = await vehicleSchema.find({}).select({}).exec() as unknown as vehicleDTO[];
 
@@ -67,7 +69,7 @@ vehicleRouter.get("/user/", async (req, res) => {
   }
 });
 
-vehicleRouter.post("/", checkSchema(vehicleBodyValidation), validateSchema, async (req: Request, res: Response) => {
+vehicleRouter.post("/", RoleMiddleware(["admin", "security", "manager"]), checkSchema(vehicleBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
     const user = await validateUser(req.get("email") as unknown as string);
 
@@ -86,16 +88,14 @@ vehicleRouter.post("/", checkSchema(vehicleBodyValidation), validateSchema, asyn
   }
 });
 
-vehicleRouter.patch("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+vehicleRouter.patch("/:id", RoleMiddleware(["admin", "security", "manager"]), async (req: Request, res: Response) => {
+  const { id } = req.params;
 
   const vehicleQuery = {
     $set: req.body as object,
   };
   try {
-    const updatedVehicle = await vehicleSchema.findByIdAndUpdate(new ObjectId(_id), vehicleQuery, { new: true }).exec();
+    const updatedVehicle = await vehicleSchema.findByIdAndUpdate(ValidObjectId(id as string), vehicleQuery, { new: true }).exec();
 
     if (updatedVehicle === null) {
       res.status(404).json({ message: "Vehicle does not exist!" });
@@ -110,13 +110,11 @@ vehicleRouter.patch("/:id", validateObjectId, async (req, res) => {
   }
 });
 
-vehicleRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+vehicleRouter.delete("/:id", RoleMiddleware(["admin", "security", "manager"]), async (req: Request, res: Response) => {
+  const { id } = req.params;
 
   try {
-    const deletedVehicle = await vehicleSchema.findByIdAndDelete(new ObjectId(_id)).exec();
+    const deletedVehicle = await vehicleSchema.findByIdAndDelete(ValidObjectId(id as string)).exec();
 
     if (deletedVehicle === null) {
       res.status(404).json({ message: "Vehicle does not exist!" });

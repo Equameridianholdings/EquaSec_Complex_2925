@@ -2,9 +2,8 @@ import incidentSchema from "#db/incidentSchema.js";
 import { incidentBodyValidation, incidentDTO } from "#interfaces/incidentDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
-import validateObjectId from "#utils/validateObjectId.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import { Request, Response, Router } from "express";
-import { ObjectId } from "mongodb";
 
 const incidentRouter = Router();
 
@@ -27,12 +26,10 @@ incidentRouter.get("/", async (req, res) => {
   }
 });
 
-incidentRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+incidentRouter.get("/:id", async (req, res) => {
+  const { id } = req.params;
   const incidentQuery = {
-    "sos.gaurd.securityCompany._id": _id,
+    "sos.gaurd.securityCompany._id": ValidObjectId(id),
   };
 
   try {
@@ -66,13 +63,11 @@ incidentRouter.post("/", incidentBodyValidation, validateSchema, async (req: Req
   }
 });
 
-incidentRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+incidentRouter.delete("/:id", async (req, res) => {
+  const { id } = req.params;
 
   try {
-    const deletedIncident = await incidentSchema.findByIdAndDelete(_id).exec();
+    const deletedIncident = await incidentSchema.findByIdAndDelete(ValidObjectId(id)).exec();
 
     if (deletedIncident === null) {
       res.status(404).json({ message: "Incident does not exist!" });

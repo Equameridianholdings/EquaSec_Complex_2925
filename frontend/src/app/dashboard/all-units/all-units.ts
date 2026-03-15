@@ -26,6 +26,7 @@ export class AllUnits implements OnInit {
     number: 0,
     numberOfParkingBays: 0,
     users: [],
+    house: false
   });
 
   ngOnInit(): void {

@@ -4,10 +4,9 @@ import { securityCompanyBodyValidation, SecurityCompanyDTO } from "#interfaces/s
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import { sendSecurityCompanyCode } from "#utils/sendEmail.js";
-import validateObjectId from "#utils/validateObjectId.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import bcrypt from "bcryptjs";
 import { Request, Response, Router } from "express";
-import { ObjectId } from "mongodb";
 
 const securityCompanyRouter = Router();
 
@@ -110,13 +109,11 @@ securityCompanyRouter.get("/", async (req, res) => {
   }
 });
 
-securityCompanyRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+securityCompanyRouter.get("/:id", async (req, res) => {
+  const { id } = req.params;
 
   try {
-    const securityCompany = await securityCompanySchema.findById(_id).exec();
+    const securityCompany = await securityCompanySchema.findById(ValidObjectId(id)).exec();
 
     if (securityCompany === null) {
       res.status(404).json({ message: "Security Company not found!" });
@@ -286,10 +283,8 @@ securityCompanyRouter.post("/", securityCompanyBodyValidation, validateSchema, a
   }
 });
 
-securityCompanyRouter.patch("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+securityCompanyRouter.patch("/:id", async (req, res) => {
+  const { id } = req.params;
 
   const updates = { ...(req.body as Record<string, unknown>) };
   const unsetFields: Record<string, 1> = {};
@@ -333,7 +328,7 @@ securityCompanyRouter.patch("/:id", validateObjectId, async (req, res) => {
   }
 
   try {
-    const updatedSecurityCompany = await securityCompanySchema.findByIdAndUpdate(_id, securityCompanyQuery, { new: true }).exec();
+    const updatedSecurityCompany = await securityCompanySchema.findByIdAndUpdate(ValidObjectId(id), securityCompanyQuery, { new: true }).exec();
 
     if (updatedSecurityCompany === null) {
       res.status(404).json({ message: "Security company does not exist!" });
@@ -348,13 +343,11 @@ securityCompanyRouter.patch("/:id", validateObjectId, async (req, res) => {
   }
 });
 
-securityCompanyRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+securityCompanyRouter.delete("/:id", async (req, res) => {
+  const { id } = req.params;
 
   try {
-    const existingCompany = await securityCompanySchema.findById(_id).exec();
+    const existingCompany = await securityCompanySchema.findById(ValidObjectId(id)).exec();
     if (existingCompany === null) {
       res.status(404).json({ message: "Security company does not exist!" });
       return;

@@ -5,7 +5,7 @@
     <small>Transport: {{ visitor.driving ? "Car" : "Walking" }} | Cellphone: {{ visitor.contact }}</small>
     <small>
       Location:
-      {{ visitor.user?.complex?.name || visitor.user?.gatedCommunity?.name || 'Not linked' }}
+      {{ visitor.destination.complex?.name || visitor.destination.gatedCommunity?.name || 'Not linked' }}
     </small>
     <small>Expires in {{ hours }} hours</small>
   </div>

@@ -16,6 +16,8 @@ import {
   MatSnackBarHorizontalPosition,
   MatSnackBarVerticalPosition,
 } from '@angular/material/snack-bar';
+import { logDTO } from '../interfaces/logDTO';
+import { complexDTO } from '../interfaces/complexDTO';
 
 @Component({
   selector: 'app-security-manager',
@@ -290,11 +292,11 @@ export class SecurityManager implements OnInit {
     try {
       const user = JSON.parse(rawUser);
       this.securityManagerName =
-        `${user?.name ?? ''} ${user?.surname ?? ''}`.trim() || this.securityManagerName;
+        `${user?.name} ${user?.surname}`.trim() || this.securityManagerName;
       this.securityManagerEmail = user?.emailAddress ?? this.securityManagerEmail;
       this.currentManagerEmail = user?.emailAddress ?? this.currentManagerEmail;
-      this.managerSecurityCompanyId = user?.securityCompany?._id ?? '';
-      this.managerSecurityCompanyName = user?.securityCompany?.name ?? '';
+      this.managerSecurityCompanyId = user?.securityCompany?._id;
+      this.managerSecurityCompanyName = user?.securityCompany?.name;
       if (typeof user?.securityCompany?.sosOptin === 'boolean') {
         this.companySosOptedIn = Boolean(user.securityCompany.sosOptin);
       }
@@ -304,11 +306,8 @@ export class SecurityManager implements OnInit {
     }
   }
 
-  private normalizeName(value: string | undefined | null): string {
-    return (value ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '');
+  private normalizeName(value: string): string {
+    return value;
   }
 
   private applyCompanyContracts(company: any): void {
@@ -331,7 +330,7 @@ export class SecurityManager implements OnInit {
       ? company.employeeAssignments
       : [];
     for (const assignment of employeeAssignments) {
-      const userId = String(assignment?.userId ?? '').trim();
+      const userId = String(assignment?.userId).trim();
       if (userId) {
         this.companyEmployeeAssignmentUserIds.add(userId);
       }
@@ -351,7 +350,7 @@ export class SecurityManager implements OnInit {
         this.complexContractDates.set(complexName, { startDate, endDate });
         this.complexContractDisplayNames.set(
           complexName,
-          (contract?.complex?.name ?? contract?.complexName ?? '').trim(),
+          (contract?.complex?.name ?? contract?.complexName).trim(),
         );
       }
 
@@ -367,7 +366,7 @@ export class SecurityManager implements OnInit {
       return;
     }
 
-    const companyId = String(this.managerSecurityCompanyId ?? '').trim();
+    const companyId = String(this.managerSecurityCompanyId).trim();
     if (!companyId) {
       this._snackBar.open('No linked security company found.', 'close', {
         horizontalPosition: this.horizontalPosition,
@@ -500,10 +499,10 @@ export class SecurityManager implements OnInit {
           return;
         }
 
-        const resolvedName = `${resolvedUser.name ?? ''} ${resolvedUser.surname ?? ''}`.trim();
-        const resolvedEmail = resolvedUser.emailAddress ?? '';
-        const resolvedCompanyId = resolvedUser.securityCompany?._id ?? '';
-        const resolvedCompanyName = resolvedUser.securityCompany?.name ?? '';
+        const resolvedName = `${resolvedUser.name} ${resolvedUser.surname}`.trim();
+        const resolvedEmail = resolvedUser.emailAddress;
+        const resolvedCompanyId = resolvedUser.securityCompany?._id;
+        const resolvedCompanyName = resolvedUser.securityCompany?.name;
         const resolvedCompanySosOptin = resolvedUser.securityCompany?.sosOptin;
 
         this.securityManagerName = resolvedName || this.securityManagerName;
@@ -531,12 +530,13 @@ export class SecurityManager implements OnInit {
 
   private loadAssignedComplexes(): void {
     this.submitting.update(() => true);
-    this.dataService.get<any[]>('complex').subscribe({
-      next: (complexes) => {
+    this.dataService.get<ResponseBody>('complex').subscribe({
+      next: (res) => {
+        const complexes = res.payload as complexDTO[]
         const mappedComplexes = (complexes || [])
           .filter((complex) => {
             const complexName = this.normalizeName(complex?.name);
-            const communityName = this.normalizeName(complex?.gatedCommunityName);
+            const communityName = this.normalizeName(complex?.gatedCommunityName as string);
             return (
               this.contractedComplexNames.has(complexName) ||
               this.contractedCommunityNames.has(communityName)
@@ -545,16 +545,16 @@ export class SecurityManager implements OnInit {
           .map((complex) => {
             const contractDates =
               this.complexContractDates.get(this.normalizeName(complex?.name)) ??
-              this.communityContractDates.get(this.normalizeName(complex?.gatedCommunityName));
+              this.communityContractDates.get(this.normalizeName(complex?.gatedCommunityName as string));
             return {
-              id: complex._id ?? complex.id ?? '',
-              name: complex.name ?? '',
-              location: complex.address ?? '',
+              id: complex._id as string,
+              name: complex.name,
+              location: complex.address,
               status: 'active' as 'active' | 'inactive',
               totalUnits: complex.numberOfUnits ?? 0,
               employees: 0,
-              contractStartDate: contractDates?.startDate ?? '',
-              contractEndDate: contractDates?.endDate ?? '',
+              contractStartDate: contractDates?.startDate as string,
+              contractEndDate: contractDates?.endDate as string,
               units: this.generateUnits(complex.numberOfUnits ?? 0),
             };
           });
@@ -575,8 +575,8 @@ export class SecurityManager implements OnInit {
               status: 'active' as 'active' | 'inactive',
               totalUnits: 0,
               employees: 0,
-              contractStartDate: contractDates?.startDate ?? '',
-              contractEndDate: contractDates?.endDate ?? '',
+              contractStartDate: contractDates?.startDate as string,
+              contractEndDate: contractDates?.endDate as string,
               units: [],
             };
           });
@@ -609,9 +609,9 @@ export class SecurityManager implements OnInit {
       next: (communities) => {
         this.gatedCommunities = (communities || [])
           .filter((community) => {
-            const communityName = this.normalizeName(community?.name);
+            const communityName = community?.name as string;
             const communityComplexes = Array.isArray(community?.complexes)
-              ? community.complexes.map((name: string) => this.normalizeName(name))
+              ? community.complexes.map((name: string) => name)
               : [];
 
             const linkedByComplex = communityComplexes.some((name: string) =>
@@ -621,16 +621,16 @@ export class SecurityManager implements OnInit {
           })
           .map((community) => {
             const contractDates = this.communityContractDates.get(
-              this.normalizeName(community?.name),
+              community?.name as string,
             );
             return {
-              id: community._id ?? community.id ?? '',
-              name: community.name ?? '',
-              complexId: community.complexId ?? '',
+              id: community._id ?? community.id,
+              name: community.name,
+              complexId: community.complexId,
               status: 'active' as 'active' | 'inactive',
               totalResidents: community.numberOfHouses ?? 0,
-              contractStartDate: contractDates?.startDate ?? '',
-              contractEndDate: contractDates?.endDate ?? '',
+              contractStartDate: contractDates?.startDate as string,
+              contractEndDate: contractDates?.endDate as string,
               houses: this.generateHouses(community.numberOfHouses ?? 0),
               complexesInCommunity: [],
             };
@@ -681,18 +681,18 @@ export class SecurityManager implements OnInit {
               >();
 
               for (const unit of units) {
-                const complexId = String(unit?.complex?._id ?? unit?.complex?.id ?? '').trim();
+                const complexId = String(unit?.complex?._id ?? unit?.complex?.id).trim();
                 const gatedCommunityId = String(
-                  unit?.gatedCommunity?._id ?? unit?.gatedCommunity?.id ?? '',
+                  unit?.gatedCommunity?._id ?? unit?.gatedCommunity?.id,
                 ).trim();
-                const unitNumber = String(unit?.number ?? '').trim();
+                const unitNumber = String(unit?.number).trim();
 
                 const linkedUsers = Array.isArray(unit?.users) ? unit.users : [];
                 for (const linkedUser of linkedUsers) {
                   const linkedUserId = String(
                     linkedUser && typeof linkedUser === 'object'
-                      ? ((linkedUser as any)?._id ?? (linkedUser as any)?.id ?? '')
-                      : (linkedUser ?? ''),
+                      ? ((linkedUser as any)?._id ?? (linkedUser as any)?.id)
+                      : (linkedUser),
                   ).trim();
 
                   if (!linkedUserId) {
@@ -713,7 +713,7 @@ export class SecurityManager implements OnInit {
               }
 
               const usersWithUnitLocations = baseUsers.map((user: any) => {
-                const userId = String(user?._id ?? user?.id ?? '').trim();
+                const userId = String(user?._id ?? user?.id).trim();
                 const linkedTenantLocation = userId ? tenantLocationByUserId.get(userId) : null;
 
                 if (!linkedTenantLocation) {
@@ -736,7 +736,7 @@ export class SecurityManager implements OnInit {
                     : user?.complex,
                   communityId: isCommunityLinked
                     ? linkedTenantLocation.gatedCommunityId
-                    : (user?.communityId ?? ''),
+                    : (user?.communityId),
                   gatedCommunity: isCommunityLinked
                     ? {
                         ...(user?.gatedCommunity ?? {}),
@@ -749,14 +749,14 @@ export class SecurityManager implements OnInit {
                     : user?.communityResidenceType,
                   communityComplexId: isCommunityComplex
                     ? linkedTenantLocation.complexId
-                    : (user?.communityComplexId ?? ''),
+                    : (user?.communityComplexId),
                   address:
                     linkedTenantLocation.unit ||
                     linkedTenantLocation.houseNumber ||
-                    String(user?.address ?? ''),
-                  unit: linkedTenantLocation.unit || String(user?.unit ?? ''),
+                    String(user?.address),
+                  unit: linkedTenantLocation.unit || String(user?.unit),
                   houseNumber:
-                    linkedTenantLocation.houseNumber || String(user?.houseNumber ?? ''),
+                    linkedTenantLocation.houseNumber || String(user?.houseNumber),
                 };
               });
 
@@ -784,17 +784,17 @@ export class SecurityManager implements OnInit {
             const vehiclesByUserId = new Map<string, any[]>();
 
             for (const vehicle of vehicles) {
-              const linkedUserId = String(vehicle?.user?._id ?? '').trim();
+              const linkedUserId = String(vehicle?.user?._id).trim();
               if (!linkedUserId) {
                 continue;
               }
 
               const mappedVehicle = {
-                color: String(vehicle?.color ?? ''),
-                make: String(vehicle?.make ?? ''),
-                model: String(vehicle?.model ?? ''),
+                color: String(vehicle?.color),
+                make: String(vehicle?.make),
+                model: String(vehicle?.model),
                 reg: String(
-                  vehicle?.reg ?? vehicle?.registerationNumber ?? vehicle?.registrationNumber ?? '',
+                  vehicle?.reg ?? vehicle?.registerationNumber ?? vehicle?.registrationNumber,
                 ),
               };
 
@@ -804,7 +804,7 @@ export class SecurityManager implements OnInit {
             }
 
             const mergedUsers = users.map((user: any) => {
-              const userId = String(user?._id ?? '').trim();
+              const userId = String(user?._id).trim();
               const linkedVehicles = userId ? (vehiclesByUserId.get(userId) ?? []) : [];
 
               return {
@@ -895,12 +895,12 @@ export class SecurityManager implements OnInit {
           const contractCompanyName = this.normalizeName(contract?.securityCompany?.name);
           const contractAssignedComplexes = Array.isArray(contract?.assignedComplexes)
             ? contract.assignedComplexes
-                .map((value: unknown) => String(value ?? '').trim())
+                .map((value: unknown) => String(value).trim())
                 .filter((value: string) => value.length > 0)
             : [];
           const contractAssignedCommunities = Array.isArray(contract?.assignedCommunities)
             ? contract.assignedCommunities
-                .map((value: unknown) => String(value ?? '').trim())
+                .map((value: unknown) => String(value).trim())
                 .filter((value: string) => value.length > 0)
             : [];
 
@@ -978,7 +978,7 @@ export class SecurityManager implements OnInit {
     };
 
     const isVisibleSecurityUser = (user: any): boolean => {
-      const userId = String(user?._id ?? '').trim();
+      const userId = String(user?._id).trim();
       const linkedByAssignment =
         userId.length > 0 && this.companyEmployeeAssignmentUserIds.has(userId);
       return (
@@ -1007,13 +1007,13 @@ export class SecurityManager implements OnInit {
           : [];
 
         return {
-          id: user._id ?? '',
-          name: user.name ?? '',
-          surname: user.surname ?? '',
-          email: user.emailAddress ?? '',
-          phone: user.cellNumber ?? '',
+          id: user._id,
+          name: user.name,
+          surname: user.surname,
+          email: user.emailAddress,
+          phone: user.cellNumber,
           position: this.hasRole(user, 'admin') ? 'admin-Guard' : 'Guard',
-          assignedComplex: assignedComplexes[0] ?? '',
+          assignedComplex: assignedComplexes[0],
           assignedComplexes,
           assignedCommunities,
           status: resolveEmployeeStatusForCompany(user),
@@ -1039,13 +1039,13 @@ export class SecurityManager implements OnInit {
           : [];
 
         return {
-          id: user._id ?? '',
-          name: user.name ?? '',
-          surname: user.surname ?? '',
-          email: user.emailAddress ?? '',
-          phone: user.cellNumber ?? '',
+          id: user._id,
+          name: user.name,
+          surname: user.surname,
+          email: user.emailAddress,
+          phone: user.cellNumber,
           position: this.hasRole(user, 'admin') ? 'admin-Guard' : 'Guard',
-          profilePicture: user.profilePhoto ?? '',
+          profilePicture: user.profilePhoto,
           assignedComplexes,
           assignedCommunities,
           status: resolveEmployeeStatusForCompany(user),
@@ -1066,10 +1066,10 @@ export class SecurityManager implements OnInit {
       }
 
       const hasResidenceMarker =
-        String(user?.residenceType ?? '').trim().length > 0 ||
-        String(user?.communityId ?? '').trim().length > 0 ||
-        String(user?.communityComplexId ?? '').trim().length > 0 ||
-        String(user?.address ?? '').trim().length > 0 ||
+        String(user?.residenceType).trim().length > 0 ||
+        String(user?.communityId).trim().length > 0 ||
+        String(user?.communityComplexId).trim().length > 0 ||
+        String(user?.address).trim().length > 0 ||
         Boolean(user?.complex?._id);
 
       return hasResidenceMarker;
@@ -1081,9 +1081,9 @@ export class SecurityManager implements OnInit {
         const explicitTenantRole = this.hasRole(user, 'tenant') || this.hasRole(user, 'user');
         const hasEmbeddedLocation =
           Boolean(user?.complex?._id) ||
-          String(user?.communityId ?? '').trim().length > 0 ||
-          String(user?.communityComplexId ?? '').trim().length > 0 ||
-          String(user?.address ?? '').trim().length > 0;
+          String(user?.communityId).trim().length > 0 ||
+          String(user?.communityComplexId).trim().length > 0 ||
+          String(user?.address).trim().length > 0;
 
         if (belongsToCurrentSecurityCompany(user)) {
           return true;
@@ -1107,9 +1107,9 @@ export class SecurityManager implements OnInit {
           this.gatedCommunities.map((community) => String(community.id)),
         );
 
-        const userComplexId = String(user?.complex?._id ?? '');
-        const userCommunityId = String(user?.communityId ?? '');
-        const userCommunityComplexId = String(user?.communityComplexId ?? '');
+        const userComplexId = String(user?.complex?._id);
+        const userCommunityId = String(user?.communityId);
+        const userCommunityComplexId = String(user?.communityComplexId);
 
         if (userResidenceType === 'complex') {
           return userComplexId ? assignedComplexIds.has(userComplexId) : false;
@@ -1137,34 +1137,34 @@ export class SecurityManager implements OnInit {
           user?.communityResidenceType === 'complex' ? 'complex' : 'house';
 
         return {
-          id: user._id ?? '',
-          name: user.name ?? '',
-          surname: user.surname ?? '',
-          email: user.emailAddress ?? '',
-          phone: user.cellNumber ?? '',
-          idNumber: user.idNumber ?? '',
+          id: user._id,
+          name: user.name,
+          surname: user.surname,
+          email: user.emailAddress,
+          phone: user.cellNumber,
+          idNumber: user.idNumber,
           residenceType: mappedResidenceType,
           complexId:
             mappedResidenceType === 'complex'
-              ? String(user.complex?._id ?? user.complex?.id ?? '')
+              ? String(user.complex?._id ?? user.complex?.id)
               : '',
           communityId:
             mappedResidenceType === 'community'
-              ? String(user.communityId ?? user.gatedCommunity?._id ?? user.gatedCommunity?.id ?? '')
+              ? String(user.communityId ?? user.gatedCommunity?._id ?? user.gatedCommunity?.id)
               : '',
           communityResidenceType:
             mappedResidenceType === 'community' ? mappedCommunityResidenceType : undefined,
           communityComplexId:
             mappedResidenceType === 'community' && mappedCommunityResidenceType === 'complex'
-              ? String(user.communityComplexId ?? user.complex?._id ?? user.complex?.id ?? '')
+              ? String(user.communityComplexId ?? user.complex?._id ?? user.complex?.id)
               : '',
-          address: user.address ?? '',
+          address: user.address,
           vehicles: Array.isArray(user.vehicles)
             ? user.vehicles.map((vehicle: any) => ({
-                make: vehicle?.make ?? '',
-                model: vehicle?.model ?? '',
-                reg: vehicle?.reg ?? '',
-                color: vehicle?.color ?? '',
+                make: vehicle?.make,
+                model: vehicle?.model,
+                reg: vehicle?.reg,
+                color: vehicle?.color,
               }))
             : [],
           registeredDate: new Date().toISOString().split('T')[0],
@@ -1182,7 +1182,7 @@ export class SecurityManager implements OnInit {
     const type = user?.type;
     if (Array.isArray(type)) {
       return type
-        .map((entry: unknown) => this.normalizeName(String(entry ?? '')))
+        .map((entry: unknown) => this.normalizeName(String(entry)))
         .some((entry: string) => entry === normalizedRole || entry.includes(normalizedRole));
     }
     if (typeof type === 'string') {
@@ -1193,8 +1193,8 @@ export class SecurityManager implements OnInit {
   }
 
   protected getPersonInitials(name: string, surname?: string): string {
-    const first = String(name ?? '').trim().charAt(0);
-    const second = String(surname ?? '').trim().charAt(0);
+    const first = String(name).trim().charAt(0);
+    const second = String(surname).trim().charAt(0);
     const initials = `${first}${second}`.trim().toUpperCase();
     return initials || 'NA';
   }
@@ -1207,27 +1207,27 @@ export class SecurityManager implements OnInit {
 
   private loadVisitors(): void {
     this.submitting.update(() => true);
-    this.dataService.get<any[]>('logs').subscribe({
-      next: (logs) => {
+    this.dataService.get<ResponseBody>('logs').subscribe({
+      next: (res) => {
+        const logs = res.payload as logDTO[];
         this.visitors = (logs || []).map((log) => {
-          const visitor = log.visitor ?? {};
-          const tenant = visitor.user ?? {};
+          const visitor = log.visitor;
           return {
-            id: visitor._id ?? '',
-            name: visitor.name ?? '',
-            surname: visitor.surname ?? '',
-            phone: visitor.contact ?? '',
-            tenantName: `${tenant.name ?? ''} ${tenant.surname ?? ''}`.trim(),
-            tenantUnit: tenant.unit ?? '',
-            tenantPhone: tenant.cellNumber ?? '',
-            visitDate: log.date ?? '',
-            complexId: tenant.complex?._id ?? '',
+            id: visitor._id as string,
+            name: visitor.name,
+            surname: visitor.surname,
+            phone: visitor.contact,
+            tenantName: `${visitor.destination?.users[0]?.name} ${visitor.destination?.users[0]?.surname}`.trim(),
+            tenantUnit: `unit ${visitor.destination?.number}`,
+            tenantPhone: visitor.destination?.users[0]?.cellNumber as string,
+            visitDate: log.date.toLocaleString(),
+            complexId: log.guard.complex?._id as string,
             vehicle: visitor.vehicle
               ? {
-                  make: visitor.vehicle.make ?? '',
-                  model: visitor.vehicle.model ?? '',
-                  reg: visitor.vehicle.registerationNumber ?? visitor.vehicle.registration ?? '',
-                  color: visitor.vehicle.color ?? '',
+                  make: visitor.vehicle.make,
+                  model: visitor.vehicle.model,
+                  reg: visitor.vehicle?.registrationNumber,
+                  color: visitor.vehicle.color,
                 }
               : undefined,
           };
@@ -1255,20 +1255,20 @@ export class SecurityManager implements OnInit {
           .map((item: any) => {
             const guard = item?.guard ?? {};
             const station = item?.station ?? {};
-            const rawType = String(station?.type ?? '').toLowerCase();
+            const rawType = String(station?.type).toLowerCase();
             const stationType: 'complex' | 'gated' | 'unknown' =
               rawType === 'complex' || rawType === 'gated' ? rawType : 'unknown';
 
             return {
-              id: String(item?._id ?? ''),
-              date: String(item?.date ?? ''),
-              guardName: `${guard?.name ?? ''} ${guard?.surname ?? ''}`.trim() || 'Unknown Guard',
-              guardPhone: String(guard?.cellNumber ?? ''),
+              id: String(item?._id),
+              date: String(item?.date),
+              guardName: `${guard?.name} ${guard?.surname}`.trim() || 'Unknown Guard',
+              guardPhone: String(guard?.cellNumber),
               stationType,
-              stationName: String(station?.name ?? ''),
-              complexName: String(station?.complexName ?? ''),
-              gatedCommunityName: String(station?.gatedCommunityName ?? ''),
-              address: String(station?.complexAddress ?? ''),
+              stationName: String(station?.name),
+              complexName: String(station?.complexName),
+              gatedCommunityName: String(station?.gatedCommunityName),
+              address: String(station?.complexAddress),
             };
           })
           .sort(
@@ -1314,8 +1314,8 @@ export class SecurityManager implements OnInit {
   }
 
   protected getSosSourceDisplay(alert: any): string {
-    const complexName = String(alert?.complexName ?? '').trim();
-    const gatedCommunityName = String(alert?.gatedCommunityName ?? '').trim();
+    const complexName = String(alert?.complexName).trim();
+    const gatedCommunityName = String(alert?.gatedCommunityName).trim();
 
     if (gatedCommunityName && complexName) {
       return `${gatedCommunityName} - ${complexName}`;
@@ -1648,7 +1648,7 @@ export class SecurityManager implements OnInit {
       const assignedComplexes = Array.isArray(employee.assignedComplexes)
         ? employee.assignedComplexes
         : [];
-      const communityComplexId = String(community?.complexId ?? '').trim();
+      const communityComplexId = String(community?.complexId).trim();
 
       return (
         assignedCommunities.includes(community.id) ||
@@ -1746,7 +1746,7 @@ export class SecurityManager implements OnInit {
               ...this.employees[employeeIndex],
               assignedComplexes: [...payload.assignedComplexes],
               assignedCommunities: [...payload.assignedCommunities],
-              assignedComplex: payload.assignedComplexes[0] ?? '',
+              assignedComplex: payload.assignedComplexes[0],
             };
           }
 
@@ -1980,16 +1980,16 @@ export class SecurityManager implements OnInit {
 
     if (tenant.residenceType === 'complex') {
       // Complex → Unit
-      const complexName = this.getComplexName(String(tenant.complexId ?? ''));
+      const complexName = this.getComplexName(String(tenant.complexId));
       if (complexName && complexName !== 'Unknown') {
         path.push(complexName);
       }
-      if (String(tenant.address ?? '').trim()) {
-        path.push(String(tenant.address ?? '').trim());
+      if (String(tenant.address).trim()) {
+        path.push(String(tenant.address).trim());
       }
     } else if (tenant.residenceType === 'community') {
       // Gated Community → ...
-      const communityName = this.getCommunityName(String(tenant.communityId ?? ''));
+      const communityName = this.getCommunityName(String(tenant.communityId));
       if (communityName && communityName !== 'Unknown') {
         path.push(communityName);
       } else {
@@ -1998,28 +1998,28 @@ export class SecurityManager implements OnInit {
 
       if (tenant.communityResidenceType === 'house') {
         // → House Number
-        const houseNumber = String(tenant.address ?? '').trim();
+        const houseNumber = String(tenant.address).trim();
         if (houseNumber) {
           path.push(`House ${houseNumber}`);
         }
       } else if (tenant.communityResidenceType === 'complex') {
         // → Complex → Unit
         const community = this.gatedCommunities.find(
-          (gc) => gc.id === String(tenant.communityId ?? ''),
+          (gc) => gc.id === String(tenant.communityId),
         );
         const complexInCommunity = community?.complexesInCommunity?.find(
-          (c) => c.id === String(tenant.communityComplexId ?? ''),
+          (c) => c.id === String(tenant.communityComplexId),
         );
         if (complexInCommunity?.name) {
           path.push(complexInCommunity.name);
         } else {
-          const fallbackComplexName = this.getComplexName(String(tenant.communityComplexId ?? ''));
+          const fallbackComplexName = this.getComplexName(String(tenant.communityComplexId));
           if (fallbackComplexName && fallbackComplexName !== 'Unknown') {
             path.push(fallbackComplexName);
           }
         }
-        if (String(tenant.address ?? '').trim()) {
-          path.push(String(tenant.address ?? '').trim());
+        if (String(tenant.address).trim()) {
+          path.push(String(tenant.address).trim());
         }
       }
     }
@@ -2214,7 +2214,7 @@ export class SecurityManager implements OnInit {
         tenantData.residenceType === 'complex'
           ? tenantData.complexId
           : tenantData.communityComplexId,
-      complexName: selectedComplexForTenant?.name ?? '',
+      complexName: selectedComplexForTenant?.name,
       communityId: tenantData.communityId,
       communityResidenceType: tenantData.communityResidenceType,
       communityComplexId: tenantData.communityComplexId,
@@ -2621,7 +2621,7 @@ export class SecurityManager implements OnInit {
     const tenantsIdentity = this.tenants
       .map(
         (tenant: any) =>
-          `${tenant.id}:${tenant.residenceType}:${tenant.complexId ?? ''}:${tenant.communityId ?? ''}`,
+          `${tenant.id}:${tenant.residenceType}:${tenant.complexId}:${tenant.communityId}`,
       )
       .join('|');
     const key = `${this.tenantSearchTerm}|${this.tenantFilterResidenceType}|${this.tenantFilterComplexId}|${this.tenantFilterCommunityId}|${this.tenantFilterCommunityResidenceType}|${this.tenantFilterCommunityComplexId}|${tenantsIdentity}`;

@@ -1,9 +1,8 @@
 import emergencyContactSchema from "#db/emergencyContactSchema.js";
 import { emergencyContactBodyValidation, emergencyContactDTO } from "#interfaces/emergencyContactDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
-import validateObjectId from "#utils/validateObjectId.js";
+import { ValidObjectId } from "#utils/validObjectId.js";
 import { Router } from "express";
-import { ObjectId } from "mongodb";
 
 const emergencyContactRouter = Router();
 
@@ -26,14 +25,12 @@ emergencyContactRouter.get("/", async (req, res) => {
   }
 });
 
-emergencyContactRouter.get("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+emergencyContactRouter.get("/:id", async (req, res) => {
+  const { id } = req.params;
 
   try {
     const emergencyContactQuery = {
-      "securityCompany._id": _id,
+      "securityCompany._id": ValidObjectId(id),
     };
     const emergencyContacts = await emergencyContactSchema.find(emergencyContactQuery).exec();
 
@@ -69,16 +66,14 @@ emergencyContactRouter.post("/", async (req, res) => {
   }
 });
 
-emergencyContactRouter.patch("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+emergencyContactRouter.patch("/:id", async (req, res) => {
+  const { id } = req.params;
 
   try {
     const emergencyContactQuery = {
       $set: req.body as object,
     };
-    const updatedEmergencyContact = await emergencyContactSchema.findByIdAndUpdate(_id, emergencyContactQuery, { new: true }).exec();
+    const updatedEmergencyContact = await emergencyContactSchema.findByIdAndUpdate(ValidObjectId(id), emergencyContactQuery, { new: true }).exec();
 
     if (updatedEmergencyContact === null) {
       res.status(404).json({ message: "Emergency contact not found!" });
@@ -93,13 +88,11 @@ emergencyContactRouter.patch("/:id", validateObjectId, async (req, res) => {
   }
 });
 
-emergencyContactRouter.delete("/:id", validateObjectId, async (req, res) => {
-  if (!req.params) return res.status(400).json({ message: "Bad Request! Invalid request." });
-
-  const _id = req.params.id as ObjectId;
+emergencyContactRouter.delete("/:id", async (req, res) => {
+  const { id } = req.params;
 
   try {
-    const deletedEmergencyContact = await emergencyContactSchema.findByIdAndDelete(_id).exec();
+    const deletedEmergencyContact = await emergencyContactSchema.findByIdAndDelete(ValidObjectId(id)).exec();
 
     if (deletedEmergencyContact === null) {
       res.status(404).json({ message: "Emergency contact not found!" });

@@ -30,7 +30,8 @@ import {
   MatSnackBarHorizontalPosition,
   MatSnackBarVerticalPosition,
 } from '@angular/material/snack-bar';
-import { Loader } from "../components/loader/loader";
+import { Loader } from '../components/loader/loader';
+import { visitorDTO } from '../interfaces/visitorDTO';
 
 @Component({
   selector: 'app-guard-portal',
@@ -45,7 +46,7 @@ export class GuardPortal implements OnInit, OnDestroy {
   horizontalPosition: MatSnackBarHorizontalPosition = 'center';
   verticalPosition: MatSnackBarVerticalPosition = 'top';
   private dialog = inject(MatDialog);
-  visitorList: any;
+  visitorList = signal<visitorDTO[]>([]);
   // Dynamic filtered lists for residents and vehicles by unit search
   protected get filteredResidents(): any[] {
     const allResidents = Array.isArray(this.residents) ? this.residents : [];
@@ -276,34 +277,17 @@ export class GuardPortal implements OnInit, OnDestroy {
       .trim()
       .toLowerCase()
       .replace(/\s+/g, '');
-    return (Array.isArray(this.activeCodes) ? this.activeCodes : [])
-      .filter((code) => code.isDriving && code.vehicle)
+    return (Array.isArray(this.visitorList()) ? this.visitorList() : [])
+      .filter((code) => code.driving && code.vehicle)
       .filter((code) => {
         // Normalize and check multiple possible registration properties
-        let regValue = (
-          code.vehicle.registration ||
-          code.vehicle.regNumber ||
-          code.vehicle.reg ||
-          ''
-        )
+        let regValue = code.vehicle?.registrationNumber
           .toString()
           .trim()
           .toLowerCase()
-          .replace(/\s+/g, '');
+          .replace(/\s+/g, '') as string;
         return regValue.includes(regQuery);
-      })
-      .map((code) => ({
-        make: code.vehicle?.makeModel?.split(' ')[0] || code.vehicle?.make || '',
-        model: code.vehicle?.makeModel?.split(' ').slice(1).join(' ') || code.vehicle?.model || '',
-        regNumber: code.vehicle?.registration || code.vehicle?.regNumber || code.vehicle?.reg || '',
-        color: code.vehicle?.color || '',
-        unit: code.unit || '',
-        houseNumber: code.houseNumber || '',
-        owner: code.visitorName || '',
-        complexId: code.complexId || '',
-        gatedCommunityId: code.gatedCommunityId || '',
-        isVisitor: true,
-      }));
+      });
   }
 
   // Helper: filter residents by unit search
@@ -315,22 +299,6 @@ export class GuardPortal implements OnInit, OnDestroy {
     );
   }
 
-  // Helper: filter vehicles by unit search
-  protected get filteredVehiclesByUnit() {
-    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
-    const registeredVehicles = this.filteredVehicles.filter((vehicle) => !vehicle.isVisitor);
-    if (!unitQuery) return registeredVehicles;
-    return registeredVehicles.filter((vehicle) =>
-      (vehicle.unit || '').toLowerCase().includes(unitQuery),
-    );
-  }
-
-  // Helper: filter active codes by unit search
-  protected get filteredCodesByUnit() {
-    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
-    if (!unitQuery) return this.filteredCodes;
-    return this.filteredCodes.filter((code) => (code.unit || '').toLowerCase().includes(unitQuery));
-  }
   protected get guardInitials(): string {
     return (this.guardName || 'Guard').trim().slice(0, 2).toUpperCase();
   }
@@ -515,7 +483,6 @@ export class GuardPortal implements OnInit, OnDestroy {
     complexId: string;
     gatedCommunityId: string;
   }> = [];
-  protected activeCodes: Array<any> = [];
 
   private shouldUseHouseNumberForStation(): boolean {
     return this.stationType === 'gated' && !this.filtersForm.selectedComplex;
@@ -569,10 +536,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     return [];
   }
 
-  private collectAssignedIdsFromUser(
-    user: any,
-    kind: 'complex' | 'community',
-  ): string[] {
+  private collectAssignedIdsFromUser(user: any, kind: 'complex' | 'community'): string[] {
     if (!user || typeof user !== 'object') {
       return [];
     }
@@ -686,10 +650,20 @@ export class GuardPortal implements OnInit, OnDestroy {
     }
   }
 
+  // Helper: filter vehicles by unit search
+  protected get filteredVehiclesByUnit() {
+    const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
+    const registeredVehicles = this.filteredVehicles.filter((vehicle) => !vehicle.isVisitor);
+    if (!unitQuery) return registeredVehicles;
+    return registeredVehicles.filter((vehicle) =>
+      (vehicle.unit || '').toLowerCase().includes(unitQuery),
+    );
+  }
+
   private loadGuardPortalData(): void {
     this.submitting.update(() => true);
     this.dataService
-      .get<any>('user/current')
+      .get<ResponseBody>('user/current')
       .pipe(
         switchMap((currentUserResponse) => {
           const currentUserPayload = currentUserResponse?.payload ?? currentUserResponse ?? null;
@@ -723,11 +697,7 @@ export class GuardPortal implements OnInit, OnDestroy {
             effectiveGuardId = currentUser?._id ?? currentUser?.id ?? '';
           }
           this.effectiveGuardId = String(effectiveGuardId ?? '').trim();
-          const visitors$ = effectiveGuardId
-            ? this.dataService.get<any[]>('visitor/security/', {
-                headers: { id: effectiveGuardId },
-              })
-            : of([]);
+
           return forkJoin({
             gated: this.dataService.get<any[]>('gatedCommunity/').pipe(catchError(() => of([]))),
             complexes: this.dataService.get<any[]>('complex/').pipe(catchError(() => of([]))),
@@ -737,7 +707,9 @@ export class GuardPortal implements OnInit, OnDestroy {
             units: this.dataService.get<any[]>('unit/').pipe(catchError(() => of([]))),
             users: this.dataService.get<any[]>('user/').pipe(catchError(() => of([]))),
             vehicles: this.dataService.get<any[]>('vehicle/').pipe(catchError(() => of([]))),
-            visitors: visitors$.pipe(catchError(() => of([]))),
+            visitors: this.dataService
+              .get<ResponseBody>('visitor/security/')
+              .pipe(catchError(() => of<ResponseBody>({ message: '' }))),
             userContext: of({ currentUser, storedCurrentUser }),
           });
         }),
@@ -749,458 +721,427 @@ export class GuardPortal implements OnInit, OnDestroy {
             units: of([]),
             users: of([]),
             vehicles: of([]),
-            visitors: of([]),
+            visitors: of<ResponseBody>({ message: '' }),
             userContext: of({ currentUser: null, storedCurrentUser: null }),
           }),
         ),
       )
-      .subscribe(({ gated, complexes, securityCompanies, units, users, vehicles, visitors, userContext }) => {
-        const gatedList = this.ensureArray<any>(gated);
-        const complexList = this.ensureArray<any>(complexes);
-        const securityCompanyList = this.ensureArray<any>(securityCompanies);
-        const unitList = this.ensureArray<any>(units);
-        const userList = this.ensureArray<any>(users);
-        const vehicleList = this.ensureArray<any>(vehicles);
-        this.visitorList = this.ensureArray<any>(visitors);
-        this.isSosEnabledForCompany = this.resolveSosOptinForCompany(
-          userContext?.currentUser ?? null,
-          userContext?.storedCurrentUser ?? null,
-          securityCompanyList,
-        );
-
-        this.cdr.markForCheck();
-        this.stationContextReady = true;
-        this.applyStationFromCurrentShiftState();
-
-        const allGatedCommunities = gatedList.map((community) => ({
-          id: this.normalizeStationId(community._id ?? community.id),
-          name: community.name ?? '',
-          complexes: [],
-          houses: this.generateResidenceLabels(
-            Number(community.numberOfHouses ?? 0),
-            Number(community.unitStart ?? 0),
-            Number(community.unitEnd ?? 0),
-            'House',
-          ),
-          complexesInCommunity: [],
-        }));
-
-        const allComplexes = complexList.map((complex) => ({
-          id: this.normalizeStationId(complex._id ?? complex.id),
-          name: complex.name ?? '',
-          address: String(complex.address ?? '').trim(),
-          gatedCommunityName: complex.gatedCommunityName ?? '',
-          units: this.generateResidenceLabels(
-            Number(complex.numberOfUnits ?? 0),
-            Number(complex.unitStart ?? 0),
-            Number(complex.unitEnd ?? 0),
-            'Unit',
-          ),
-        }));
-
-        const hasAssignments =
-          this.assignedComplexIds.size > 0 || this.assignedCommunityIds.size > 0;
-
-        const allowedComplexes = hasAssignments
-          ? allComplexes.filter((complex) => {
-              const complexId = String(complex.id ?? '');
-              return this.assignedComplexIds.has(complexId);
-            })
-          : [];
-
-        const allowedComplexIdSet = new Set(allowedComplexes.map((complex) => String(complex.id)));
-
-        const allowedGatedCommunityIds = new Set<string>(
-          Array.from(this.assignedCommunityIds).filter((id) => id.length > 0),
-        );
-
-        this.ensureStationSelectionRequiredState();
-
-        for (const complex of allowedComplexes) {
-          const gatedName = this.normalizeName(complex.gatedCommunityName);
-          if (!gatedName) {
-            continue;
-          }
-
-          const matchedCommunity = allGatedCommunities.find(
-            (community) => this.normalizeName(community.name) === gatedName,
+      .subscribe(
+        ({
+          gated,
+          complexes,
+          securityCompanies,
+          units,
+          users,
+          vehicles,
+          visitors,
+          userContext,
+        }) => {
+          const gatedList = this.ensureArray<any>(gated);
+          const complexList = this.ensureArray<any>(complexes);
+          const securityCompanyList = this.ensureArray<any>(securityCompanies);
+          const unitList = this.ensureArray<any>(units);
+          const userList = this.ensureArray<any>(users);
+          const vehicleList = this.ensureArray<any>(vehicles);
+          this.visitorList.update(() => this.ensureArray<any>(visitors.payload));
+          this.isSosEnabledForCompany = this.resolveSosOptinForCompany(
+            userContext?.currentUser ?? null,
+            userContext?.storedCurrentUser ?? null,
+            securityCompanyList,
           );
-          if (matchedCommunity) {
-            allowedGatedCommunityIds.add(matchedCommunity.id);
-          }
-        }
 
-        this.gatedCommunities = allGatedCommunities
-          .filter((community) => allowedGatedCommunityIds.has(community.id))
-          .map((community) => ({
-            ...community,
-            complexes: allowedComplexes
-              .filter(
-                (complex) =>
-                  this.normalizeName(complex.gatedCommunityName) ===
-                  this.normalizeName(community.name),
-              )
-              .map((complex) => ({ id: complex.id, name: complex.name, address: complex.address })),
-            complexesInCommunity: allowedComplexes
-              .filter(
-                (complex) =>
-                  this.normalizeName(complex.gatedCommunityName) ===
-                  this.normalizeName(community.name),
-              )
-              .map((complex) => ({
-                id: complex.id,
-                name: complex.name,
-                units: complex.units,
-                address: complex.address,
-              })),
+          this.cdr.markForCheck();
+          this.stationContextReady = true;
+          this.applyStationFromCurrentShiftState();
+
+          const allGatedCommunities = gatedList.map((community) => ({
+            id: this.normalizeStationId(community._id ?? community.id),
+            name: community.name ?? '',
+            complexes: [],
+            houses: this.generateResidenceLabels(
+              Number(community.numberOfHouses ?? 0),
+              Number(community.unitStart ?? 0),
+              Number(community.unitEnd ?? 0),
+              'House',
+            ),
+            complexesInCommunity: [],
           }));
 
-        this.standaloneComplexes = allowedComplexes
-          .filter((complex) => !this.normalizeName(complex.gatedCommunityName))
-          .map((complex) => ({ id: complex.id, name: complex.name, address: complex.address }));
+          const allComplexes = complexList.map((complex) => ({
+            id: this.normalizeStationId(complex._id ?? complex.id),
+            name: complex.name ?? '',
+            address: String(complex.address ?? '').trim(),
+            gatedCommunityName: complex.gatedCommunityName ?? '',
+            units: this.generateResidenceLabels(
+              Number(complex.numberOfUnits ?? 0),
+              Number(complex.unitStart ?? 0),
+              Number(complex.unitEnd ?? 0),
+              'Unit',
+            ),
+          }));
 
-        this.assignedComplexes = allowedComplexes.map((complex) => ({
-          id: complex.id,
-          name: complex.name,
-          units: complex.units,
-          address: complex.address,
-        }));
+          const hasAssignments =
+            this.assignedComplexIds.size > 0 || this.assignedCommunityIds.size > 0;
 
-        this.syncGatedComplexSelection();
+          const allowedComplexes = hasAssignments
+            ? allComplexes.filter((complex) => {
+                const complexId = String(complex.id ?? '');
+                return this.assignedComplexIds.has(complexId);
+              })
+            : [];
 
-        const tenantUserById = new Map<string, any>();
-        for (const user of userList) {
-          if (!this.hasTenantRole(user?.type)) {
-            continue;
-          }
-          const userId = String(user?._id ?? user?.id ?? '').trim();
-          if (!userId) {
-            continue;
-          }
-          tenantUserById.set(userId, user);
-        }
-
-        const tenantLocationByUserId = new Map<
-          string,
-          {
-            complexId: string;
-            gatedCommunityId: string;
-            houseNumber: string;
-            unit: string;
-          }
-        >();
-
-        for (const unit of unitList) {
-          const complexId = this.normalizeStationId(unit?.complex?._id ?? unit?.complex?.id);
-          const gatedCommunityId = this.normalizeStationId(
-            unit?.gatedCommunity?._id ?? unit?.gatedCommunity?.id,
+          const allowedComplexIdSet = new Set(
+            allowedComplexes.map((complex) => String(complex.id)),
           );
-          const unitNumberRaw = unit?.number;
-          const normalizedUnitNumber = String(unitNumberRaw ?? '').trim();
 
-          const linkedUsers = Array.isArray(unit?.users) ? unit.users : [];
-          for (const linkedUser of linkedUsers) {
-            const linkedUserId = String(
-              linkedUser && typeof linkedUser === 'object'
-                ? ((linkedUser as any)?._id ?? (linkedUser as any)?.id ?? '')
-                : (linkedUser ?? ''),
-            ).trim();
+          const allowedGatedCommunityIds = new Set<string>(
+            Array.from(this.assignedCommunityIds).filter((id) => id.length > 0),
+          );
 
-            if (!linkedUserId) {
+          this.ensureStationSelectionRequiredState();
+
+          for (const complex of allowedComplexes) {
+            const gatedName = this.normalizeName(complex.gatedCommunityName);
+            if (!gatedName) {
               continue;
             }
 
-            const previous = tenantLocationByUserId.get(linkedUserId);
-            const unitValue = normalizedUnitNumber || previous?.unit || '';
-            const houseNumberValue =
-              (!complexId && normalizedUnitNumber) || previous?.houseNumber || '';
-
-            tenantLocationByUserId.set(linkedUserId, {
-              complexId: complexId || previous?.complexId || '',
-              gatedCommunityId: gatedCommunityId || previous?.gatedCommunityId || '',
-              houseNumber: houseNumberValue,
-              unit: unitValue,
-            });
+            const matchedCommunity = allGatedCommunities.find(
+              (community) => this.normalizeName(community.name) === gatedName,
+            );
+            if (matchedCommunity) {
+              allowedGatedCommunityIds.add(matchedCommunity.id);
+            }
           }
-        }
 
-        this.residents = userList
-          .filter((user) => this.hasTenantRole(user?.type))
-          .map((user) => {
+          this.gatedCommunities = allGatedCommunities
+            .filter((community) => allowedGatedCommunityIds.has(community.id))
+            .map((community) => ({
+              ...community,
+              complexes: allowedComplexes
+                .filter(
+                  (complex) =>
+                    this.normalizeName(complex.gatedCommunityName) ===
+                    this.normalizeName(community.name),
+                )
+                .map((complex) => ({
+                  id: complex.id,
+                  name: complex.name,
+                  address: complex.address,
+                })),
+              complexesInCommunity: allowedComplexes
+                .filter(
+                  (complex) =>
+                    this.normalizeName(complex.gatedCommunityName) ===
+                    this.normalizeName(community.name),
+                )
+                .map((complex) => ({
+                  id: complex.id,
+                  name: complex.name,
+                  units: complex.units,
+                  address: complex.address,
+                })),
+            }));
+
+          this.standaloneComplexes = allowedComplexes
+            .filter((complex) => !this.normalizeName(complex.gatedCommunityName))
+            .map((complex) => ({ id: complex.id, name: complex.name, address: complex.address }));
+
+          this.assignedComplexes = allowedComplexes.map((complex) => ({
+            id: complex.id,
+            name: complex.name,
+            units: complex.units,
+            address: complex.address,
+          }));
+
+          this.syncGatedComplexSelection();
+
+          const tenantUserById = new Map<string, any>();
+          for (const user of userList) {
+            if (!this.hasTenantRole(user?.type)) {
+              continue;
+            }
             const userId = String(user?._id ?? user?.id ?? '').trim();
-            const linkedTenantLocation = userId ? tenantLocationByUserId.get(userId) : null;
+            if (!userId) {
+              continue;
+            }
+            tenantUserById.set(userId, user);
+          }
+
+          const tenantLocationByUserId = new Map<
+            string,
+            {
+              complexId: string;
+              gatedCommunityId: string;
+              houseNumber: string;
+              unit: string;
+            }
+          >();
+
+          for (const unit of unitList) {
+            const complexId = this.normalizeStationId(unit?.complex?._id ?? unit?.complex?.id);
+            const gatedCommunityId = this.normalizeStationId(
+              unit?.gatedCommunity?._id ?? unit?.gatedCommunity?.id,
+            );
+            const unitNumberRaw = unit?.number;
+            const normalizedUnitNumber = String(unitNumberRaw ?? '').trim();
+
+            const linkedUsers = Array.isArray(unit?.users) ? unit.users : [];
+            for (const linkedUser of linkedUsers) {
+              const linkedUserId = String(
+                linkedUser && typeof linkedUser === 'object'
+                  ? ((linkedUser as any)?._id ?? (linkedUser as any)?.id ?? '')
+                  : (linkedUser ?? ''),
+              ).trim();
+
+              if (!linkedUserId) {
+                continue;
+              }
+
+              const previous = tenantLocationByUserId.get(linkedUserId);
+              const unitValue = normalizedUnitNumber || previous?.unit || '';
+              const houseNumberValue =
+                (!complexId && normalizedUnitNumber) || previous?.houseNumber || '';
+
+              tenantLocationByUserId.set(linkedUserId, {
+                complexId: complexId || previous?.complexId || '',
+                gatedCommunityId: gatedCommunityId || previous?.gatedCommunityId || '',
+                houseNumber: houseNumberValue,
+                unit: unitValue,
+              });
+            }
+          }
+
+          this.residents = userList
+            .filter((user) => this.hasTenantRole(user?.type))
+            .map((user) => {
+              const userId = String(user?._id ?? user?.id ?? '').trim();
+              const linkedTenantLocation = userId ? tenantLocationByUserId.get(userId) : null;
+
+              return {
+                id: userId,
+                name: `${user.name ?? ''} ${user.surname ?? ''}`.trim(),
+                unit:
+                  linkedTenantLocation?.unit ??
+                  user.unit ??
+                  user.address ??
+                  user.unitNumber ??
+                  user.houseNumber ??
+                  '',
+                houseNumber: linkedTenantLocation?.houseNumber ?? user.houseNumber ?? '',
+                cellphone: user.cellNumber ?? '',
+                email: user.emailAddress ?? '',
+                photoDataUrl: user.profilePhoto ?? '',
+                complexId:
+                  linkedTenantLocation?.complexId ??
+                  this.normalizeStationId(user.complex?._id ?? user.complex?.id),
+                gatedCommunityId:
+                  linkedTenantLocation?.gatedCommunityId ??
+                  this.normalizeStationId(
+                    user.communityId ?? user.gatedCommunity?._id ?? user.gatedCommunity?.id,
+                  ),
+              };
+            })
+            .filter((resident) => {
+              if (!hasAssignments) {
+                return false;
+              }
+              const inComplex =
+                resident.complexId && allowedComplexIdSet.has(String(resident.complexId));
+              const inCommunity =
+                resident.gatedCommunityId &&
+                allowedGatedCommunityIds.has(String(resident.gatedCommunityId));
+              return Boolean(inComplex || inCommunity);
+            });
+
+          const tenantVehiclesFromUsers = userList
+            .filter((user) => this.hasTenantRole(user?.type))
+            .flatMap((user) => {
+              const userId = String(user?._id ?? user?.id ?? '').trim();
+              const linkedTenantLocation = userId ? tenantLocationByUserId.get(userId) : null;
+              const ownerName = `${user?.name ?? ''} ${user?.surname ?? ''}`.trim();
+              const unit =
+                linkedTenantLocation?.unit ??
+                user?.unit ??
+                user?.address ??
+                user?.unitNumber ??
+                user?.houseNumber ??
+                '';
+              const houseNumber = linkedTenantLocation?.houseNumber ?? user?.houseNumber ?? '';
+              const complexId =
+                linkedTenantLocation?.complexId ??
+                this.normalizeStationId(user?.complex?._id ?? user?.complex?.id);
+              const gatedCommunityId =
+                linkedTenantLocation?.gatedCommunityId ??
+                this.normalizeStationId(
+                  user?.communityId ?? user?.gatedCommunity?._id ?? user?.gatedCommunity?.id,
+                );
+
+              const userVehicles = Array.isArray(user?.vehicles) ? user.vehicles : [];
+              return userVehicles.map((vehicle: any) => ({
+                make: vehicle?.make ?? '',
+                model: vehicle?.model ?? '',
+                regNumber:
+                  vehicle?.reg ??
+                  vehicle?.regNumber ??
+                  vehicle?.registrationNumber ??
+                  vehicle?.registerationNumber ??
+                  '',
+                color: vehicle?.color ?? '',
+                unit,
+                houseNumber,
+                owner: ownerName,
+                complexId,
+                gatedCommunityId,
+              }));
+            });
+
+          const vehiclesFromVehicleCollection = vehicleList.map((vehicle) => {
+            const linkedUserId = String(vehicle?.user?._id ?? vehicle?.user?.id ?? '').trim();
+            const linkedTenant = linkedUserId ? tenantUserById.get(linkedUserId) : null;
+            const linkedTenantLocation = linkedUserId
+              ? tenantLocationByUserId.get(linkedUserId)
+              : null;
+
+            const resolvedUnit =
+              linkedTenantLocation?.unit ??
+              linkedTenant?.unit ??
+              linkedTenant?.address ??
+              linkedTenant?.unitNumber ??
+              linkedTenant?.houseNumber ??
+              vehicle?.unit ??
+              vehicle?.user?.unit ??
+              vehicle?.user?.address ??
+              vehicle?.user?.unitNumber ??
+              vehicle?.user?.houseNumber ??
+              '';
+
+            const resolvedHouseNumber =
+              linkedTenantLocation?.houseNumber ??
+              linkedTenant?.houseNumber ??
+              vehicle?.user?.houseNumber ??
+              '';
+
+            const resolvedOwner =
+              `${linkedTenant?.name ?? vehicle?.user?.name ?? ''} ${linkedTenant?.surname ?? vehicle?.user?.surname ?? ''}`.trim();
 
             return {
-              id: userId,
-              name: `${user.name ?? ''} ${user.surname ?? ''}`.trim(),
-              unit:
-                linkedTenantLocation?.unit ??
-                user.unit ??
-                user.address ??
-                user.unitNumber ??
-                user.houseNumber ??
+              make: vehicle.make ?? '',
+              model: vehicle.model ?? '',
+              regNumber:
+                vehicle.reg ??
+                vehicle.registrationNumber ??
+                vehicle.registerationNumber ??
+                vehicle.regNumber ??
                 '',
-              houseNumber: linkedTenantLocation?.houseNumber ?? user.houseNumber ?? '',
-              cellphone: user.cellNumber ?? '',
-              email: user.emailAddress ?? '',
-              photoDataUrl: user.profilePhoto ?? '',
+              color: vehicle.color ?? '',
+              unit: resolvedUnit,
+              houseNumber: resolvedHouseNumber,
+              owner: resolvedOwner,
               complexId:
                 linkedTenantLocation?.complexId ??
-                this.normalizeStationId(user.complex?._id ?? user.complex?.id),
+                this.normalizeStationId(
+                  linkedTenant?.complex?._id ??
+                    linkedTenant?.complex?.id ??
+                    vehicle?.user?.complex?._id ??
+                    vehicle?.user?.complex?.id,
+                ),
               gatedCommunityId:
                 linkedTenantLocation?.gatedCommunityId ??
                 this.normalizeStationId(
-                  user.communityId ?? user.gatedCommunity?._id ?? user.gatedCommunity?.id,
+                  linkedTenant?.communityId ??
+                    linkedTenant?.gatedCommunity?._id ??
+                    linkedTenant?.gatedCommunity?.id ??
+                    vehicle?.user?.communityId ??
+                    vehicle?.user?.gatedCommunity?._id ??
+                    vehicle?.user?.gatedCommunity?.id,
                 ),
             };
-          })
-          .filter((resident) => {
+          });
+
+          const mergedVehiclesMap = new Map<
+            string,
+            {
+              make: string;
+              model: string;
+              regNumber: string;
+              color: string;
+              unit: string;
+              houseNumber: string;
+              owner: string;
+              complexId: string;
+              gatedCommunityId: string;
+            }
+          >();
+
+          for (const vehicle of [...vehiclesFromVehicleCollection, ...tenantVehiclesFromUsers]) {
+            const key = this.normalizeName(vehicle.regNumber);
+            if (!key) {
+              continue;
+            }
+            if (!mergedVehiclesMap.has(key)) {
+              mergedVehiclesMap.set(key, vehicle);
+            }
+          }
+
+          this.vehicles = Array.from(mergedVehiclesMap.values()).filter((vehicle) => {
             if (!hasAssignments) {
               return false;
             }
             const inComplex =
-              resident.complexId && allowedComplexIdSet.has(String(resident.complexId));
+              vehicle.complexId && allowedComplexIdSet.has(String(vehicle.complexId));
             const inCommunity =
-              resident.gatedCommunityId &&
-              allowedGatedCommunityIds.has(String(resident.gatedCommunityId));
+              vehicle.gatedCommunityId &&
+              allowedGatedCommunityIds.has(String(vehicle.gatedCommunityId));
             return Boolean(inComplex || inCommunity);
           });
 
-        const tenantVehiclesFromUsers = userList
-          .filter((user) => this.hasTenantRole(user?.type))
-          .flatMap((user) => {
-            const userId = String(user?._id ?? user?.id ?? '').trim();
-            const linkedTenantLocation = userId ? tenantLocationByUserId.get(userId) : null;
-            const ownerName = `${user?.name ?? ''} ${user?.surname ?? ''}`.trim();
-            const unit =
-              linkedTenantLocation?.unit ??
-              user?.unit ??
-              user?.address ??
-              user?.unitNumber ??
-              user?.houseNumber ??
-              '';
-            const houseNumber = linkedTenantLocation?.houseNumber ?? user?.houseNumber ?? '';
-            const complexId =
-              linkedTenantLocation?.complexId ??
-              this.normalizeStationId(user?.complex?._id ?? user?.complex?.id);
-            const gatedCommunityId =
-              linkedTenantLocation?.gatedCommunityId ??
-              this.normalizeStationId(
-                user?.communityId ?? user?.gatedCommunity?._id ?? user?.gatedCommunity?.id,
-              );
+          // Update filtered lists to show all residents and vehicles by default
+          this.updateFilteredLists();
 
-            const userVehicles = Array.isArray(user?.vehicles) ? user.vehicles : [];
-            return userVehicles.map((vehicle: any) => ({
-              make: vehicle?.make ?? '',
-              model: vehicle?.model ?? '',
-              regNumber:
-                vehicle?.reg ??
-                vehicle?.regNumber ??
-                vehicle?.registrationNumber ??
-                vehicle?.registerationNumber ??
-                '',
-              color: vehicle?.color ?? '',
-              unit,
-              houseNumber,
-              owner: ownerName,
-              complexId,
-              gatedCommunityId,
-            }));
+          this.visitorList.update(() =>
+            this.visitorList()
+              .filter((visitor: { validity?: boolean }) => visitor.validity === true)
+              .filter((visitor: any, index: number, list: any[]) => {
+                const visitorId = String(visitor?._id ?? visitor?.id ?? '').trim();
+                const code = String(visitor?.code ?? '').trim();
+
+                if (visitorId) {
+                  return (
+                    index ===
+                    list.findIndex(
+                      (item: any) => String(item?._id ?? item?.id ?? '').trim() === visitorId,
+                    )
+                  );
+                }
+
+                if (code) {
+                  return (
+                    index ===
+                    list.findIndex((item: any) => String(item?.code ?? '').trim() === code)
+                  );
+                }
+
+                return true;
+              }),
+          );
+
+          this.stationContextReady = true;
+          this.applyStationFromCurrentShiftState();
+          this.ensureStationSelectionRequiredState();
+          console.log('[GuardPortal][data] station and view state', {
+            stationType: this.stationType,
+            selectedComplex: this.filtersForm.selectedComplex,
+            selectedGatedCommunity: this.filtersForm.selectedGatedCommunity,
+            selectedStationName: this.selectedStationName,
+            showStationPrompt: this.showStationPrompt,
+            showVehicles: this.showVehicles,
+            showResidents: this.showResidents,
+            showCodes: this.showCodes,
           });
-
-        const vehiclesFromVehicleCollection = vehicleList.map((vehicle) => {
-          const linkedUserId = String(vehicle?.user?._id ?? vehicle?.user?.id ?? '').trim();
-          const linkedTenant = linkedUserId ? tenantUserById.get(linkedUserId) : null;
-          const linkedTenantLocation = linkedUserId
-            ? tenantLocationByUserId.get(linkedUserId)
-            : null;
-
-          const resolvedUnit =
-            linkedTenantLocation?.unit ??
-            linkedTenant?.unit ??
-            linkedTenant?.address ??
-            linkedTenant?.unitNumber ??
-            linkedTenant?.houseNumber ??
-            vehicle?.unit ??
-            vehicle?.user?.unit ??
-            vehicle?.user?.address ??
-            vehicle?.user?.unitNumber ??
-            vehicle?.user?.houseNumber ??
-            '';
-
-          const resolvedHouseNumber =
-            linkedTenantLocation?.houseNumber ??
-            linkedTenant?.houseNumber ??
-            vehicle?.user?.houseNumber ??
-            '';
-
-          const resolvedOwner =
-            `${linkedTenant?.name ?? vehicle?.user?.name ?? ''} ${linkedTenant?.surname ?? vehicle?.user?.surname ?? ''}`.trim();
-
-          return {
-            make: vehicle.make ?? '',
-            model: vehicle.model ?? '',
-            regNumber:
-              vehicle.reg ??
-              vehicle.registrationNumber ??
-              vehicle.registerationNumber ??
-              vehicle.regNumber ??
-              '',
-            color: vehicle.color ?? '',
-            unit: resolvedUnit,
-            houseNumber: resolvedHouseNumber,
-            owner: resolvedOwner,
-            complexId:
-              linkedTenantLocation?.complexId ??
-              this.normalizeStationId(
-                linkedTenant?.complex?._id ??
-                  linkedTenant?.complex?.id ??
-                  vehicle?.user?.complex?._id ??
-                  vehicle?.user?.complex?.id,
-              ),
-            gatedCommunityId:
-              linkedTenantLocation?.gatedCommunityId ??
-              this.normalizeStationId(
-                linkedTenant?.communityId ??
-                  linkedTenant?.gatedCommunity?._id ??
-                  linkedTenant?.gatedCommunity?.id ??
-                  vehicle?.user?.communityId ??
-                  vehicle?.user?.gatedCommunity?._id ??
-                  vehicle?.user?.gatedCommunity?.id,
-              ),
-          };
-        });
-
-        const mergedVehiclesMap = new Map<
-          string,
-          {
-            make: string;
-            model: string;
-            regNumber: string;
-            color: string;
-            unit: string;
-            houseNumber: string;
-            owner: string;
-            complexId: string;
-            gatedCommunityId: string;
-          }
-        >();
-
-        for (const vehicle of [...vehiclesFromVehicleCollection, ...tenantVehiclesFromUsers]) {
-          const key = this.normalizeName(vehicle.regNumber);
-          if (!key) {
-            continue;
-          }
-          if (!mergedVehiclesMap.has(key)) {
-            mergedVehiclesMap.set(key, vehicle);
-          }
-        }
-
-        this.vehicles = Array.from(mergedVehiclesMap.values()).filter((vehicle) => {
-          if (!hasAssignments) {
-            return false;
-          }
-          const inComplex = vehicle.complexId && allowedComplexIdSet.has(String(vehicle.complexId));
-          const inCommunity =
-            vehicle.gatedCommunityId &&
-            allowedGatedCommunityIds.has(String(vehicle.gatedCommunityId));
-          return Boolean(inComplex || inCommunity);
-        });
-
-        // Update filtered lists to show all residents and vehicles by default
-        this.updateFilteredLists();
-
-        const filteredVisitors = this.visitorList
-          .filter((visitor: { validity?: boolean }) => visitor.validity === true)
-          .filter((visitor: any, index: number, list: any[]) => {
-            const visitorId = String(visitor?._id ?? visitor?.id ?? '').trim();
-            const code = String(visitor?.code ?? '').trim();
-
-            if (visitorId) {
-              return (
-                index ===
-                list.findIndex(
-                  (item: any) => String(item?._id ?? item?.id ?? '').trim() === visitorId,
-                )
-              );
-            }
-
-            if (code) {
-              return (
-                index === list.findIndex((item: any) => String(item?.code ?? '').trim() === code)
-              );
-            }
-
-            return true;
-          });
-        this.activeCodes = filteredVisitors
-          .map((visitor: any) => {
-            // Map backend vehicle fields to frontend fields
-            let mappedVehicle = undefined;
-            if (visitor.vehicle) {
-              mappedVehicle = {
-                makeModel: `${visitor.vehicle.make ?? ''} ${visitor.vehicle.model ?? ''}`.trim(),
-                registration:
-                  visitor.vehicle.registrationNumber ??
-                  visitor.vehicle.registerationNumber ??
-                  visitor.vehicle.registration ??
-                  '',
-                color: visitor.vehicle.colour ?? visitor.vehicle.color ?? '',
-                make: visitor.vehicle.make ?? '',
-                model: visitor.vehicle.model ?? '',
-                regNumber:
-                  visitor.vehicle.registrationNumber ??
-                  visitor.vehicle.registerationNumber ??
-                  visitor.vehicle.registration ??
-                  '',
-              };
-            }
-            return {
-              visitorId: String(visitor._id ?? visitor.id ?? ''),
-              code: String(visitor.code ?? ''),
-              visitorName: `${visitor.name ?? ''} ${visitor.surname ?? ''}`.trim(),
-              tenantName: `${visitor.user?.name ?? ''} ${visitor.user?.surname ?? ''}`.trim(),
-              cellphone: visitor.contact ?? '',
-              unit: visitor.user?.unit ?? '',
-              houseNumber: visitor.user?.houseNumber ?? '',
-              expires: this.formatExpiryLabel(visitor.expiry),
-              expiryRaw: visitor.expiry ?? null,
-              isDriving: Boolean(visitor.driving),
-              complexId: this.normalizeStationId(visitor.user?.complexId),
-              gatedCommunityId: this.normalizeStationId(visitor.user?.gatedCommunityId),
-              validity: visitor.validity !== false,
-              access: visitor.access === true,
-              vehicle: mappedVehicle,
-            };
-          })
-          .filter((visitorCode: { complexId: any; gatedCommunityId: any }) => {
-            if (!hasAssignments) {
-              return false;
-            }
-            const complexIdStr = String(visitorCode.complexId ?? '');
-            const communityIdStr = String(visitorCode.gatedCommunityId ?? '');
-            const inComplex = complexIdStr && allowedComplexIdSet.has(complexIdStr);
-            const inCommunity = communityIdStr && allowedGatedCommunityIds.has(communityIdStr);
-            const result = Boolean(inComplex || inCommunity);
-            return result;
-          });
-        // ...
-
-        this.stationContextReady = true;
-        this.applyStationFromCurrentShiftState();
-        this.ensureStationSelectionRequiredState();
-        console.log('[GuardPortal][data] station and view state', {
-          stationType: this.stationType,
-          selectedComplex: this.filtersForm.selectedComplex,
-          selectedGatedCommunity: this.filtersForm.selectedGatedCommunity,
-          selectedStationName: this.selectedStationName,
-          showStationPrompt: this.showStationPrompt,
-          showVehicles: this.showVehicles,
-          showResidents: this.showResidents,
-          showCodes: this.showCodes,
-        });
-        this.cdr.markForCheck();
-      });
+          this.cdr.markForCheck();
+        },
+      );
     this.submitting.update(() => false);
   }
 
@@ -1424,42 +1365,6 @@ export class GuardPortal implements OnInit, OnDestroy {
       return 'Expired';
     }
     return `In ${diffHours} hours`;
-  }
-
-  // Code search: only filter codes by code; Reg search: only filter codes with vehicles by reg
-  protected get filteredCodes() {
-    const codeQuery = (this.filtersForm.searchCode || '').replace(/\D/g, '');
-    const regQuery = (this.filtersForm.searchReg || '').trim().toLowerCase();
-    const unitQuery = (this.filtersForm.searchUnit || '').trim().toLowerCase();
-    let codes = Array.isArray(this.activeCodes) ? this.activeCodes : [];
-    if (this.filtersForm.selectedComplex) {
-      codes = codes.filter(
-        (code) => String(code.complexId) === String(this.filtersForm.selectedComplex),
-      );
-    } else if (this.filtersForm.selectedGatedCommunity) {
-      codes = codes.filter(
-        (code) => String(code.gatedCommunityId) === String(this.filtersForm.selectedGatedCommunity),
-      );
-    }
-    if (unitQuery) {
-      codes = codes.filter((code) => {
-        const residence = this.resolveResidenceNumber(code.unit, code.houseNumber).toLowerCase();
-        return residence.includes(unitQuery);
-      });
-    }
-    if (codeQuery) {
-      return codes.filter((code) => code.code && code.code.includes(codeQuery));
-    }
-    if (regQuery) {
-      // Only codes with vehicles, filter by registration
-      return codes.filter(
-        (code) =>
-          code.vehicle &&
-          code.vehicle.registration &&
-          code.vehicle.registration.toLowerCase().includes(regQuery),
-      );
-    }
-    return codes;
   }
 
   protected openTenantModal(): void {
@@ -2163,6 +2068,12 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.clearStationSelection();
   }
 
+  // Prototype
+  filterCodes(event: any) {
+    console.log(event.target.value)
+    this.visitorList.update(() => this.visitorList().filter((x) => x.code?.toString().includes(event.target.value)));
+  }
+
   private persistStationSelection(): void {
     if (!isPlatformBrowser(this.platformId)) {
       return;
@@ -2410,72 +2321,49 @@ export class GuardPortal implements OnInit, OnDestroy {
     return list.filter((unit) => unit.toLowerCase().includes(query));
   }
 
-  protected get filteredRegOptions(): string[] {
+  protected get filteredRegOptions() {
     let vehicles = Array.isArray(this.vehicles) ? this.vehicles : [];
-    let codes = Array.isArray(this.activeCodes) ? this.activeCodes : [];
     const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
 
     // Filter by complex or gated community
     if (complexFilter) {
       vehicles = vehicles.filter((v) => v.complexId === complexFilter);
-      codes = codes.filter((c) => c.complexId === complexFilter);
     } else if (this.filtersForm.selectedGatedCommunity) {
       vehicles = vehicles.filter(
         (v) => v.gatedCommunityId === this.filtersForm.selectedGatedCommunity,
       );
-      codes = codes.filter((c) => c.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
+      this.visitorList.update(() =>
+        this.visitorList().filter(
+          (c) => c.destination.gatedCommunity?._id === this.filtersForm.selectedGatedCommunity,
+        ),
+      );
     }
 
-    const normalizeReg = (value: string): string => value.toLowerCase().replace(/\s+/g, '');
-
-    const vehicleRegs = vehicles.map((vehicle) => (vehicle.regNumber || '').trim()).filter(Boolean);
-
-    const visitorRegs = codes
-      .filter((code) => code.vehicle)
-      .map((code) =>
-        (code.vehicle?.registration || code.vehicle?.regNumber || code.vehicle?.reg || '').trim(),
-      )
-      .filter(Boolean);
-
-    const merged = [...vehicleRegs, ...visitorRegs];
-    const uniqueMap = new Map<string, string>();
-    for (const reg of merged) {
-      const key = normalizeReg(reg);
-      if (!key || uniqueMap.has(key)) {
-        continue;
-      }
-      uniqueMap.set(key, reg);
-    }
-
-    const list = Array.from(uniqueMap.values()).sort((a, b) => a.localeCompare(b));
-    const query = normalizeReg(this.filtersForm.searchReg.trim());
-    if (!query) {
-      return list;
-    }
-    return list.filter((reg) => normalizeReg(reg).includes(query));
+    return vehicles;
   }
 
   protected get filteredVisitorsForUnit() {
-    let codes = this.activeCodes;
-    const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
-
-    // Filter by complex or gated community
-    if (complexFilter) {
-      codes = codes.filter((c) => c.complexId === complexFilter);
-    } else if (this.filtersForm.selectedGatedCommunity) {
-      codes = codes.filter((c) => c.gatedCommunityId === this.filtersForm.selectedGatedCommunity);
-    }
-
     const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
-    const mappedCodes = codes.map((code) => ({
-      ...code,
-      unit: this.resolveResidenceNumber(code.unit, code.houseNumber),
-    }));
+    this.visitorList.update(() =>
+      this.visitorList().map((code) => ({
+        ...code,
+        unit: this.resolveResidenceNumber(
+          code.destination.complex?.name,
+          code.destination.gatedCommunity?.name,
+        ),
+      })),
+    );
 
     if (!unitQuery) {
       return [];
     }
-    return mappedCodes.filter((code) => code.unit.toLowerCase().includes(unitQuery));
+    this.visitorList.update(() =>
+      this.visitorList().filter((code) =>
+        code.destination.complex?.name.toLowerCase().includes(unitQuery),
+      ),
+    );
+
+    return [];
   }
 
   protected get filteredVehicles() {
@@ -2493,40 +2381,13 @@ export class GuardPortal implements OnInit, OnDestroy {
     const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
     const regQuery = this.filtersForm.searchReg.trim().toLowerCase();
 
-    // Visitor code vehicles (from activeCodes)
-    const visitorVehicles = (Array.isArray(this.activeCodes) ? this.activeCodes : [])
-      .filter((code) => code.isDriving && code.vehicle && code.vehicle.registration)
-      .filter((code) => {
-        // Filter by complex/gated
-        if (complexFilter && code.complexId !== complexFilter) return false;
-        if (
-          !complexFilter &&
-          this.filtersForm.selectedGatedCommunity &&
-          code.gatedCommunityId !== this.filtersForm.selectedGatedCommunity
-        )
-          return false;
-        return true;
-      })
-      .map((code) => ({
-        make: code.vehicle?.makeModel?.split(' ')[0] || '',
-        model: code.vehicle?.makeModel?.split(' ').slice(1).join(' ') || '',
-        regNumber: code.vehicle?.registration || '',
-        color: code.vehicle?.color || '',
-        unit: code.unit || '',
-        houseNumber: code.houseNumber || '',
-        owner: code.visitorName || '',
-        complexId: code.complexId || '',
-        gatedCommunityId: code.gatedCommunityId || '',
-        isVisitor: true,
-      }));
-
     // Merge and deduplicate by regNumber
     const mappedVehicles = vehicles.map((vehicle) => ({
       ...vehicle,
       unit: this.resolveResidenceNumber(vehicle.unit, vehicle.houseNumber),
       isVisitor: false,
     }));
-    let all = [...mappedVehicles, ...visitorVehicles];
+    let all = [...mappedVehicles];
     const seen = new Set();
     all = all.filter((v) => {
       const key = (v.regNumber || '').toLowerCase();
@@ -2740,55 +2601,58 @@ export class GuardPortal implements OnInit, OnDestroy {
     return false;
   }
 
-  protected onGrantAccess(code: any): void {
+  protected onGrantAccess(code: visitorDTO): void {
     if (!code) {
       this.showToast('Access granted');
       return;
     }
 
-    const targetVisitorId = String(code.visitorId ?? '').trim();
+    const targetVisitorId = String(code._id ?? '').trim();
 
     code.validity = false;
     code.access = true;
 
-    this.activeCodes = (Array.isArray(this.activeCodes) ? this.activeCodes : []).filter(
-      (item: any) => {
+    this.visitorList.update(() =>
+      this.visitorList().filter((item: any) => {
         if (targetVisitorId) {
           return String(item?.visitorId ?? '').trim() !== targetVisitorId;
         }
         return !(
           String(item?.code ?? '') === String(code.code ?? '') &&
-          String(item?.visitorName ?? '') === String(code.visitorName ?? '')
+          String(item?.name ?? '') === String(code.name ?? '')
         );
-      },
+      }),
     );
 
-    if (Array.isArray(this.visitorList)) {
-      this.visitorList = this.visitorList.map((visitor: any) => {
-        const visitorId = String(visitor?._id ?? visitor?.id ?? '').trim();
-        if (targetVisitorId && visitorId === targetVisitorId) {
-          return { ...visitor, validity: false, access: true };
-        }
-        return visitor;
-      });
+    if (Array.isArray(this.visitorList())) {
+      this.visitorList.update(() =>
+        this.visitorList().map((visitor: any) => {
+          const visitorId = String(visitor?._id ?? visitor?.id ?? '').trim();
+          if (targetVisitorId && visitorId === targetVisitorId) {
+            return { ...visitor, validity: false, access: true };
+          }
+          return visitor;
+        }),
+      );
     }
 
-    if (targetVisitorId && this.effectiveGuardId) {
+    if (targetVisitorId) {
       this.dataService
-        .put<any>(`visitor/grant/${this.effectiveGuardId}/false`, {
+        .put<ResponseBody>(`visitor/grant`, {
           _id: targetVisitorId,
           validity: false,
           access: true,
-          expiry: code.expiryRaw ?? null,
+          expiry: code.expiry ?? null,
         })
         .subscribe({
+          next: (res) => {
+            this.showToast(res.message);
+          },
           error: () => {
             this.showToast('Access granted (local only)');
           },
         });
     }
-
-    this.showToast('Access granted');
   }
 
   private showToast(message: string): void {
