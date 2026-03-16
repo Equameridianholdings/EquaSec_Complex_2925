@@ -1606,7 +1606,7 @@ export class GuardPortal implements OnInit, OnDestroy {
       communityComplexId: tenantData.communityComplexId,
       vehicles: tenantData.vehicles,
     };
-
+    console.log(payload)
     this.dataService.post<ResponseBody>('user/tenant', payload).subscribe({
       next: (response) => {
         const emailSent = response?.payload?.emailSent !== false;

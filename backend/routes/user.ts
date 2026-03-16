@@ -97,7 +97,6 @@ interface UserTenantFields {
 }
 
 const resolveTenantProfile = (tenantUser: UserDTO & UserTenantFields): TenantResidentLike => {
-  
   return {
     address: tenantUser.address ?? "",
     communityComplexId: tenantUser.communityComplexId ?? "",
@@ -380,9 +379,7 @@ const isAdminGuardUser = (user: unknown): boolean => {
   const candidate: Record<string, unknown> = user && typeof user === "object" ? (user as Record<string, unknown>) : {};
 
   const typeEntries = Array.isArray(candidate.type) ? candidate.type : [candidate.type];
-  const normalizedTypes = typeEntries
-    .map((value) => normalizeName(String(value ?? "")))
-    .filter((value) => value.length > 0);
+  const normalizedTypes = typeEntries.map((value) => normalizeName(String(value ?? ""))).filter((value) => value.length > 0);
 
   const hasAdminType = normalizedTypes.some((value) => value === "admin" || value === "adminguard");
   const hasGuardType = normalizedTypes.some((value) => value === "security" || value === "guard");
@@ -397,8 +394,7 @@ const isAdminGuardUser = (user: unknown): boolean => {
 
   const contracts = Array.isArray(candidate.employeeContracts) ? candidate.employeeContracts : [];
   for (const contract of contracts) {
-    const contractRecord: Record<string, unknown> =
-      contract && typeof contract === "object" ? (contract as Record<string, unknown>) : {};
+    const contractRecord: Record<string, unknown> = contract && typeof contract === "object" ? (contract as Record<string, unknown>) : {};
     const contractPosition = normalizeName(String(contractRecord.position ?? ""));
     if (contractPosition === "adminguard" || contractPosition === "admin" || contractPosition === "securityadmin") {
       return true;
@@ -555,7 +551,7 @@ userRouter.post(
     try {
       user.salt = await bcrypt.genSalt(10);
       const hashPassword = await bcrypt.hash(user.password as unknown as string, user.salt);
-      
+
       user.password = hashPassword;
 
       // Add Id number encryption logic here
@@ -843,187 +839,173 @@ userRouter.post(
   },
 );
 
-userRouter.post("/tenant", RoleMiddleware(["admin", "manager", "security"]), AuthMiddleware, checkSchema(tenantCreateBodyValidation), validateSchema, async (req: Request, res: Response) => {
-  try {
-    const actorEmail = res.get("email");
-
-    if (!actorEmail) {
-      return res.status(401).json({ message: "Access Denied!" });
-    }
-
-    const actorUser = await userSchema.findOne<UserDTO>({ emailAddress: actorEmail }).select({}).exec();
-    const actorRoles = Array.isArray(actorUser?.type) ? actorUser.type.map((role) => normalizeName(String(role ?? ""))) : [];
-    const isManager = actorRoles.includes("manager");
-    const isSecurity = actorRoles.includes("security");
-
-    if (!actorUser || (!isManager && !isSecurity)) {
-      return res.status(403).json({ message: "Access Forbidden!" });
-    }
-
-    const linkedSecurityCompany = await resolveSecurityCompanyForUser(actorUser);
-
-    const body = req.body as {
-      address: string;
-      cellNumber: string;
-      communityComplexId?: string;
-      communityId?: string;
-      communityResidenceType?: "complex" | "house";
-      complexId?: string;
-      complexName?: string;
-      emailAddress: string;
-      idNumber?: string;
-      name: string;
-      residenceType: "community" | "complex";
-      surname: string;
-      vehicles?: { color?: string; make: string; model: string; reg: string }[];
-    };
-
-    const normalizedEmail = body.emailAddress.trim().toLowerCase();
-    const existingUser = await userSchema.findOne({ emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
-    if (existingUser) {
-      return res.status(409).json({ message: "User with this email already exists." });
-    }
-
-    const temporaryPin = String(Math.floor(100000 + Math.random() * 900000));
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(temporaryPin, salt);
-
-    const trimmedAddress = body.address.trim();
-    let linkedComplex: null | { _id: unknown; address?: string; gatedCommunityName?: null | string; name?: string } = null;
-    let linkedGatedCommunity: null | { _id: unknown; name?: string } = null;
-
-    if (body.residenceType === "complex") {
-      if (!body.complexId || !ObjectId.isValid(body.complexId)) {
-        return res.status(400).json({ message: "Valid complex is required for complex residence." });
-      }
-
-      linkedComplex = await complexSchema.findById(body.complexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
-      if (!linkedComplex) {
-        return res.status(404).json({ message: "Complex not found." });
-      }
-    }
-
-    if (body.residenceType === "community") {
-      if (!body.communityId || !ObjectId.isValid(body.communityId)) {
-        return res.status(400).json({ message: "Valid gated community is required for community residence." });
-      }
-
-      linkedGatedCommunity = await gatedCommunitySchema.findById(body.communityId).select({ _id: 1, name: 1 }).lean();
-      if (!linkedGatedCommunity) {
-        return res.status(404).json({ message: "Gated community not found." });
-      }
-
-      if (!body.communityComplexId || !ObjectId.isValid(body.communityComplexId)) {
-        return res.status(400).json({ message: "Valid gated community complex is required." });
-      }
-
-      const communityComplex = await complexSchema.findById(body.communityComplexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
-      if (!communityComplex) {
-        return res.status(404).json({ message: "Community complex not found." });
-      }
-
-      const complexCommunityName = String(communityComplex.gatedCommunityName ?? "")
-        .trim()
-        .toLowerCase();
-      const selectedCommunityName = String(linkedGatedCommunity.name ?? "")
-        .trim()
-        .toLowerCase();
-      if (!complexCommunityName || complexCommunityName !== selectedCommunityName) {
-        return res.status(400).json({ message: "Selected complex does not belong to the selected gated community." });
-      }
-
-      linkedComplex = communityComplex;
-    }
-
-    const tenantUser = new userSchema({
-      cellNumber: body.cellNumber.trim(),
-      emailAddress: normalizedEmail,
-      idNumber: body.idNumber?.trim() || undefined,
-      movedOut: false,
-      name: body.name.trim(),
-      password: hashedPassword,
-      profilePhoto: "",
-      salt,
-      surname: body.surname.trim(),
-      type: ["tenant"],
-    });
-
+userRouter.post(
+  "/tenant",
+  AuthMiddleware,
+  RoleMiddleware(["admin", "manager", "security"]),
+  checkSchema(tenantCreateBodyValidation),
+  validateSchema,
+  async (req: Request, res: Response) => {
     try {
-      await tenantUser.save();
-    } catch {
-      return res.status(500).json({ message: "Unable to save tenant user." });
-    }
+      const actorEmail = res.get("email");
 
-    try {
-      await syncTenantVehiclesForUser(
-        {
-          _id: tenantUser._id,
-          cellNumber: tenantUser.cellNumber,
-          emailAddress: tenantUser.emailAddress,
-          name: tenantUser.name,
-          surname: tenantUser.surname,
-        },
-        body.vehicles,
-      );
-    } catch {
-      await userSchema.findByIdAndDelete(tenantUser._id).exec();
-      return res.status(500).json({ message: "Unable to sync tenant vehicles." });
-    }
+      if (!actorEmail) {
+        return res.status(401).json({ message: "Access Denied!" });
+      }
+      console.log(req.body);
+      const actorUser = await userSchema.findOne<UserDTO>({ emailAddress: actorEmail }).select({}).exec();
+      const actorRoles = Array.isArray(actorUser?.type) ? actorUser.type.map((role) => normalizeName(String(role ?? ""))) : [];
+      const isManager = actorRoles.includes("manager");
+      const isSecurity = actorRoles.includes("security");
 
-    try {
-      const usesUnit = body.residenceType === "complex" || body.residenceType === "community";
-      if (usesUnit) {
-        await linkTenantToUnit(
-          String(tenantUser._id ?? ""),
+      if (!actorUser || (!isManager && !isSecurity)) {
+        return res.status(403).json({ message: "Access Forbidden!" });
+      }
+
+      const linkedSecurityCompany = await resolveSecurityCompanyForUser(actorUser);
+
+      const body = req.body as {
+        address: string;
+        cellNumber: string;
+        communityComplexId?: string;
+        communityId?: string;
+        communityResidenceType?: "complex" | "house";
+        complexId?: string;
+        complexName?: string;
+        emailAddress: string;
+        idNumber?: string;
+        name: string;
+        residenceType: "community" | "complex";
+        surname: string;
+        vehicles?: { color?: string; make: string; model: string; reg: string }[];
+      };
+
+      const normalizedEmail = body.emailAddress.trim().toLowerCase();
+      const existingUser = await userSchema.findOne({ emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
+      if (existingUser) {
+        return res.status(409).json({ message: "User with this email already exists." });
+      }
+
+      const temporaryPin = String(Math.floor(100000 + Math.random() * 900000));
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(temporaryPin, salt);
+
+      const trimmedAddress = body.address.trim();
+      let linkedComplex: null | { _id: unknown; address?: string; gatedCommunityName?: null | string; name?: string } = null;
+      let linkedGatedCommunity: null | { _id: unknown; name?: string } = null;
+
+      if (body.residenceType === "complex") {
+        if (!body.complexId || !ObjectId.isValid(body.complexId)) {
+          return res.status(400).json({ message: "Valid complex is required for complex residence." });
+        }
+
+        linkedComplex = await complexSchema.findById(body.complexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
+        if (!linkedComplex) {
+          return res.status(404).json({ message: "Complex not found." });
+        }
+      }
+
+      if (body.residenceType === "community") {
+        if (!body.communityId || !ObjectId.isValid(body.communityId)) {
+          return res.status(400).json({ message: "Valid gated community is required for community residence." });
+        }
+
+        linkedGatedCommunity = await gatedCommunitySchema.findById(body.communityId).select({ _id: 1, name: 1 }).lean();
+        if (!linkedGatedCommunity) {
+          return res.status(404).json({ message: "Gated community not found." });
+        }
+      }
+
+      const tenantUser = new userSchema({
+        cellNumber: body.cellNumber.trim(),
+        emailAddress: normalizedEmail,
+        idNumber: body.idNumber?.trim() || undefined,
+        movedOut: false,
+        name: body.name.trim(),
+        password: hashedPassword,
+        profilePhoto: "",
+        salt,
+        surname: body.surname.trim(),
+        type: ["tenant"],
+      });
+
+      try {
+        await tenantUser.save();
+      } catch {
+        return res.status(500).json({ message: "Unable to save tenant user." });
+      }
+
+      try {
+        await syncTenantVehiclesForUser(
           {
-            complex: linkedComplex
-              ? {
-                  _id: String(linkedComplex._id ?? ""),
-                  address: String(linkedComplex.address ?? ""),
-                  name: String(linkedComplex.name ?? ""),
-                }
-              : null,
-            gatedCommunity: linkedGatedCommunity
-              ? {
-                  _id: String(linkedGatedCommunity._id ?? ""),
-                  name: String(linkedGatedCommunity.name ?? ""),
-                }
-              : null,
+            _id: tenantUser._id,
+            cellNumber: tenantUser.cellNumber,
+            emailAddress: tenantUser.emailAddress,
+            name: tenantUser.name,
+            surname: tenantUser.surname,
           },
-          trimmedAddress,
+          body.vehicles,
         );
+      } catch {
+        await userSchema.findByIdAndDelete(tenantUser._id).exec();
+        return res.status(500).json({ message: "Unable to sync tenant vehicles." });
       }
-    } catch {
-      await vehicleSchema.deleteMany({ "user._id": { $in: [String(tenantUser._id ?? ""), tenantUser._id] } });
-      await userSchema.findByIdAndDelete(tenantUser._id).exec();
-      return res.status(500).json({ message: "Unable to link tenant to unit." });
-    }
 
-    try {
-      await sendSecurityCompanyCode({
-        code: temporaryPin,
-        companyName: linkedSecurityCompany?.name,
-        to: normalizedEmail,
+      try {
+        const usesUnit = body.residenceType === "complex" || body.residenceType === "community";
+        if (usesUnit) {
+          await linkTenantToUnit(
+            String(tenantUser._id ?? ""),
+            {
+              complex: linkedComplex
+                ? {
+                    _id: String(linkedComplex._id ?? ""),
+                    address: String(linkedComplex.address ?? ""),
+                    name: String(linkedComplex.name ?? ""),
+                  }
+                : null,
+              gatedCommunity: linkedGatedCommunity
+                ? {
+                    _id: String(linkedGatedCommunity._id ?? ""),
+                    name: String(linkedGatedCommunity.name ?? ""),
+                  }
+                : null,
+            },
+            trimmedAddress,
+          );
+        }
+      } catch {
+        await vehicleSchema.deleteMany({ "user._id": { $in: [String(tenantUser._id ?? ""), tenantUser._id] } });
+        await userSchema.findByIdAndDelete(tenantUser._id).exec();
+        return res.status(500).json({ message: "Unable to link tenant to unit." });
+      }
+
+      try {
+        await sendSecurityCompanyCode({
+          code: temporaryPin,
+          companyName: linkedSecurityCompany?.name,
+          to: normalizedEmail,
+        });
+      } catch {
+        await vehicleSchema.deleteMany({ "user._id": { $in: [String(tenantUser._id ?? ""), tenantUser._id] } });
+        await userSchema.findByIdAndDelete(tenantUser._id).exec();
+        return res.status(500).json({ message: "Unable to send tenant credentials email." });
+      }
+
+      return res.status(201).json({
+        message: "Tenant registered successfully!",
+        payload: {
+          emailSent: true,
+          resident: null,
+          temporaryPin,
+          user: tenantUser,
+        },
       });
     } catch {
-      await vehicleSchema.deleteMany({ "user._id": { $in: [String(tenantUser._id ?? ""), tenantUser._id] } });
-      await userSchema.findByIdAndDelete(tenantUser._id).exec();
-      return res.status(500).json({ message: "Unable to send tenant credentials email." });
+      return res.status(500).json({ message: "Internal Server Error" });
     }
-
-    return res.status(201).json({
-      message: "Tenant registered successfully!",
-      payload: {
-        emailSent: true,
-        resident: null,
-        temporaryPin,
-        user: tenantUser,
-      },
-    });
-  } catch {
-    return res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+  },
+);
 
 userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
@@ -1039,7 +1021,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
     }
 
     const managerUser = await userSchema.findOne({ emailAddress: managerEmail }).select({}).exec();
-    
+
     if (!managerUser || !(Array.isArray(managerUser.type) && managerUser.type.includes("manager"))) {
       return res.status(403).json({ message: "Access Forbidden!" });
     }
@@ -1271,7 +1253,9 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
     if (ObjectId.isValid(tenantIdString)) {
       tenantVehicleIdVariants.push(new ObjectId(tenantIdString));
     }
-    const tenantEmailAddress = String(tenant.emailAddress ?? "").trim().toLowerCase();
+    const tenantEmailAddress = String(tenant.emailAddress ?? "")
+      .trim()
+      .toLowerCase();
 
     await vehicleSchema.deleteMany({
       $or: [
@@ -1296,7 +1280,7 @@ userRouter.delete("/tenant/:id", AuthMiddleware, async (req: Request, res: Respo
 
     return res.status(200).json({
       message: "Tenant deleted successfully!",
-      payload: {deletedTenant},
+      payload: { deletedTenant },
     });
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
@@ -1387,9 +1371,8 @@ userRouter.patch(
               },
             },
           },
-          { new: true },
+          { returnDocument: "after" },
         )
-        .select({})
         .exec();
 
       const responsePayload = updatedEmployee
@@ -1594,19 +1577,19 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
       .trim()
       .toLowerCase();
 
-    let user: UserDTO = await userSchema
+    let user: UserDTO = (await userSchema
       .findOne({
         emailAddress: normalizedEmail,
       })
-      .exec() as unknown as UserDTO;
+      .exec()) as unknown as UserDTO;
 
     if (!user) {
       const escapedEmail = normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      user = await userSchema
+      user = (await userSchema
         .findOne({
           emailAddress: { $regex: new RegExp(`^${escapedEmail}$`, "i") },
         })
-        .exec() as unknown as UserDTO;
+        .exec()) as unknown as UserDTO;
     }
 
     if (!user) return res.status(401).json({ message: "Invalid login details!" });
@@ -1710,8 +1693,8 @@ userRouter.patch("/update", AuthMiddleware, async (req, res) => {
     }
 
     const updatePayload = req.body as Partial<UserDTO>;
-    
-    const user = await userSchema.findOneAndUpdate({ emailAddress: email }, { $set: updatePayload }, { returnDocument: 'after' }).exec();
+
+    const user = await userSchema.findOneAndUpdate({ emailAddress: email }, { $set: updatePayload }, { returnDocument: "after" }).exec();
 
     if (!user) {
       return res.status(404).json({ message: "User details not found!" });
@@ -1744,66 +1727,67 @@ userRouter.get("/current", AuthMiddleware, async (req, res) => {
   }
 });
 
-userRouter.get(
-  "/",
-  AuthMiddleware, async (req, res) => {
-    try {
-      const email = res.get("email");
-      const usersQuery = {
-        emailAddress: {
-          $ne: email,
-        },
-      }
-      const users = await userSchema.find(usersQuery).select({}).exec();
+userRouter.get("/", AuthMiddleware, async (req, res) => {
+  try {
+    const email = res.get("email");
+    const usersQuery = {
+      emailAddress: {
+        $ne: email,
+      },
+    };
+    const users = await userSchema.find(usersQuery).select({}).exec();
 
-      if (users.length > 0) {
-        return res.status(200).json({ message: "Users found", payload: users });
-      } else {
-        return res.status(404).json({ message: "Users not found!" });
-      }
-    } catch {
-      return res.status(500).json({ message: "Internal Server Error" });
+    if (users.length > 0) {
+      return res.status(200).json({ message: "Users found", payload: users });
+    } else {
+      return res.status(404).json({ message: "Users not found!" });
     }
-  },
-);
+  } catch {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
 //gets tenants by area of security occupation
-userRouter.get(
-  "/tenants",
-  AuthMiddleware, async (req, res) => {
-    try {
-      const email = res.get('email');
-      const users = await userSchema.find({}).select({}).exec();
-      const security = users.find((x) => x.emailAddress === email) as unknown as UserDTO;
+userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
+  try {
+    const email = res.get("email");
+    const users = await userSchema.find({}).select({}).exec();
+    const security = users.find((x) => x.emailAddress === email) as unknown as UserDTO;
 
-      const unitsQuery = {
-        $or: [{
-          'complex._id': security.complex?._id
-        }, {
-          'gatedCommunity._id': security.gatedCommunity?._id
-        }]
+    const unitsQuery = {
+      $or: [
+        {
+          "complex._id": {
+            $in: security.assignedComplexes,
+          },
+        },
+        {
+          "gatedCommunity._id": {
+            $in: security.assignedCommunities,
+          },
+        },
+      ],
+    };
+    const units = await unitSchema.find(unitsQuery).select({}).exec();
+
+    let residents: unknown[] = [];
+    units.forEach((unit) => {
+      if (unit.users.length > 0) {
+        unit.users.forEach((id: string) => {
+          residents = [...residents, users.find((x) => x._id.toString() === id)];
+        });
       }
-      const units = await unitSchema.find(unitsQuery).select({}).exec()
+    });
 
-      let residents: unknown[] = []
-      units.forEach((unit) => {
-        if (unit.users.length > 0) {
-          unit.users.forEach((id: string) => {
-            residents = [...residents, users.find(x => x._id.toString() === id)];
-          })
-        }
-      });
-
-      if (users.length > 0) {
-        return res.status(200).json({ message: "Residents found", payload: residents });
-      } else {
-        return res.status(404).json({ message: "Residents not found!" });
-      }
-    } catch {
-      return res.status(500).json({ message: "Internal Server Error" });
+    if (users.length > 0) {
+      return res.status(200).json({ message: "Residents found", payload: residents });
+    } else {
+      return res.status(404).json({ message: "Residents not found!" });
     }
-  },
-);
+  } catch {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
 userRouter.patch("/changePin", AuthMiddleware, async (req, res) => {
   try {

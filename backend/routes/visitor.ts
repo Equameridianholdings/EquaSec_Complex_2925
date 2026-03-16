@@ -224,17 +224,21 @@ visitorRouter.get("/security/", async (req, res) => {
     const guardVisitorQuery = {
       $or: [
         {
-          "destination.complex.name": security.complex?.name,
+          "destination.complex._id": {
+            $in: security.assignedComplexes,
+          },
           validity: true,
         },
         {
-          "destination.gatedCommunity.name": security.gatedCommunity?.name,
+          "destination.gatedCommunity._id": {
+            $in: security.assignedCommunities,
+          },
           validity: true,
         },
       ],
     };
-
     const filteredVisitors = await visitorShema.find<visitorDTO>(guardVisitorQuery).select({}).exec();
+
     if (filteredVisitors.length == 0) {
       res.status(404).json({ message: "No visitors today!" });
       return;
@@ -297,8 +301,8 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
     const getUser = (await userSchema.findOne({ emailAddress: email }).exec()) as unknown as UserDTO;
     const _id = getUser._id as unknown as ObjectId;
 
-    const userUnits = await unitSchema.findOne<unitDTO>({ "users": _id.toString() }).exec();
-    
+    const userUnits = await unitSchema.findOne<unitDTO>({ users: _id.toString() }).exec();
+
     if (userUnits === null) {
       res.status(404).json({ message: "User not found!" });
       return;
@@ -360,7 +364,7 @@ visitorRouter.patch("/grant", async (req, res) => {
     const visitorId = toIdString(visitorRecord._id) || toIdString(visitorRecord.id);
 
     await cleanupExpiredVisitors();
-    
+
     const securityQuery = { emailAddress: email };
     const security = await userSchema.findOne<UserDTO>(securityQuery).exec();
 

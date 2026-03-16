@@ -1020,7 +1020,7 @@ export class SecurityManager implements OnInit {
           status: resolveEmployeeStatusForCompany(user),
         };
       });
-
+      console.log(users);
     this.securityManagers = users
       .filter((user: any) => this.hasRole(user, 'security'))
       .filter((user: any) => isVisibleSecurityUser(user))
