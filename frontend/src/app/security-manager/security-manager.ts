@@ -19,6 +19,7 @@ import {
 import { logDTO } from '../interfaces/logDTO';
 import { complexDTO } from '../interfaces/complexDTO';
 import { UserDTO } from '../interfaces/userDTO';
+import { gatedCommunityDTO } from '../interfaces/gatedCommunityDTO';
 
 @Component({
   selector: 'app-security-manager',
@@ -606,13 +607,13 @@ export class SecurityManager implements OnInit {
 
   private loadGatedCommunities(): void {
     this.submitting.update(() => true);
-    this.dataService.get<any[]>('gatedCommunity').subscribe({
+    this.dataService.get<ResponseBody>('gatedCommunity').subscribe({
       next: (communities) => {
-        this.gatedCommunities = (communities || [])
+        this.gatedCommunities = (communities.payload as gatedCommunityDTO[] || [])
           .filter((community) => {
             const communityName = community?.name as string;
-            const communityComplexes = Array.isArray(community?.complexes)
-              ? community.complexes.map((name: string) => name)
+            const communityComplexes = Array.isArray(community)
+              ? community.map((name: string) => name)
               : [];
 
             const linkedByComplex = communityComplexes.some((name: string) =>
@@ -625,9 +626,9 @@ export class SecurityManager implements OnInit {
               community?.name as string,
             );
             return {
-              id: community._id ?? community.id,
+              id: community._id as string,
               name: community.name,
-              complexId: community.complexId,
+              complexId: community._id as string,
               status: 'active' as 'active' | 'inactive',
               totalResidents: community.numberOfHouses ?? 0,
               contractStartDate: contractDates?.startDate as string,
@@ -658,10 +659,9 @@ export class SecurityManager implements OnInit {
   }
   private loadUsers(): void {
     this.submitting.update(() => true);
-    this.dataService.get<ResponseBody>('user/tenants').subscribe({
+    this.dataService.get<ResponseBody>('user/').subscribe({
       next: (response) => {
         const users = response?.payload as UserDTO[];
-
         const applyUsersWithUnitLocations = (baseUsers: any[]): void => {
           this.dataService.get<any[]>('unit').subscribe({
             next: (unitsResponse) => {

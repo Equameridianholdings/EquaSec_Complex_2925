@@ -100,6 +100,7 @@ const syncUnitsForGatedCommunity = async (gatedCommunity: GatedCommunityLike): P
   const createDocs: {
     complex: null;
     gatedCommunity: { _id: string; name: string };
+    house: true;
     number: number;
     numberOfParkingBays: number;
     users: unknown[];
@@ -113,6 +114,7 @@ const syncUnitsForGatedCommunity = async (gatedCommunity: GatedCommunityLike): P
           _id: gatedCommunityId,
           name,
         },
+        house: true,
         number: unitNumber,
         numberOfParkingBays: 0,
         users: [],
@@ -158,11 +160,6 @@ gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), valida
     delete requestBody.unitStart;
     delete requestBody.unitEnd;
 
-    console.log("[gatedCommunity] create request", {
-      name: gatedCommunity.name,
-      numberOfComplexes: gatedCommunity.numberOfComplexes,
-      numberOfHouses: gatedCommunity.numberOfHouses,
-    });
     const gatedCommunityQuery = {
       name: gatedCommunity.name,
     };
@@ -176,7 +173,6 @@ gatedCommunityRouter.post("/", checkSchema(gatedCommunityBodyValidation), valida
     const newGatedCommunity = new gatedCommunitySchema(requestBody);
     await newGatedCommunity.save();
     await syncUnitsForGatedCommunity(newGatedCommunity);
-    console.log("[gatedCommunity] created", { id: newGatedCommunity._id, name: newGatedCommunity.name });
 
     res.status(201).json({ message: "Gated Community added successfully!", payload: newGatedCommunity });
     return;
@@ -218,11 +214,11 @@ gatedCommunityRouter.get("/", async (req: Request, res: Response) => {
     const gatedCommunities = await gatedCommunitySchema.find({}).select({}).exec();
 
     if (gatedCommunities.length === 0) {
-      res.status(200).json([]);
+      res.status(200).json({message: "No gated communities", payload: []});
       return;
     }
 
-    res.status(200).json(gatedCommunities);
+    res.status(200).json({ message: "Retrieved communities", payload: gatedCommunities });
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error" });
@@ -287,11 +283,10 @@ gatedCommunityRouter.patch("/:id", async (req: Request, res: Response) => {
 });
 
 gatedCommunityRouter.delete("/:id", async (req: Request, res: Response) => {
-  const _id = req.params;
+  const { id } = req.params;
 
   try {
-    console.log("[gatedCommunity] delete request", { id: _id });
-    const deletedGatedCommunity = await gatedCommunitySchema.findByIdAndDelete(_id).exec();
+    const deletedGatedCommunity = await gatedCommunitySchema.findByIdAndDelete(ValidObjectId(id as string)).exec();
 
     if (deletedGatedCommunity === null) {
       res.status(404).json({ message: "Gated Community does not exist!" });
@@ -308,13 +303,10 @@ gatedCommunityRouter.delete("/:id", async (req: Request, res: Response) => {
       );
     }
 
-    console.log("[gatedCommunity] deleted", { id: _id, name: gatedName });
-
     res.status(200).json({ message: "Gated Community successfully deleted!" });
     return;
-  } catch (error) {
-    console.error("[gatedCommunity] delete failed", error);
-    res.status(500).json({ message: "Internal Server Error" });
+  } catch (error: unknown) {
+    res.status(500).json({ message: `Internal Server Error ${error as string}` });
     return;
   }
 });

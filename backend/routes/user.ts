@@ -7,6 +7,7 @@ import vehicleSchema from "#db/vehicleSchema.js";
 // import { complexDTO } from "#interfaces/complexDTO.js";
 import { userBodyValidation, UserDTO } from "#interfaces/userDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
+import RoleMiddleware from "#middleware/role.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 // import { encrypt } from "#utils/encryption.js";
 import GenerateJWT from "#utils/generateJWT.js";
@@ -479,6 +480,7 @@ const linkTenantToUnit = async (
           _id: gatedCommunityId,
           name: String(location?.gatedCommunity?.name ?? ""),
         },
+        house: true,
         number: unitNumber,
         numberOfParkingBays: 0,
         users: [],
@@ -841,7 +843,7 @@ userRouter.post(
   },
 );
 
-userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidation), validateSchema, async (req: Request, res: Response) => {
+userRouter.post("/tenant", RoleMiddleware(["admin", "manager", "security"]), AuthMiddleware, checkSchema(tenantCreateBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
     const actorEmail = res.get("email");
 
@@ -931,50 +933,6 @@ userRouter.post("/tenant", AuthMiddleware, checkSchema(tenantCreateBodyValidatio
       }
 
       linkedComplex = communityComplex;
-    }
-
-    if (isSecurity) {
-      const actorAssignments = resolveUserAssignments(actorUser, linkedSecurityCompany);
-      const assignedComplexes = actorAssignments.assignedComplexes;
-      const assignedCommunitiesRaw = actorAssignments.assignedCommunities;
-
-      const assignedComplexIds = new Set(assignedComplexes);
-      const assignedCommunityIds = new Set(assignedCommunitiesRaw.filter((value) => ObjectId.isValid(value)));
-      const assignedCommunityNames = new Set(
-        assignedCommunitiesRaw
-          .filter((value) => !ObjectId.isValid(value))
-          .map((value) => normalizeName(value))
-          .filter((value) => value.length > 0),
-      );
-
-      if (assignedCommunityIds.size > 0) {
-        const assignedCommunityDocs = await gatedCommunitySchema
-          .find({ _id: { $in: Array.from(assignedCommunityIds).map((id) => new ObjectId(id)) } })
-          .select({ _id: 1, name: 1 })
-          .lean();
-
-        for (const community of assignedCommunityDocs) {
-          const normalizedCommunityName = normalizeName(String(community?.name ?? ""));
-          if (normalizedCommunityName) {
-            assignedCommunityNames.add(normalizedCommunityName);
-          }
-        }
-      }
-
-      const linkedComplexId = String(linkedComplex?._id ?? "");
-      const linkedCommunityId = String(linkedGatedCommunity?._id ?? "");
-      const linkedCommunityName = normalizeName(String(linkedGatedCommunity?.name ?? linkedComplex?.gatedCommunityName ?? ""));
-
-      const hasComplexScope = linkedComplexId.length > 0 && assignedComplexIds.has(linkedComplexId);
-      const hasCommunityScope =
-        (linkedCommunityId.length > 0 && assignedCommunityIds.has(linkedCommunityId)) ||
-        (linkedCommunityName.length > 0 && assignedCommunityNames.has(linkedCommunityName));
-
-      const hasScopeAccess = body.residenceType === "complex" ? hasComplexScope || hasCommunityScope : hasCommunityScope;
-
-      if (!hasScopeAccess) {
-        return res.status(403).json({ message: "Access Forbidden! You can only register tenants within your assigned station scope." });
-      }
     }
 
     const tenantUser = new userSchema({
@@ -1790,7 +1748,13 @@ userRouter.get(
   "/",
   AuthMiddleware, async (req, res) => {
     try {
-      const users = await userSchema.find({}).select({}).exec();
+      const email = res.get("email");
+      const usersQuery = {
+        emailAddress: {
+          $ne: email,
+        },
+      }
+      const users = await userSchema.find(usersQuery).select({}).exec();
 
       if (users.length > 0) {
         return res.status(200).json({ message: "Users found", payload: users });

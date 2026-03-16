@@ -3,8 +3,6 @@ export interface gatedCommunityDTO {
     name: string;
     numberOfComplexes: number;
     numberOfHouses: number;
-    unitStart: number;
-    unitEnd: number;
     price: number;
-    complexes?: string[];
+    securityAssignments: any[];
 }

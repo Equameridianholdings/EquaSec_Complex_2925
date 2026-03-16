@@ -235,7 +235,7 @@
       <div class="stat-label">Active Complexes</div>
     </div>
     <div class="stat-box">
-      <div class="stat-number">{{ gatedCommunities.length }}</div>
+      <div class="stat-number">{{ gatedCommunities().length }}</div>
       <div class="stat-label">Gated Communities</div>
     </div>
     <div class="stat-box">
@@ -401,15 +401,15 @@
           <span class="panel-sub">Manage gated communities and house ranges</span>
         </div>
         <div class="panel-body">
-          <div *ngIf="gatedCommunities.length === 0" class="empty-state">
+          <div *ngIf="gatedCommunities().length === 0" class="empty-state">
             <p>No gated communities added yet. Create one to get started.</p>
           </div>
-          <div class="gated-communities-list" *ngIf="gatedCommunities.length > 0">
-            <div class="gated-community-card" *ngFor="let community of gatedCommunities">
+          <div class="gated-communities-list" *ngIf="gatedCommunities().length > 0">
+            <div class="gated-community-card" *ngFor="let community of gatedCommunities()">
               <div class="community-header">
                 <div class="community-info">
                   <div class="company-title-row">
-                    <h3 class="community-name">{{ community.gatedCommunityName }}</h3>
+                    <h3 class="community-name">{{ community.name }}</h3>
                     <span
                       class="status-badge assigned"
                       *ngIf="
@@ -427,7 +427,6 @@
                     <div
                       class="detail-item"
                       *ngIf="
-                        community.price !== '' &&
                         community.price !== null &&
                         community.price !== undefined
                       "
@@ -474,7 +473,7 @@
 
               <!-- Assigned Complexes -->
               <div
-                *ngIf="getComplexesForCommunity(community.gatedCommunityName).length > 0"
+                *ngIf="getComplexesForCommunity(community.name).length > 0"
                 class="assignment-section"
               >
                 <div class="assignment-header">
@@ -484,7 +483,7 @@
                   <div
                     class="assignment-item"
                     *ngFor="
-                      let linkedComplex of getComplexesForCommunity(community.gatedCommunityName)
+                      let linkedComplex of getComplexesForCommunity(community.name)
                     "
                   >
                     <div class="complex-card" style="margin-bottom: 10px">
@@ -1441,10 +1440,10 @@
                   >
                     <option value="">-- None --</option>
                     <option
-                      *ngFor="let community of gatedCommunities"
-                      [value]="community.gatedCommunityName"
+                      *ngFor="let community of gatedCommunities()"
+                      [value]="community.name"
                     >
-                      {{ community.gatedCommunityName }}
+                      {{ community.name }}
                     </option>
                   </select>
                   <small class="note-text"
@@ -1978,7 +1977,7 @@
         <div class="modal-overlay" *ngIf="showGatedComplexAssignModal">
           <div class="modal-card" (click)="$event.stopPropagation()">
             <div class="modal-header">
-              <h2>Assign Complex to {{ selectedGatedCommunity?.gatedCommunityName }}</h2>
+              <h2>Assign Complex to {{ selectedGatedCommunity.name }}</h2>
               <button class="close-btn" type="button" (click)="closeGatedComplexAssignModal()">
                 ✕
               </button>
@@ -2008,11 +2007,11 @@
               <small
                 class="note-text"
                 *ngIf="
-                  selectedGatedCommunity?.price !== null &&
-                  selectedGatedCommunity?.price !== undefined
+                  selectedGatedCommunity.price !== null &&
+                  selectedGatedCommunity.price !== undefined
                 "
               >
-                Assigned complex price will be set to: R {{ selectedGatedCommunity?.price }}
+                Assigned complex price will be set to: R {{ selectedGatedCommunity.price }}
               </small>
 
               <div *ngIf="gatedAssignmentError" class="error-message">
@@ -2043,7 +2042,7 @@
         <div class="modal-overlay" *ngIf="showGatedSecurityAssignModal">
           <div class="modal-card" (click)="$event.stopPropagation()">
             <div class="modal-header">
-              <h2>Assign Security Company to {{ selectedGatedCommunity?.gatedCommunityName }}</h2>
+              <h2>Assign Security Company to {{ selectedGatedCommunity.name }}</h2>
               <button class="close-btn" type="button" (click)="closeGatedSecurityAssignModal()">
                 ✕
               </button>

@@ -26,6 +26,10 @@ import {
   MatSnackBarHorizontalPosition,
   MatSnackBarVerticalPosition,
 } from '@angular/material/snack-bar';
+import { ResponseBody } from '../interfaces/ResponseBody';
+import { complexDTO } from '../interfaces/complexDTO';
+import { gatedCommunityDTO } from '../interfaces/gatedCommunityDTO';
+import { logDTO } from '../interfaces/logDTO';
 
 @Component({
   selector: 'app-admin-portal',
@@ -229,19 +233,19 @@ export class AdminPortal implements OnInit, AfterViewInit {
   /**
    * Delete a gated community from the list.
    */
-  deleteGatedCommunity(community: any): void {
+  deleteGatedCommunity(community: gatedCommunityDTO): void {
     this.loading.update(() => true);
-    if (!community?.gatedCommunityId) {
+    if (!community?._id) {
       this.loading.update(() => false);
       return;
     }
-    this.dataService.delete(`gatedCommunity/${community.gatedCommunityId}`).subscribe({
+    this.dataService.delete(`gatedCommunity/${community._id}`).subscribe({
       next: () => {
-        this.gatedCommunities = this.gatedCommunities.filter(
-          (gc: any) => gc.gatedCommunityId !== community.gatedCommunityId,
+        this.gatedCommunities().filter(
+          (gc: any) => gc.gatedCommunityId !== community._id,
         );
         this.onboardedComplexes = this.onboardedComplexes.filter(
-          (complex: any) => complex.gatedCommunityName !== community.gatedCommunityName,
+          (complex: any) => complex.gatedCommunityName !== community.name,
         );
         this.registeredSecurityCompanies = this.registeredSecurityCompanies.map((company: any) => {
           if (!company.assignments) {
@@ -250,13 +254,13 @@ export class AdminPortal implements OnInit, AfterViewInit {
           return {
             ...company,
             assignments: company.assignments.filter(
-              (assignment: any) => assignment.gatedCommunityName !== community.gatedCommunityName,
+              (assignment: any) => assignment.gatedCommunityName !== community.name,
             ),
           };
         });
         this.buildContractHistoryFromCompanies();
         this.triggerToast(
-          `Gated community "${community.gatedCommunityName}" removed successfully.`,
+          `Gated community "${community.name}" removed successfully.`,
         );
         setTimeout(() => {
           this.loading.update(() => false);
@@ -277,9 +281,9 @@ export class AdminPortal implements OnInit, AfterViewInit {
   public complexPrice: number | string = '';
 
   getGatedCommunityPrice(name: string): number | null {
-    const community = this.gatedCommunities.find((c: any) => c.gatedCommunityName === name);
+    const community = this.gatedCommunities().find((c: any) => c.gatedCommunityName === name);
     const rawPrice = community?.price;
-    if (rawPrice === '' || rawPrice === null || rawPrice === undefined) {
+    if (rawPrice === null || rawPrice === undefined) {
       return null;
     }
 
@@ -1027,7 +1031,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
   // Gated community assignment
   protected showGatedComplexAssignModal = false;
   protected showGatedSecurityAssignModal = false;
-  protected selectedGatedCommunity: any = null;
+  protected selectedGatedCommunity!: gatedCommunityDTO;
   protected gatedAssignmentForm: GatedAssignmentFormDTO = {
     gatedAssignmentComplexName: '',
     gatedAssignmentCompanyName: '',
@@ -1198,7 +1202,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
   protected visitorHistory: Array<any> = [];
 
-  protected gatedCommunities: Array<any> = [];
+  gatedCommunities = signal<gatedCommunityDTO[]>([]);
   // Open update modal for a complex within a gated community
   openUpdateGatedComplexModal(gatedCommunity: any, complex: any): void {
     this.editingComplex = { ...complex };
@@ -1319,15 +1323,11 @@ export class AdminPortal implements OnInit, AfterViewInit {
       return;
     }
 
-    const unitStart = 1;
-    const unitEnd = numberOfHouses;
-
-    const gatedData = {
-      gatedCommunityId: this.editingGatedCommunity?.gatedCommunityId ?? '',
-      gatedCommunityName: this.gatedCommunityForm.gatedCommunityName.trim(),
+    const gatedData: gatedCommunityDTO = {
+      _id: this.editingGatedCommunity?.gatedCommunityId ?? '',
+      name: this.gatedCommunityForm.gatedCommunityName.trim(),
       numberOfHouses,
-      unitStart,
-      unitEnd,
+      numberOfComplexes: 0,
       price: priceValue,
       securityAssignments: this.editingGatedCommunity
         ? this.editingGatedCommunity.securityAssignments
@@ -1335,31 +1335,29 @@ export class AdminPortal implements OnInit, AfterViewInit {
     };
 
     const existingName = String(this.editingGatedCommunity?.gatedCommunityName ?? '').trim();
-    const nextName = gatedData.gatedCommunityName;
+    const nextName = gatedData.name;
     const associatedComplexes = this.onboardedComplexes.filter((complex: any) => {
       const linkedName = String(complex?.gatedCommunityName ?? '').trim();
       return linkedName.length > 0 && linkedName === (existingName || nextName);
     });
 
     const payload = {
-      name: gatedData.gatedCommunityName,
+      name: gatedData.name,
       numberOfComplexes: associatedComplexes.length,
       numberOfHouses,
-      unitStart,
-      unitEnd,
       price: priceValue,
     };
 
     if (this.editingGatedCommunity) {
-      this.dataService.put(`gatedCommunity/${gatedData.gatedCommunityId}`, payload).subscribe({
+      this.dataService.put(`gatedCommunity/${gatedData._id}`, payload).subscribe({
         next: () => {
           Object.assign(this.editingGatedCommunity, gatedData);
-          this.gatedCommunitySuccess = `Gated community "${gatedData.gatedCommunityName}" has been updated successfully!`;
+          this.gatedCommunitySuccess = `Gated community "${gatedData.name}" has been updated successfully!`;
           setTimeout(() => {
             this.closeGatedCommunityModal();
           }, 1500);
           this.triggerToast(
-            `Gated community "${gatedData.gatedCommunityName}" updated successfully.`,
+            `Gated community "${gatedData.name}" updated successfully.`,
           );
           setTimeout(() => {
             this.loading.update(() => false);
@@ -1368,7 +1366,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
         },
         error: (err) => {
           console.error('[admin-portal][gatedCommunity][update] request failed', {
-            gatedCommunityId: gatedData.gatedCommunityId,
+            gatedCommunityId: gatedData._id,
             payload,
             response: err?.error,
             status: err?.status,
@@ -1381,16 +1379,17 @@ export class AdminPortal implements OnInit, AfterViewInit {
         },
       });
     } else {
-      this.dataService.post('gatedCommunity', payload).subscribe({
-        next: (response: any) => {
-          gatedData.gatedCommunityId = response?.payload?._id ?? '';
-          this.gatedCommunities.push(gatedData);
-          this.gatedCommunitySuccess = `Gated community "${gatedData.gatedCommunityName}" has been added successfully!`;
+      this.dataService.post<ResponseBody>('gatedCommunity', payload).subscribe({
+        next: (response) => {
+          gatedData._id = response?.payload?._id ?? '';
+
+          this.gatedCommunities.update((arr) => [...arr, response.payload as gatedCommunityDTO]);
+          this.gatedCommunitySuccess = `Gated community "${gatedData.name}" has been added successfully!`;
           setTimeout(() => {
             this.closeGatedCommunityModal();
           }, 1500);
           this.triggerToast(
-            `Gated community "${gatedData.gatedCommunityName}" added successfully.`,
+            `Gated community "${gatedData.name}" added successfully.`,
           );
           setTimeout(() => {
             this.loading.update(() => false);
@@ -1424,7 +1423,6 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
   protected closeGatedComplexAssignModal(): void {
     this.showGatedComplexAssignModal = false;
-    this.selectedGatedCommunity = null;
     this.gatedAssignmentForm.gatedAssignmentComplexName = '';
     this.gatedAssignmentError = '';
     this.gatedAssignmentSuccess = '';
@@ -1459,7 +1457,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
     }
 
     const existingLinkedCommunity = String(existingComplex.gatedCommunityName ?? '').trim();
-    const targetCommunity = String(this.selectedGatedCommunity.gatedCommunityName ?? '').trim();
+    const targetCommunity = String(this.selectedGatedCommunity.name ?? '').trim();
 
     if (existingLinkedCommunity && existingLinkedCommunity === targetCommunity) {
       this.gatedAssignmentError = 'This complex is already assigned to this gated community.';
@@ -1488,7 +1486,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
         next: () => {
           existingComplex.gatedCommunityName = targetCommunity;
           existingComplex.price = gatedCommunityPrice;
-          this.gatedAssignmentSuccess = `${this.gatedAssignmentComplexName} has been assigned to ${this.selectedGatedCommunity.gatedCommunityName} and price updated to R ${gatedCommunityPrice}.`;
+          this.gatedAssignmentSuccess = `${this.gatedAssignmentComplexName} has been assigned to ${this.selectedGatedCommunity.name} and price updated to R ${gatedCommunityPrice}.`;
           setTimeout(() => {
             this.loading.update(() => false);
             this.closeGatedComplexAssignModal();
@@ -1580,7 +1578,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
     this.hydrateGatedSecurityAssignments();
   }
 
-  protected openGatedSecurityAssignModal(community: any, complex?: any): void {
+  protected openGatedSecurityAssignModal(community: gatedCommunityDTO, complex?: any): void {
     this.selectedGatedCommunity = community;
     this.showGatedSecurityAssignModal = true;
     this.gatedAssignmentCompanyName = '';
@@ -1592,7 +1590,6 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
   protected closeGatedSecurityAssignModal(): void {
     this.showGatedSecurityAssignModal = false;
-    this.selectedGatedCommunity = null;
     this.gatedAssignmentCompanyName = '';
     this.gatedSecurityContractStart = '';
     this.gatedSecurityContractEnd = '';
@@ -1661,7 +1658,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
             if (targetComplexName) {
               return assignment.complexName === targetComplexName;
             }
-            return assignment.gatedCommunityName === this.selectedGatedCommunity.gatedCommunityName;
+            return assignment.gatedCommunityName === this.selectedGatedCommunity.name;
           },
         );
         if (existingContract) {
@@ -1673,7 +1670,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
         }
         targetCompany.assignments.push({
           complexName: targetComplexName || undefined,
-          gatedCommunityName: this.selectedGatedCommunity.gatedCommunityName,
+          gatedCommunityName: this.selectedGatedCommunity.name,
           contractStart: this.gatedSecurityContractStart,
           contractEnd: this.gatedSecurityContractEnd,
         });
@@ -1688,7 +1685,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
       });
       this.gatedAssignmentSuccess = targetComplexName
         ? `${this.gatedAssignmentCompanyName} has been assigned to ${targetComplexName}!`
-        : `${this.gatedAssignmentCompanyName} has been assigned to ${this.selectedGatedCommunity.gatedCommunityName}!`;
+        : `${this.gatedAssignmentCompanyName} has been assigned to ${this.selectedGatedCommunity.name}!`;
 
       setTimeout(() => {
         this.loading.update(() => false);
@@ -2124,6 +2121,7 @@ export class AdminPortal implements OnInit, AfterViewInit {
     }
     this.dataService.post<{ payload?: { _id?: string } }>('complex', requestPayload).subscribe({
       next: (response) => {
+        console.log("Record Creation", response);////
         onboardingData.complexId = response?.payload?._id ?? '';
         onboardingData.gatedCommunityName = this.selectedGatedCommunityForOnboarding || '';
         this.onboardedComplexes.push(onboardingData);
@@ -2410,7 +2408,8 @@ export class AdminPortal implements OnInit, AfterViewInit {
         });
       }
     });
-
+    
+    console.log("Getting unassigned", assignedComplexNames);////
     return this.onboardedComplexes.filter(
       (complex) => !assignedComplexNames.has(complex.complexName),
     );
@@ -2739,14 +2738,13 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
   private loadComplexes(): void {
     this.loading.update(() => true);
-    this.dataService.get<any[]>('complex').subscribe({
+    this.dataService.get<ResponseBody>('complex').subscribe({
       next: (complexes) => {
-        this.onboardedComplexes = (complexes || []).map((complex) => ({
+        console.log("Loading complexes", complexes)////
+        this.onboardedComplexes = (complexes.payload as complexDTO[] || []).map((complex) => ({
           complexId: complex._id ?? '',
           complexName: complex.name ?? '',
           gatedCommunityName: complex.gatedCommunityName ?? '',
-          unitStart: complex.unitStart ?? 1,
-          unitEnd: complex.unitEnd ?? complex.numberOfUnits ?? '',
           numberOfUnits: complex.numberOfUnits ?? 0,
           parkingMode: complex.parkingMode ?? 'fixed',
           fixedParkingCount: complex.parkingIsUnlimited
@@ -2773,16 +2771,9 @@ export class AdminPortal implements OnInit, AfterViewInit {
 
   private loadGatedCommunities(): void {
     this.loading.update(() => true);
-    this.dataService.get<any[]>('gatedCommunity').subscribe({
+    this.dataService.get<ResponseBody>('gatedCommunity').subscribe({
       next: (communities) => {
-        this.gatedCommunities = (communities || []).map((community) => ({
-          gatedCommunityId: community._id ?? '',
-          gatedCommunityName: community.name ?? '',
-          unitStart: community.unitStart ?? 1,
-          unitEnd: community.unitEnd ?? community.numberOfHouses ?? '',
-          price: community.price ?? '',
-          securityAssignments: [],
-        }));
+        this.gatedCommunities.update(() => communities.payload as gatedCommunityDTO[]);
         this.hydrateGatedSecurityAssignments();
         this.loading.update(() => false);
       },
@@ -2792,13 +2783,13 @@ export class AdminPortal implements OnInit, AfterViewInit {
           verticalPosition: this.verticalPosition,
         });
         this.loading.update(() => false);
-        this.gatedCommunities = [];
+        this.gatedCommunities.update(() => err.error.payload);
       },
     });
   }
 
   private hydrateGatedSecurityAssignments(): void {
-    if (!this.gatedCommunities.length || !this.registeredSecurityCompanies.length) {
+    if (!this.gatedCommunities().length || !this.registeredSecurityCompanies.length) {
       return;
     }
     const assignmentsByCommunity = new Map<
@@ -2819,28 +2810,28 @@ export class AdminPortal implements OnInit, AfterViewInit {
         assignmentsByCommunity.set(assignment.gatedCommunityName, list);
       }
     }
-    this.gatedCommunities = this.gatedCommunities.map((community) => ({
+    this.gatedCommunities().map((community) => ({
       ...community,
-      securityAssignments: assignmentsByCommunity.get(community.gatedCommunityName) ?? [],
+      securityAssignments: assignmentsByCommunity.get(community.name) ?? [],
     }));
   }
 
   private loadVisitorLogs(): void {
     this.loading.update(() => true);
-    this.dataService.get<any[]>('logs').subscribe({
+    this.dataService.get<ResponseBody>('logs').subscribe({
       next: (logs) => {
-        this.visitorHistory = (logs || []).map((log) => {
+        this.visitorHistory = (logs.payload as logDTO[]).map((log) => {
           const visitor = log.visitor ?? {};
-          const tenant = visitor.user ?? {};
+          const tenant = visitor.destination.users[0] ?? {};
           const guard = log.guard ?? {};
           return {
             visitorName: `${visitor.name ?? ''} ${visitor.surname ?? ''}`.trim(),
             visitorPhone: visitor.contact ?? '',
-            unitVisited: tenant.unit ?? '',
+            unitVisited: visitor.destination.number ?? '',
             tenantName: tenant.name ?? '',
             tenantSurname: tenant.surname ?? '',
             tenantPhone: tenant.cellNumber ?? '',
-            complexName: tenant.complex?.name ?? '',
+            complexName: visitor.destination.complex?.name ?? '',
             entryTime: log.date ?? '',
             securityGuard: `${guard.name ?? ''} ${guard.surname ?? ''}`.trim(),
           };
