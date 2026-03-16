@@ -73,8 +73,8 @@ export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise
   }
 
   const subject = "Your EquaSec login code";
-  const companyLine = options.companyName ? `Company: ${options.companyName}\n` : "";
-  const text = `Welcome to EquaSec.\n\nUsername: ${options.to}\nPassword: ${options.code}\n${companyLine}\nUse this code to log in. If you did not request this, ignore this email.`;
+  const loginUrl = "https://equasec.co.za/login";
+  const text = `Welcome to EquaSec.\n\nUsername: ${options.to}\nPassword: ${options.code}\n\nLog in here: ${loginUrl}\n\nIf you did not request this, ignore this email.`;
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #1e293b;">
       <h2 style="margin: 0 0 12px; color: #1e3a5f;">EquaSec Login Details</h2>
@@ -83,7 +83,9 @@ export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise
         <div><strong>Username:</strong> ${options.to}</div>
         <div><strong>Password:</strong> ${options.code}</div>
       </div>
-      ${options.companyName ? `<p>Company: ${options.companyName}</p>` : ""}
+      <p>
+        <a href="${loginUrl}" target="_blank" rel="noopener noreferrer">Click here to log in</a>
+      </p>
       <p>If you did not request this, you can ignore this email.</p>
     </div>
   `;
