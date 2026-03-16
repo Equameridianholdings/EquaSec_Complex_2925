@@ -55,7 +55,6 @@
           maxlength="6"
           inputmode="numeric"
           placeholder="000000"
-          [(ngModel)]="searchCode"
           (input)="filterCodes($event)"
           class="search-input"
           (focus)="clearOtherSearches('code')"
@@ -123,8 +122,8 @@
         </div>
       </div>
       <div class="code-grid">
-        <div *ngIf="visitorList() && visitorList().length > 0; else emptyState">
-          <article class="code-card" *ngFor="let code of visitorList()">
+        <div *ngIf="filteredVisitors() && filteredVisitors().length > 0; else emptyState">
+          <article class="code-card" *ngFor="let code of filteredVisitors()">
             <div class="code-header">
               <div>
                 <span class="code-label">Access Code</span>

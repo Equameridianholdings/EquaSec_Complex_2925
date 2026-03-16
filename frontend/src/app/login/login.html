@@ -123,11 +123,86 @@
 
       <div class="footer-links">
         <p><a href="#">Forgot PIN?</a></p>
-        <p>To register, please visit the security office.</p>
+        <p>
+          <a href="javascript:void(0)" (click)="openTermsModal()">
+            Terms of Service & Privacy Policy
+          </a>
+        </p>
+        <p>
+          For sign ups, WhatsApp
+          <a href="https://wa.me/27662737455" target="_blank" rel="noopener noreferrer">+27 66 273 7455</a>
+        </p>
       </div>
     </form>
   </div>
 </div>
+
+@if (isTermsModalOpen) {
+  <div class="terms-modal-backdrop" (click)="closeTermsModal()">
+    <div
+      class="terms-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="terms-modal-title"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="terms-modal-header">
+        <h3 id="terms-modal-title">Terms of Service & Privacy Policy</h3>
+        <button type="button" class="terms-close-btn" (click)="closeTermsModal()" aria-label="Close terms">
+          x
+        </button>
+      </div>
+
+      <div class="terms-modal-body">
+        <p><strong>Last Updated: March 2026</strong></p>
+
+        <h4>1. Subscription & Payments</h4>
+        <p>
+          By clicking "Pay" via PayFast, you agree to a recurring monthly subscription fee as specified at the
+          time of purchase.
+        </p>
+        <p>The subscription enables the "Instant Guest Code" generation feature.</p>
+        <p><strong>Non-Payment:</strong> If payment is not successful, the feature will be disabled immediately.</p>
+        <p>
+          <strong>Security Protocol:</strong> In the event of non-payment, Tenants must physically escort guests
+          from the main gate as per standard security protocol.
+        </p>
+
+        <h4>2. Limitation of Liability</h4>
+        <p>This app is a convenience and verification tool. We are not responsible for:</p>
+        <ul>
+          <li>The physical security of the estate or the actions of any guest admitted via a code.</li>
+          <li>Any injury or loss resulting from the "Manual Entry" process for non-paying users.</li>
+          <li>System downtime due to Loadshedding, mobile network failures, or gate motor malfunctions.</li>
+        </ul>
+
+        <h4>3. POPIA & Data Privacy</h4>
+        <p>In compliance with the Protection of Personal Information Act (POPIA):</p>
+        <p><strong>Data Collection:</strong> We collect Unit Numbers and Guest Details solely for security audit logs.</p>
+        <p><strong>Security:</strong> Data is encrypted and stored securely for a period of 90 days.</p>
+        <p><strong>Third Parties:</strong> We do not sell or share tenant or guest data with third-party marketers.</p>
+
+        <h4>4. Cancellations</h4>
+        <p>You may cancel your subscription at any time via the app settings.</p>
+        <p>
+          <strong>Billing Cycle:</strong> Once cancelled, your subscription will remain active until the end of your
+          current paid period.
+        </p>
+        <p>
+          <strong>Future Charges:</strong> Billing will stop at the start of the next payment cycle, and you will not
+          be charged again.
+        </p>
+        <p><strong>Refunds:</strong> No pro-rata refunds are provided for mid-month cancellations.</p>
+
+        <p class="terms-copyright">© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</p>
+      </div>
+
+      <div class="terms-modal-actions">
+        <button type="button" class="btn-primary" (click)="closeTermsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
 
 <div class="page-footer">
   <span>© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</span>

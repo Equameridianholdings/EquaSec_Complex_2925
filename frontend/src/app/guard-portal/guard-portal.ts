@@ -10,6 +10,7 @@ import {
   OnDestroy,
   OnInit,
   PLATFORM_ID,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -705,7 +706,7 @@ export class GuardPortal implements OnInit, OnDestroy {
               .get<any[]>('securityCompany/')
               .pipe(catchError(() => of([]))),
             units: this.dataService.get<any[]>('unit/').pipe(catchError(() => of([]))),
-            users: this.dataService.get<any[]>('user/').pipe(catchError(() => of([]))),
+            users: this.dataService.get<ResponseBody>('user/tenants').pipe(catchError(() => of<ResponseBody>({ message: "" }))),
             vehicles: this.dataService.get<any[]>('vehicle/').pipe(catchError(() => of([]))),
             visitors: this.dataService
               .get<ResponseBody>('visitor/security/')
@@ -719,7 +720,7 @@ export class GuardPortal implements OnInit, OnDestroy {
             complexes: of([]),
             securityCompanies: of([]),
             units: of([]),
-            users: of([]),
+            users: of<ResponseBody>({message: ""}),
             vehicles: of([]),
             visitors: of<ResponseBody>({ message: '' }),
             userContext: of({ currentUser: null, storedCurrentUser: null }),
@@ -741,7 +742,7 @@ export class GuardPortal implements OnInit, OnDestroy {
           const complexList = this.ensureArray<any>(complexes);
           const securityCompanyList = this.ensureArray<any>(securityCompanies);
           const unitList = this.ensureArray<any>(units);
-          const userList = this.ensureArray<any>(users);
+          const userList = this.ensureArray<any>(users.payload);
           const vehicleList = this.ensureArray<any>(vehicles);
           this.visitorList.update(() => this.ensureArray<any>(visitors.payload));
           this.isSosEnabledForCompany = this.resolveSosOptinForCompany(
@@ -2068,10 +2069,15 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.clearStationSelection();
   }
 
+  searchTerm = signal('');
+
+  filteredVisitors = computed(() => {
+    const code = this.searchTerm();
+    return this.visitorList().filter((x) => x.code?.toString().includes(code));
+  });
   // Prototype
   filterCodes(event: any) {
-    console.log(event.target.value)
-    this.visitorList.update(() => this.visitorList().filter((x) => x.code?.toString().includes(event.target.value)));
+    this.searchTerm.set(event.target.value);
   }
 
   private persistStationSelection(): void {

@@ -22,6 +22,7 @@ import { Loader } from '../components/loader/loader';
 })
 export class Login {
   submitting = signal(false);
+  protected isTermsModalOpen = false;
   private _snackBar = inject(MatSnackBar);
   horizontalPosition: MatSnackBarHorizontalPosition = 'center';
   verticalPosition: MatSnackBarVerticalPosition = 'top';
@@ -276,5 +277,13 @@ export class Login {
           });
         },
       });
+  }
+
+  protected openTermsModal(): void {
+    this.isTermsModalOpen = true;
+  }
+
+  protected closeTermsModal(): void {
+    this.isTermsModalOpen = false;
   }
 }
