@@ -38,6 +38,8 @@ export class ChangePin implements AfterViewInit {
           });
         },
       });
+    } else {
+      this.submitting.update(() => false);
     }
   }
 

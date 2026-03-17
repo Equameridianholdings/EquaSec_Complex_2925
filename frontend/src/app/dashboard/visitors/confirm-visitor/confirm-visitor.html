@@ -17,18 +17,18 @@
     <div class="confirmation-body">
       <p>Your visitor access code is ready. You can share it now.</p>
       <div class="confirmation-details">
-        <p><strong>Visitor:</strong> {{ visitor.name }} {{ visitor.surname }}</p>
-        <p><strong>Cellphone:</strong> {{ visitor.contact }}</p>
+        <p><strong>Visitor:</strong> {{ visitor.data.name }} {{ visitor.data.surname }}</p>
+        <p><strong>Cellphone:</strong> {{ visitor.data.contact }}</p>
         @if (visitorIdNumber) {
           <p><strong>ID Number:</strong> {{ visitorIdNumber }}</p>
         }
-        <p><strong>Transport:</strong> {{ !visitor.driving ? 'Walking' : 'Vehicle' }}</p>
+        <p><strong>Transport:</strong> {{ !visitor.data.driving ? 'Walking' : 'Vehicle' }}</p>
         @if (visitor.driving) {
           <ng-container>
-            <p><strong>Make:</strong> {{ visitor.vehicle?.make }}</p>
-            <p><strong>Model:</strong> {{ visitor.vehicle?.model }}</p>
-            <p><strong>Registration:</strong> {{ visitor.vehicle?.registrationNumber }}</p>
-            <p><strong>Colour:</strong> {{ visitor.vehicle?.color }}</p>
+            <p><strong>Make:</strong> {{ visitor.data.vehicle?.make }}</p>
+            <p><strong>Model:</strong> {{ visitor.data.vehicle?.model }}</p>
+            <p><strong>Registration:</strong> {{ visitor.data.vehicle?.registrationNumber }}</p>
+            <p><strong>Colour:</strong> {{ visitor.data.vehicle?.color }}</p>
           </ng-container>
         }
       </div>

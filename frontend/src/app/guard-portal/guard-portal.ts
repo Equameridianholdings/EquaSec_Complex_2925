@@ -33,7 +33,9 @@ import {
 } from '@angular/material/snack-bar';
 import { Loader } from '../components/loader/loader';
 import { visitorDTO } from '../interfaces/visitorDTO';
-import { VisitorCard } from "../components/visitor-card/visitor-card";
+import { VisitorCard } from '../components/visitor-card/visitor-card';
+import { UpdateProfile } from '../update-profile/update-profile';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-guard-portal',
@@ -49,6 +51,17 @@ export class GuardPortal implements OnInit, OnDestroy {
   verticalPosition: MatSnackBarVerticalPosition = 'top';
   private dialog = inject(MatDialog);
   visitorList = signal<visitorDTO[]>([]);
+  protected storageService = inject(StorageService);
+  router = inject(Router)
+
+  updateProfile() {
+    this.dialog.open(UpdateProfile);
+  }
+
+  logout() {
+    this.storageService.removeItem("bearer-token");
+    this.router.navigate(['/login'])
+  }
   // Dynamic filtered lists for residents and vehicles by unit search
   protected get filteredResidents(): any[] {
     const allResidents = Array.isArray(this.residents) ? this.residents : [];
@@ -86,10 +99,12 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.dialog.open(BookVisitor, {
       width: '600px',
       disableClose: false,
-      data: resident ? { 
-        data: resident,
-        endpoint: "visitor/security/"
-       } : undefined,
+      data: resident
+        ? {
+            data: resident,
+            endpoint: 'visitor/security/',
+          }
+        : undefined,
     });
   }
   protected filtersForm: GuardPortalFiltersFormDTO = {
@@ -427,10 +442,6 @@ export class GuardPortal implements OnInit, OnDestroy {
       .pipe(catchError(() => of({ payload: null })))
       .subscribe((response) => {
         this.pendingActiveShift = response?.payload ?? null;
-
-        if (this.stationContextReady) {
-          this.applyStationFromCurrentShiftState();
-        }
         this.submitting.update(() => false);
       });
   }
@@ -702,7 +713,6 @@ export class GuardPortal implements OnInit, OnDestroy {
             effectiveGuardId = currentUser?._id ?? currentUser?.id ?? '';
           }
           this.effectiveGuardId = String(effectiveGuardId ?? '').trim();
-
           return forkJoin({
             gated: this.dataService.get<any[]>('gatedCommunity/').pipe(catchError(() => of([]))),
             complexes: this.dataService.get<any[]>('complex/').pipe(catchError(() => of([]))),
@@ -710,10 +720,12 @@ export class GuardPortal implements OnInit, OnDestroy {
               .get<any[]>('securityCompany/')
               .pipe(catchError(() => of([]))),
             units: this.dataService.get<any[]>('unit/').pipe(catchError(() => of([]))),
-            users: this.dataService.get<ResponseBody>('user/tenants').pipe(catchError(() => of<ResponseBody>({ message: "" }))),
+            users: this.dataService
+              .get<ResponseBody>('user/tenants')
+              .pipe(catchError(() => of<ResponseBody>({ message: '' }))),
             vehicles: this.dataService.get<any[]>('vehicle/').pipe(catchError(() => of([]))),
             visitors: this.dataService
-              .get<ResponseBody>('visitor/security/')
+              .get<ResponseBody>(`visitor/security/`)
               .pipe(catchError(() => of<ResponseBody>({ message: '' }))),
             userContext: of({ currentUser, storedCurrentUser }),
           });
@@ -724,7 +736,7 @@ export class GuardPortal implements OnInit, OnDestroy {
             complexes: of([]),
             securityCompanies: of([]),
             units: of([]),
-            users: of<ResponseBody>({message: ""}),
+            users: of<ResponseBody>({ message: '' }),
             vehicles: of([]),
             visitors: of<ResponseBody>({ message: '' }),
             userContext: of({ currentUser: null, storedCurrentUser: null }),
@@ -1131,8 +1143,22 @@ export class GuardPortal implements OnInit, OnDestroy {
               }),
           );
 
+          if (this.stationType === 'complex') {
+            this.visitorList.update(() =>
+              this.visitorList().filter(
+                (visitors) => visitors.destination.complex?.name === this.selectedStationName,
+              ),
+            );
+          } else {
+            this.visitorList.update(() =>
+              this.visitorList().filter(
+                (visitors) =>
+                  visitors.destination.gatedCommunity?.name === this.selectedStationName,
+              ),
+            );
+          }
+
           this.stationContextReady = true;
-          this.applyStationFromCurrentShiftState();
           this.ensureStationSelectionRequiredState();
           console.log('[GuardPortal][data] station and view state', {
             stationType: this.stationType,
@@ -1151,7 +1177,6 @@ export class GuardPortal implements OnInit, OnDestroy {
   }
 
   private applyStationFromCurrentShiftState(): void {
-    this.restoreStationSelection();
     this.applyActiveShiftStation(this.pendingActiveShift);
     this.ensureStationSelectionRequiredState();
 
@@ -1166,7 +1191,6 @@ export class GuardPortal implements OnInit, OnDestroy {
       return;
     }
 
-    this.restoreStationSelection();
     if (this.hasValidStationSelection() && this.isWithinShiftWindow(this.currentShiftStartAt)) {
       this.stationLocked = true;
       this.showStationPrompt = false;
@@ -1610,7 +1634,7 @@ export class GuardPortal implements OnInit, OnDestroy {
       communityComplexId: tenantData.communityComplexId,
       vehicles: tenantData.vehicles,
     };
-    console.log(payload)
+    console.log(payload);
     this.dataService.post<ResponseBody>('user/tenant', payload).subscribe({
       next: (response) => {
         const emailSent = response?.payload?.emailSent !== false;
@@ -2054,6 +2078,25 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.persistStationSelection();
     this.saveGuardHistoryShift();
     this.ensureStationSelectionRequiredState();
+    this.dataService.get<ResponseBody>(`visitor/security/`).subscribe({
+      next: (res) => {
+        this.visitorList.update(() => res.payload as visitorDTO[])
+        if (this.stationType === 'complex') {
+            this.visitorList.update(() =>
+              this.visitorList().filter(
+                (visitors) => visitors.destination.complex?.name === this.activeShiftStationName,
+              ),
+            );
+          } else {
+            this.visitorList.update(() =>
+              this.visitorList().filter(
+                (visitors) =>
+                  visitors.destination.gatedCommunity?.name === this.activeShiftStationName,
+              ),
+            );
+          }
+      }
+    })
   }
 
   protected changeStation(): void {

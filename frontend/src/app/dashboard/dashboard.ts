@@ -40,7 +40,12 @@ export class Dashboard implements OnDestroy {
   storage = inject(StorageService);
 
   openBookingModal() {
-    this.dialog.open(BookVisitor);
+    this.dialog.open(BookVisitor, {
+      data: {
+        data: {},
+        endpoint: "visitor/"
+      }
+    });
   }
 
   openChangePinModal() {

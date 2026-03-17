@@ -1815,7 +1815,7 @@ userRouter.patch("/changePin", AuthMiddleware, async (req, res) => {
       $set: { password: newPassword },
     };
 
-    const updatedUser = await userSchema.findOneAndUpdate({ emailAddress: email }, updateQuery, { new: true }).lean().exec();
+    const updatedUser = await userSchema.findOneAndUpdate({ emailAddress: email }, updateQuery, { returnDocument: "after" }).lean().exec();
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User details not found!" });
