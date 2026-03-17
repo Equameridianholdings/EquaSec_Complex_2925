@@ -33,11 +33,12 @@ import {
 } from '@angular/material/snack-bar';
 import { Loader } from '../components/loader/loader';
 import { visitorDTO } from '../interfaces/visitorDTO';
+import { VisitorCard } from "../components/visitor-card/visitor-card";
 
 @Component({
   selector: 'app-guard-portal',
   standalone: true,
-  imports: [CommonModule, FormsModule, Loader],
+  imports: [CommonModule, FormsModule, Loader, VisitorCard],
   templateUrl: './guard-portal.html',
   styleUrl: './guard-portal.css',
 })
@@ -85,7 +86,10 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.dialog.open(BookVisitor, {
       width: '600px',
       disableClose: false,
-      data: resident ? { resident } : undefined,
+      data: resident ? { 
+        data: resident,
+        endpoint: "visitor/security/"
+       } : undefined,
     });
   }
   protected filtersForm: GuardPortalFiltersFormDTO = {
@@ -468,7 +472,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     unit: string;
     houseNumber: string;
     cellphone: string;
-    email: string;
+    emailAddress: string;
     photoDataUrl: string;
     complexId: string;
     gatedCommunityId: string;
@@ -931,7 +935,7 @@ export class GuardPortal implements OnInit, OnDestroy {
                   '',
                 houseNumber: linkedTenantLocation?.houseNumber ?? user.houseNumber ?? '',
                 cellphone: user.cellNumber ?? '',
-                email: user.emailAddress ?? '',
+                emailAddress: user.emailAddress ?? '',
                 photoDataUrl: user.profilePhoto ?? '',
                 complexId:
                   linkedTenantLocation?.complexId ??
@@ -1571,7 +1575,7 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     const normalizedTenantEmail = tenantData.email.trim().toLowerCase();
     const existingTenant = this.residents.find(
-      (resident) => resident.email?.trim().toLowerCase() === normalizedTenantEmail,
+      (resident) => resident.emailAddress?.trim().toLowerCase() === normalizedTenantEmail,
     );
     if (existingTenant) {
       this.tenantError = 'A tenant with this email already exists.';
@@ -2605,60 +2609,6 @@ export class GuardPortal implements OnInit, OnDestroy {
     }
 
     return false;
-  }
-
-  protected onGrantAccess(code: visitorDTO): void {
-    if (!code) {
-      this.showToast('Access granted');
-      return;
-    }
-
-    const targetVisitorId = String(code._id ?? '').trim();
-
-    code.validity = false;
-    code.access = true;
-
-    this.visitorList.update(() =>
-      this.visitorList().filter((item: any) => {
-        if (targetVisitorId) {
-          return String(item?.visitorId ?? '').trim() !== targetVisitorId;
-        }
-        return !(
-          String(item?.code ?? '') === String(code.code ?? '') &&
-          String(item?.name ?? '') === String(code.name ?? '')
-        );
-      }),
-    );
-
-    if (Array.isArray(this.visitorList())) {
-      this.visitorList.update(() =>
-        this.visitorList().map((visitor: any) => {
-          const visitorId = String(visitor?._id ?? visitor?.id ?? '').trim();
-          if (targetVisitorId && visitorId === targetVisitorId) {
-            return { ...visitor, validity: false, access: true };
-          }
-          return visitor;
-        }),
-      );
-    }
-
-    if (targetVisitorId) {
-      this.dataService
-        .put<ResponseBody>(`visitor/grant`, {
-          _id: targetVisitorId,
-          validity: false,
-          access: true,
-          expiry: code.expiry ?? null,
-        })
-        .subscribe({
-          next: (res) => {
-            this.showToast(res.message);
-          },
-          error: () => {
-            this.showToast('Access granted (local only)');
-          },
-        });
-    }
   }
 
   private showToast(message: string): void {

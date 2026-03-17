@@ -294,6 +294,66 @@ visitorRouter.get("/user/", async (req, res) => {
   }
 });
 
+visitorRouter.post("/security/", visitorBodyValidation, validateSchema, async (req: Request, res: Response) => {
+  try {
+    const body = req.body as visitorDTO;
+    
+    const getUser = (await userSchema.findOne({ emailAddress: body.destination?.users[0].emailAddress }).exec()) as unknown as UserDTO;
+    const _id = getUser._id as unknown as ObjectId;
+
+    const userUnits = await unitSchema.findOne<unitDTO>({ users: _id.toString() }).exec();
+
+    if (userUnits === null) {
+      res.status(404).json({ message: "User not found!" });
+      return;
+    }
+
+    userUnits.users = [getUser] as unknown[] as UserDTO[];
+
+    const actorTypes = Array.isArray(userUnits.users[0].type) ? userUnits.users[0].type : [];
+    const normalizedActorTypes = actorTypes.map((value) => toTrimmedText(value).toLowerCase()).filter((value) => value.length > 0);
+    const isSecurityBooking = normalizedActorTypes.some((value) => value.includes("security") || value.includes("guard"));
+
+    const incomingVehicle = toRecord(body.vehicle);
+    const hasIncomingVehicle = Object.keys(incomingVehicle).length > 0;
+    const makeModelParts = toTrimmedText(incomingVehicle.makeModel).trim().split(" ").filter(Boolean);
+    const normalizedVehicle = hasIncomingVehicle
+      ? {
+          color: toTrimmedText(incomingVehicle.color) || toTrimmedText(incomingVehicle.colour),
+          make: toTrimmedText(incomingVehicle.make) || makeModelParts[0] || "",
+          model: toTrimmedText(incomingVehicle.model) || (makeModelParts.length > 1 ? makeModelParts.slice(1).join(" ") : ""),
+          registrationNumber:
+            toTrimmedText(incomingVehicle.registrationNumber) ||
+            toTrimmedText(incomingVehicle.registerationNumber) ||
+            toTrimmedText(incomingVehicle.registration),
+        }
+      : undefined;
+
+    const visitor: visitorDTO = {
+      access: isSecurityBooking ? false : true,
+      bookedAt: new Date(),
+      code: isSecurityBooking ? undefined : Code_Generator(),
+      contact: toTrimmedText(body.contact),
+      destination: userUnits,
+      driving: toBoolean(body.driving),
+      expiry: new Date(new Date().setHours(new Date().getHours() + 24)),
+      name: toTrimmedText(body.name),
+      surname: toTrimmedText(body.surname),
+      validity: isSecurityBooking ? false : true,
+      vehicle: normalizedVehicle,
+    };
+
+    //Add Id number encryptions
+
+    const newVisitor = new visitorShema(visitor);
+    await newVisitor.save();
+    res.status(201).json({ message: "Visitor successfully added!", payload: newVisitor });
+    return;
+  } catch (err: unknown) {
+    res.status(500).json({ message: `Internal Server Error! ${err as string}` });
+  }
+});
+
 visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Request, res: Response) => {
   try {
     const body = req.body as visitorDTO;

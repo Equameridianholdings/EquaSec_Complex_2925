@@ -45,9 +45,9 @@ export class BookVisitor implements OnInit {
   residentSearch: any;
   protected hideTenantInput = false;
   constructor(@Optional() @Inject(MAT_DIALOG_DATA) public data: any) {
-    if (data && data.resident) {
-      this.selectedUser = data.resident;
-      this.userSearch = `${data.resident.name ?? ''} ${data.resident.surname ?? ''}`.trim();
+    if (data && data.data) {
+      this.selectedUser = data.data;
+      this.userSearch = `${data.data.name ?? ''} ${data.data.surname ?? ''}`.trim();
     }
   }
   users: any[] = [];
@@ -221,6 +221,10 @@ export class BookVisitor implements OnInit {
 
   openConfirmationModal() {
     this.submitting.update(() => true);
+    if (this.data) {
+      this.newVisitor.destination.users = [this.data.data];
+    }
+    
     if (!this.selectedUser) {
       this._snackBar.open('Please select a resident/tenant for this visitor.', 'close', {
         horizontalPosition: this.horizontalPosition,
@@ -233,7 +237,10 @@ export class BookVisitor implements OnInit {
     else this.newVisitor.vehicle = this.newVehicle;
 
     this.dialog.open(ConfirmVisitor, {
-      data: { ...this.newVisitor },
+      data: {
+        data: this.newVisitor,
+        endpoint: `${this.data.endpoint ? this.data.endpoint : "visitor/"}`
+      },
     });
     this.submitting.update(() => false);
     this.dialogRef.close();

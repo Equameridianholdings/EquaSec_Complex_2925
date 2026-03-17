@@ -26,7 +26,7 @@ export class ConfirmVisitor {
   socket = inject(SocketService);
   service = inject(DataService);
   readonly dialogRef = inject(MatDialogRef<ConfirmVisitor>);
-  visitor: visitorDTO = inject(MAT_DIALOG_DATA);
+  visitor: any = inject(MAT_DIALOG_DATA);
 
   visitorIdNumber!: string;
 
@@ -36,8 +36,9 @@ export class ConfirmVisitor {
 
   confirmBooking() {
     this.submitting.update(() => true);
+    console.log(this.visitor)
     // Make POST request to visitor/ endpoint before confirmation
-    this.service.post<ResponseBody>('visitor/', this.visitor).subscribe({
+    this.service.post<ResponseBody>(this.visitor.endpoint, this.visitor.data).subscribe({
       next: (res) => {
         this.dialogRef.close();
         this.socket.newVisitor();

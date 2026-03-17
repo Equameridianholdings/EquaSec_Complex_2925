@@ -123,60 +123,9 @@
       </div>
       <div class="code-grid">
         <div *ngIf="filteredVisitors() && filteredVisitors().length > 0; else emptyState">
-          <article class="code-card" *ngFor="let code of filteredVisitors()">
-            <div class="code-header">
-              <div>
-                <span class="code-label">Access Code</span>
-                <h3>{{ code.code }}</h3>
-              </div>
-              <span class="badge" [class.driving]="code.driving" [class.walking]="!code.driving">
-                {{ code.driving ? 'Driving' : 'Walking' }}
-              </span>
-            </div>
-            <div class="code-body">
-              <div class="detail">
-                <span>Visitor</span>
-                <strong>{{ code.name }}</strong>
-              </div>
-              <div class="detail">
-                <span>Tenant</span>
-                <strong>{{ code.destination.users[0].name }}</strong>
-              </div>
-              <div class="detail">
-                <span>Tenant Number</span>
-                <strong>{{ code.destination.users[0].cellNumber }}</strong>
-              </div>
-              <div class="detail">
-                <span>{{ residenceSearchLabel }}</span>
-                <strong>{{ formatResidenceValue(code.destination.complex?.name) }}</strong>
-              </div>
-              <div class="detail">
-                <span>Expires</span>
-                <strong>{{ code.expiry }}</strong>
-              </div>
-              <div *ngIf="code.driving && code.vehicle">
-                <div class="detail">
-                  <span>Vehicle Make</span>
-                  <strong>{{ code.vehicle.make || '-' }}</strong>
-                </div>
-                <div class="detail">
-                  <span>Vehicle Model</span>
-                  <strong>{{ code.vehicle.model || '-' }}</strong>
-                </div>
-                <div class="detail">
-                  <span>Registration</span>
-                  <strong>{{ code.vehicle.registrationNumber || '-' }}</strong>
-                </div>
-                <div class="detail">
-                  <span>Colour</span>
-                  <strong>{{ code.vehicle.color || '-' }}</strong>
-                </div>
-              </div>
-            </div>
-            <div class="code-actions">
-              <button class="btn-main" type="button" (click)="onGrantAccess(code)">Grant Access</button>
-            </div>
-          </article>
+           @for (visitor of filteredVisitors(); track $index) {
+            <app-visitor-card [visitor]="visitor" [gaurd]="false"/>
+           }
         </div>
       </div>
       <ng-template #emptyState>

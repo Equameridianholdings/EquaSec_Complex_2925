@@ -2,14 +2,21 @@
   <div class="code-info">
     <span class="code-number">{{ visitor.code }}</span>
     <span class="visitor-name">{{ visitor.name }} {{ visitor.surname }}</span>
-    <small>Transport: {{ visitor.driving ? "Car" : "Walking" }} | Cellphone: {{ visitor.contact }}</small>
+    <small
+      >Transport: {{ visitor.driving ? 'Car' : 'Walking' }} | Cellphone:
+      {{ visitor.contact }}</small
+    >
     <small>
       Location:
-      {{ visitor.destination.complex?.name || visitor.destination.gatedCommunity?.name || 'Not linked' }}
+      {{
+        visitor.destination.complex?.name ||
+          visitor.destination.gatedCommunity?.name ||
+          'Not linked'
+      }}
     </small>
     <small>Expires in {{ hours }} hours</small>
   </div>
-  <div class="code-actions">
+  <div class="code-actions" [hidden]="!gaurd">
     <button
       type="button"
       class="btn-whatsapp-share"
@@ -18,5 +25,8 @@
     >
       <img src="/Screenshot 2026-02-11 174917.png" alt="Share" />
     </button>
+  </div>
+  <div class="code-actions" [hidden]="gaurd">
+    <button class="btn-main" type="button" (click)="onGrantAccess(visitor)" [disabled]="granted()">Grant Access</button>
   </div>
 </div>
