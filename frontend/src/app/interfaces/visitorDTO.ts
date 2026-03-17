@@ -39,8 +39,8 @@ export const shareCode = (visitor: visitorDTO) => {
 export const getHours = (visitor: visitorDTO): number => {
   let current = new Date();
   let expiry = new Date(Date.parse(visitor.expiry as unknown as string));
+  
+  if (current.getDay() === expiry.getDay()) return expiry.getHours() - current.getHours();
 
-  if (current.getDay() === expiry.getDay()) return Math.abs(current.getHours() - expiry.getHours());
-
-  return Math.abs(24 + current.getHours() - expiry.getHours());
+  return 24 - current.getHours() + expiry.getHours();
 };

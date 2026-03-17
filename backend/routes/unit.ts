@@ -107,29 +107,30 @@ unitRouter.get("/user/", async (req, res) => {
   };
   try {
     const user = await userSchema.findOne(userQuery).exec();
-
+    
     if (!user) {
       res.status(404).json({ message: "Unit not found" });
       return;
     }
     
     const unitQuery = {
-      "users._id": user._id.toString(),
+      "users": user._id.toString(),
     };
 
-    const Unit = await unitSchema.findOne<unitDTO>(unitQuery).exec();
+    const Unit = await unitSchema.findOne(unitQuery).exec();
 
     if (!Unit) {
       res.status(404).json({ message: "Unit not found" });
       return;
     }
-
+    
     const users = await userSchema.find({}).select({}).exec() as unknown as UserDTO[];
+
     for (let i = 0; i < Unit.users.length; i++) {
       if (isValidObjectId(Unit.users[i]))
-        Unit.users[i] = users[i];
+        Unit.users[i] = users.find((x) => ValidObjectId(x._id as unknown as string).toString() === Unit.users[i]);
     }
-
+    
     res.status(200).json({ message: "Unit successfully found!", payload: Unit });
     return;
   } catch {

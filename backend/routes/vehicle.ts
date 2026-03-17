@@ -11,7 +11,6 @@ import { ValidObjectId } from "#utils/validObjectId.js";
 import { Router } from "express";
 import { Request, Response } from "express";
 import { checkSchema } from "express-validator/lib/middlewares/schema.js";
-import { ObjectId } from "mongodb";
 
 const vehicleRouter = Router();
 
@@ -41,7 +40,7 @@ vehicleRouter.get("/user/", RoleMiddleware(["tenant"]), async (req, res) => {
     const user = await userSchema.findOne({ emailAddress: email }).exec();
     
     const units = await unitSchema
-      .find({ "users._id": user?._id.toString() })
+      .find({ "users": user?._id.toString() })
       .select({})
       .exec() as unknown as unitDTO[];
     
@@ -51,7 +50,7 @@ vehicleRouter.get("/user/", RoleMiddleware(["tenant"]), async (req, res) => {
 
     units.forEach((unit) => {
       unit.users.forEach((usr: unknown) => {
-        const temp = allVehicles.filter((x) => x.user?._id === usr as ObjectId | undefined);
+        const temp = allVehicles.filter((x) => ValidObjectId(x.user?._id as unknown as string).toString() === usr as string);
         vehicles = [...vehicles, ...temp];
       });
     });
