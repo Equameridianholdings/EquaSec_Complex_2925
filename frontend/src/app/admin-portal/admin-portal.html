@@ -2,7 +2,1876 @@
 @if (loading()) {
   <app-loader />
 }
+<div class="admin-portal">
+  <div class="toast" *ngIf="showToast">{{ toastMessage }}</div>
+  <header class="portal-header">
+    <div>
+      <p class="eyebrow">Admin Console</p>
+      <h1>EquaSec Admin Portal</h1>
+      <p class="subtext">Signed in as {{ adminEmail }}</p>
+    </div>
+  </header>
 
+  <!-- Summary Stats Section -->
+  <section class="summary-section">
+    <div class="stat-box">
+      <div class="stat-number">{{ onboardedComplexes.length }}</div>
+      <div class="stat-label">Active Complexes</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">{{ gatedCommunities().length }}</div>
+      <div class="stat-label">Gated Communities</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">{{ registeredSecurityCompanies.length }}</div>
+      <div class="stat-label">Security Companies</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-number">{{ activeContractsCount }}</div>
+      <div class="stat-label">Active Contracts</div>
+    </div>
+    <div class="stat-box">
+      <button class="btn-primary" (click)="openOnboardingModal()">➕ Add Complex</button>
+    </div>
+    <div class="stat-box">
+      <button class="btn-primary" (click)="openGatedCommunityModal()">
+        ➕ Add Gated Community
+      </button>
+    </div>
+  </section>
+
+  <!-- Main Content Grid -->
+  <section class="main-container">
+    <!-- Security Companies Section -->
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Security Partners</h2>
+        <span class="panel-sub">Registered security companies</span>
+        <div class="security-action-buttons" style="margin-top: 10px">
+          <button
+            class="btn-primary action-btn-wide"
+            type="button"
+            (click)="openAddSecurityModal()"
+          >
+            ➕ Add Security
+          </button>
+          <button
+            class="btn-danger action-btn-wide"
+            type="button"
+            (click)="openRemoveSecurityModal()"
+          >
+            ➖ Remove Security
+          </button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div *ngIf="registeredSecurityCompanies.length === 0" class="empty-state">
+          <p>No security companies in the system. Register companies from complexes.</p>
+        </div>
+        <div class="companies-list" *ngIf="registeredSecurityCompanies.length > 0">
+          <div class="company-card" *ngFor="let company of registeredSecurityCompanies">
+            <div class="company-header">
+              <div class="company-info">
+                <div class="company-title-row">
+                  <h3 class="company-name">{{ company.companyName }}</h3>
+                  <span
+                    class="status-badge"
+                    [class.assigned]="company.assignments && company.assignments.length > 0"
+                    [class.unassigned]="!company.assignments || company.assignments.length === 0"
+                  >
+                    {{
+                      company.assignments && company.assignments.length > 0
+                        ? 'Assigned (' + company.assignments.length + ')'
+                        : 'Unassigned'
+                    }}
+                  </span>
+                </div>
+                <div class="company-details">
+                  <div
+                    class="detail-item"
+                    *ngIf="company.assignments && company.assignments.length > 0"
+                  >
+                    <span class="detail-label">Assigned Sites:</span>
+                    <div class="detail-value">
+                      <div class="assignment-item" *ngFor="let assignment of company.assignments">
+                        <div class="assignment-info">
+                          <strong>{{
+                            assignment.complexName || assignment.gatedCommunityName
+                          }}</strong>
+                          <span class="contract-dates" *ngIf="assignment.gatedCommunityName">
+                            (Gated Community)</span
+                          >
+                          <span class="contract-dates">
+                            (Contract: {{ assignment.contractStart }} to
+                            {{ assignment.contractEnd }})</span
+                          >
+                        </div>
+                        <button
+                          class="btn-sm btn-danger"
+                          type="button"
+                          (click)="unassignCompanyFromComplex(company, assignment)"
+                        >
+                          🔓 Unassign
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Email:</span>
+                    <span class="detail-value">{{ company.companyEmail }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Contact:</span>
+                    <span class="detail-value">{{ company.companyTel }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">PSIRA Registration:</span>
+                    <span class="detail-value">{{ company.psiraNumber }}</span>
+                  </div>
+                </div>
+                <div class="company-actions">
+                  <button class="btn-primary" type="button" (click)="openAssignModal(company)">
+                    🔗
+                    {{
+                      company.assignments && company.assignments.length > 0
+                        ? 'Assign to Another Complex'
+                        : 'Assign to Complex'
+                    }}
+                  </button>
+                  <button
+                    class="btn-primary action-btn-wide"
+                    type="button"
+                    style="
+                      margin-top: 8px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    "
+                    (click)="openUpdateSecurityModal(company)"
+                  >
+                    <span style="display: flex; align-items: center">
+                      Update
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        style="vertical-align: middle; margin-left: 6px"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z" />
+                      </svg>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Gated Communities Management Section -->
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Gated Communities</h2>
+        <span class="panel-sub">Manage gated communities and house ranges</span>
+      </div>
+      <div class="panel-body">
+        <div *ngIf="gatedCommunities().length === 0" class="empty-state">
+          <p>No gated communities added yet. Create one to get started.</p>
+        </div>
+        <div class="gated-communities-list" *ngIf="gatedCommunities().length > 0">
+          <div class="gated-community-card" *ngFor="let community of gatedCommunities()">
+            <div class="community-header">
+              <div class="community-info">
+                <div class="company-title-row">
+                  <h3 class="community-name">{{ community.name }}</h3>
+                  <span
+                    class="status-badge assigned"
+                    *ngIf="
+                      community.securityAssignments && community.securityAssignments.length > 0
+                    "
+                  >
+                    Security Assigned
+                  </span>
+                </div>
+                <div class="community-details">
+                  <div class="detail-item">
+                    <span class="detail-label">Total Houses:</span>
+                    <span class="detail-value">{{ getCommunityHouseCount(community) }}</span>
+                  </div>
+                  <div
+                    class="detail-item"
+                    *ngIf="community.price !== null && community.price !== undefined"
+                  >
+                    <span class="detail-label">Price:</span>
+                    <span class="detail-value">R {{ community.price }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="community-actions">
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  (click)="openGatedComplexAssignModal(community)"
+                >
+                  🏘️ Assign Complex
+                </button>
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  (click)="openGatedSecurityAssignModal(community)"
+                  *ngIf="
+                    !community.securityAssignments || community.securityAssignments.length === 0
+                  "
+                >
+                  🛡️ Assign Security
+                </button>
+                <button
+                  class="btn-primary"
+                  type="button"
+                  (click)="openGatedCommunityModal(community)"
+                >
+                  ✏️ Edit
+                </button>
+                <button class="btn-danger" type="button" (click)="deleteGatedCommunity(community)">
+                  🗑️ Delete
+                </button>
+              </div>
+            </div>
+
+            <!-- Assigned Complexes -->
+            <div
+              *ngIf="getComplexesForCommunity(community.name).length > 0"
+              class="assignment-section"
+            >
+              <div class="assignment-header">
+                <span class="assignment-title">Assigned Complexes</span>
+              </div>
+              <div class="assignment-items">
+                <div
+                  class="assignment-item"
+                  *ngFor="let linkedComplex of getComplexesForCommunity(community.name)"
+                >
+                  <div class="complex-card" style="margin-bottom: 10px">
+                    <div class="complex-header">
+                      <div class="complex-info">
+                        <h3 class="complex-name">{{ linkedComplex.complexName }}</h3>
+                        <div class="complex-details">
+                          <div class="detail-item">
+                            <span class="detail-label">Total Units:</span>
+                            <span class="detail-value">{{ linkedComplex.numberOfUnits }}</span>
+                          </div>
+                          <div
+                            class="detail-item"
+                            *ngIf="
+                              linkedComplex.price !== '' &&
+                              linkedComplex.price !== null &&
+                              linkedComplex.price !== undefined
+                            "
+                          >
+                            <span class="detail-label">Price:</span>
+                            <span class="detail-value">R {{ linkedComplex.price }}</span>
+                          </div>
+                          <div
+                            class="detail-item"
+                            *ngIf="linkedComplex.blocks && linkedComplex.blocks.length > 0"
+                          >
+                            <span class="detail-label">Units per Block:</span>
+                            <div class="detail-value">
+                              <div *ngFor="let block of linkedComplex.blocks">
+                                {{ block.name }}: {{ getBlockUnitCount(block) }} units
+                              </div>
+                            </div>
+                          </div>
+                          <div class="detail-item">
+                            <span class="detail-label">Parking:</span>
+                            <span class="detail-value">{{
+                              linkedComplex.parkingMode === 'fixed'
+                                ? 'Fixed (' + linkedComplex['fixedParkingCount'] + ')'
+                                : 'Per-Unit'
+                            }}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        class="complex-status-wrapper"
+                        *ngIf="!isComplexAssigned(linkedComplex.complexName)"
+                      >
+                        <div class="security-unassigned security-assigned">
+                          <span
+                            class="xmark"
+                            style="
+                              color: #e53935;
+                              font-size: 18px;
+                              font-weight: bold;
+                              margin-right: 6px;
+                            "
+                            >&#10006;</span
+                          >
+                          <span class="status-text">Not Assigned</span>
+                        </div>
+                        <button
+                          class="btn-update-small"
+                          type="button"
+                          (click)="openUpdateComplexModal(linkedComplex)"
+                        >
+                          <span class="update-icon-text">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              style="vertical-align: middle; margin-right: 4px"
+                            >
+                              <path d="M12 20h9" />
+                              <path
+                                d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"
+                              />
+                            </svg>
+                            <span style="vertical-align: middle; font-size: 13px">Update</span>
+                          </span>
+                        </button>
+                        <button
+                          class="btn-secondary"
+                          type="button"
+                          (click)="openGatedSecurityAssignModal(community, linkedComplex)"
+                        >
+                          🛡️ Assign Security
+                        </button>
+                        <button
+                          class="btn-danger"
+                          type="button"
+                          (click)="unassignComplexFromGatedCommunity(community, linkedComplex)"
+                        >
+                          🔓 Unassign Complex
+                        </button>
+                      </div>
+                      <div
+                        class="complex-status-wrapper"
+                        *ngIf="isComplexAssigned(linkedComplex.complexName)"
+                      >
+                        <div class="security-assigned">
+                          <span class="checkmark">✓</span>
+                          <span class="status-text">Security Assigned</span>
+                        </div>
+                        <button
+                          class="btn-update-small"
+                          type="button"
+                          (click)="openUpdateComplexModal(linkedComplex)"
+                        >
+                          <span class="update-icon-text">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              style="vertical-align: middle; margin-right: 4px"
+                            >
+                              <path d="M12 20h9" />
+                              <path
+                                d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"
+                              />
+                            </svg>
+                            <span style="vertical-align: middle; font-size: 13px">Update</span>
+                          </span>
+                        </button>
+                        <button
+                          class="btn-danger"
+                          type="button"
+                          (click)="unassignComplexFromGatedCommunity(community, linkedComplex)"
+                        >
+                          🔓 Unassign Complex
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Assigned Security Companies -->
+            <div
+              *ngIf="community.securityAssignments && community.securityAssignments.length > 0"
+              class="assignment-section"
+            >
+              <div class="assignment-header">
+                <span class="assignment-title">Assigned Security Companies</span>
+              </div>
+              <div class="assignment-items">
+                <div
+                  class="assignment-item security-company-details"
+                  *ngFor="let security of community.securityAssignments"
+                >
+                  <div class="security-info">
+                    <div class="security-header">
+                      <span class="security-name">{{ security.companyName }}</span>
+                    </div>
+                    <div
+                      class="security-details"
+                      *ngFor="let company of registeredSecurityCompanies"
+                    >
+                      <div
+                        *ngIf="company.companyName === security.companyName"
+                        class="company-contract-info"
+                      >
+                        <div class="detail-row">
+                          <span class="detail-label">Email:</span>
+                          <span class="detail-value">{{ company.companyEmail }}</span>
+                        </div>
+                        <div class="detail-row">
+                          <span class="detail-label">Tel:</span>
+                          <span class="detail-value">{{ company.companyTel }}</span>
+                        </div>
+                        <div class="detail-row">
+                          <span class="detail-label">PSIRA:</span>
+                          <span class="detail-value">{{ company.psiraNumber }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="contract-dates">
+                      <div class="detail-row">
+                        <span class="detail-label">Contract Start:</span>
+                        <span class="detail-value">{{ security.contractStart }}</span>
+                      </div>
+                      <div class="detail-row">
+                        <span class="detail-label">Contract End:</span>
+                        <span class="detail-value">{{ security.contractEnd }}</span>
+                      </div>
+                    </div>
+                    <button
+                      class="btn-sm btn-danger"
+                      type="button"
+                      (click)="confirmGatedSecurityUnassignment(community, security)"
+                    >
+                      🔓 Unassign
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Complexes Management Section -->
+    <article class="panel">
+      <div class="panel-header">
+        <h2>Complex Management</h2>
+        <span class="panel-sub">Manage your residential complexes</span>
+      </div>
+      <div class="panel-body">
+        <div *ngIf="onboardedComplexes.length === 0" class="empty-state">
+          <p>No complexes onboarded yet. Create one to get started.</p>
+        </div>
+        <div class="complexes-list" *ngIf="standaloneComplexes.length > 0">
+          <div class="complex-card" *ngFor="let complex of standaloneComplexes">
+            <div class="complex-header">
+              <div class="complex-info">
+                <h3 class="complex-name">{{ complex.complexName }}</h3>
+                <!-- Show gated community name if complex is in a gated community -->
+                <ng-container *ngIf="getGatedCommunityForComplex(complex.complexName) as gatedName">
+                  <div class="gated-community-label" *ngIf="gatedName">
+                    <span
+                      style="
+                        background: #1976d2;
+                        color: #fff;
+                        padding: 2px 8px;
+                        border-radius: 12px;
+                        font-size: 12px;
+                        display: inline-block;
+                        margin-bottom: 4px;
+                      "
+                    >
+                      Gated Community: {{ gatedName }}
+                    </span>
+                  </div>
+                </ng-container>
+                <div class="complex-details">
+                  <div class="detail-item" *ngIf="!complex.blocks || complex.blocks.length === 0">
+                    <span class="detail-label">Total Units:</span>
+                    <span class="detail-value">{{ complex.numberOfUnits }}</span>
+                  </div>
+                  <div class="detail-item" *ngIf="complex.numberOfUnits">
+                    <span class="detail-label">Total Units:</span>
+                    <span class="detail-value">{{ complex.numberOfUnits }}</span>
+                  </div>
+                  <div class="detail-item" *ngIf="complex.address">
+                    <span class="detail-label">Address:</span>
+                    <span class="detail-value">{{ complex.address }}</span>
+                  </div>
+                  <div
+                    class="detail-item"
+                    *ngIf="
+                      complex.price !== '' && complex.price !== null && complex.price !== undefined
+                    "
+                  >
+                    <span class="detail-label">Price:</span>
+                    <span class="detail-value">R {{ complex.price }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Parking:</span>
+                    <span class="detail-value">{{
+                      complex.parkingMode === 'fixed'
+                        ? 'Fixed (' + complex['fixedParkingCount'] + ')'
+                        : 'Per-Unit'
+                    }}</span>
+                  </div>
+                  <div class="detail-item" *ngIf="complex.blocks && complex.blocks.length > 0">
+                    <span class="detail-label">Blocks:</span>
+                    <span class="detail-value">
+                      {{ complex.blocks.length }} block{{ complex.blocks.length === 1 ? '' : 's' }}
+                    </span>
+                  </div>
+                  <div class="detail-item" *ngIf="complex.blocks && complex.blocks.length > 0">
+                    <span class="detail-label">Units per Block:</span>
+                    <div class="detail-value">
+                      <div *ngFor="let block of complex.blocks">
+                        {{ block.name }}: {{ getBlockUnitCount(block) }} units
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="complex-status-wrapper" *ngIf="!isComplexAssigned(complex.complexName)">
+                <div class="security-unassigned security-assigned">
+                  <span
+                    class="xmark"
+                    style="color: #e53935; font-size: 18px; font-weight: bold; margin-right: 6px"
+                    >&#10006;</span
+                  >
+                  <span class="status-text">Not Assigned</span>
+                </div>
+                <button
+                  class="btn-danger btn-update-small complex-delete-btn"
+                  type="button"
+                  (click)="openDeleteComplexModal(complex)"
+                >
+                  <span class="update-icon-text">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      style="vertical-align: middle; margin-right: 4px"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path
+                        d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
+                      />
+                    </svg>
+                    <span style="vertical-align: middle; font-size: 15px">Delete</span>
+                  </span>
+                </button>
+                <button
+                  class="btn-update-small"
+                  type="button"
+                  (click)="openUpdateComplexModal(complex)"
+                >
+                  <span class="update-icon-text">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      style="vertical-align: middle; margin-right: 4px"
+                    >
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z" />
+                    </svg>
+                    <span style="vertical-align: middle; font-size: 13px">Update</span>
+                  </span>
+                </button>
+              </div>
+              <div class="complex-status-wrapper" *ngIf="isComplexAssigned(complex.complexName)">
+                <div class="security-assigned">
+                  <span class="checkmark">✓</span>
+                  <span class="status-text">Security Assigned</span>
+                </div>
+                <button
+                  class="btn-update-small"
+                  type="button"
+                  (click)="openUpdateComplexModal(complex)"
+                >
+                  <span class="update-icon-text">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      style="vertical-align: middle; margin-right: 4px"
+                    >
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z" />
+                    </svg>
+                    <span style="vertical-align: middle; font-size: 13px">Update</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+            <!-- end .complex-card -->
+          </div>
+          <!-- end .complexes-list -->
+        </div>
+        <!-- end .panel-body -->
+      </div>
+      <!-- end .grid-column -->
+
+      <!-- Delete Complex Confirmation Modal (single instance) -->
+      <div class="modal-overlay" *ngIf="showDeleteComplexModal" (click)="closeDeleteComplexModal()">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Confirm Delete</h2>
+            <button class="close-btn" (click)="closeDeleteComplexModal()">✕</button>
+          </div>
+          <div class="modal-form">
+            <p>
+              Are you sure you want to delete the complex
+              <strong>{{ complexToDelete?.complexName }}</strong
+              >?
+            </p>
+            <p style="color: var(--portal-muted); font-size: 13px; margin: 0">
+              This action cannot be undone.
+            </p>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" (click)="closeDeleteComplexModal()">
+              Cancel
+            </button>
+            <button type="button" class="btn-danger" (click)="confirmDeleteComplex()">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Update Complex Modal (moved outside *ngFor) -->
+      <div class="modal-overlay" *ngIf="showUpdateComplexModal" (click)="closeUpdateComplexModal()">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Update Complex</h2>
+            <button class="close-btn" (click)="closeUpdateComplexModal()">✕</button>
+          </div>
+          <form class="modal-form">
+            <div class="form-group">
+              <label for="updateComplexName">Complex Name</label>
+              <input
+                type="text"
+                id="updateComplexName"
+                class="form-control"
+                [(ngModel)]="editingComplex.complexName"
+                name="updateComplexName"
+                required
+              />
+            </div>
+            <div
+              class="form-row"
+              *ngIf="!editingComplex.blocks || editingComplex.blocks.length === 0"
+            >
+              <div class="form-group">
+                <label for="updateUnitStart">Unit Range - Start</label>
+                <input
+                  type="number"
+                  id="updateUnitStart"
+                  class="form-control"
+                  [(ngModel)]="editingComplex.unitStart"
+                  name="updateUnitStart"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="updateUnitEnd">Unit Range - End</label>
+                <input
+                  type="number"
+                  id="updateUnitEnd"
+                  class="form-control"
+                  [(ngModel)]="editingComplex.unitEnd"
+                  name="updateUnitEnd"
+                  required
+                />
+              </div>
+            </div>
+            <div
+              class="form-group"
+              *ngIf="editingComplex.blocks && editingComplex.blocks.length > 0"
+            >
+              <label>Blocks</label>
+              <div class="block-grid" *ngFor="let block of editingComplex.blocks; let i = index">
+                <input
+                  class="form-control"
+                  [(ngModel)]="block.name"
+                  name="updateBlockName{{ i }}"
+                  placeholder="Block name"
+                />
+                <input
+                  class="form-control"
+                  type="number"
+                  [(ngModel)]="block.unitStart"
+                  name="updateBlockStart{{ i }}"
+                  placeholder="Start"
+                />
+                <input
+                  class="form-control"
+                  type="number"
+                  [(ngModel)]="block.unitEnd"
+                  name="updateBlockEnd{{ i }}"
+                  placeholder="End"
+                />
+                <button class="btn-sm btn-danger" type="button" (click)="removeUpdateBlock(i)">
+                  Remove
+                </button>
+              </div>
+              <button class="btn-secondary" type="button" (click)="addUpdateBlock()">
+                Add Block
+              </button>
+            </div>
+            <div class="form-group">
+              <label for="updateComplexPrice">Price (ZAR)</label>
+              <input
+                type="text"
+                id="updateComplexPrice"
+                class="form-control"
+                [(ngModel)]="editingComplex.price"
+                name="updateComplexPrice"
+                required
+                inputmode="decimal"
+                placeholder="e.g., 5000.50"
+              />
+            </div>
+            <div class="form-group">
+              <label for="updateParkingMode">Parking Configuration</label>
+              <select
+                id="updateParkingMode"
+                class="form-control"
+                [(ngModel)]="editingComplex.parkingMode"
+                name="updateParkingMode"
+              >
+                <option value="fixed">Fixed</option>
+                <option value="per-unit">Per Unit</option>
+              </select>
+            </div>
+            <div class="form-group" *ngIf="editingComplex.parkingMode === 'fixed'">
+              <label class="checkbox-row">
+                <input
+                  type="checkbox"
+                  [(ngModel)]="editingComplex.parkingIsUnlimited"
+                  name="updateParkingUnlimited"
+                />
+                <span>Unlimited parking</span>
+              </label>
+            </div>
+            <div
+              class="form-group"
+              *ngIf="editingComplex.parkingMode === 'fixed' && !editingComplex.parkingIsUnlimited"
+            >
+              <label for="updateFixedParkingCount">Fixed Parking Bays</label>
+              <input
+                type="number"
+                id="updateFixedParkingCount"
+                class="form-control"
+                [(ngModel)]="editingComplex['fixedParkingCount']"
+                name="updateFixedParkingCount"
+                min="0"
+              />
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn-secondary" (click)="closeUpdateComplexModal()">
+                Cancel
+              </button>
+              <button type="button" class="btn-update-small" (click)="submitUpdateComplex()">
+                <span class="update-icon-text">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="vertical-align: middle; margin-right: 4px"
+                  >
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z" />
+                  </svg>
+                  <span style="vertical-align: middle; font-size: 13px">Update</span>
+                </span>
+              </button>
+            </div>
+            <small class="error-text" *ngIf="updateComplexError">{{ updateComplexError }}</small>
+          </form>
+        </div>
+      </div>
+
+      <!-- Visitor History Section -->
+      <section class="visitor-history-section">
+        <div class="section-header">
+          <h2>📋 Visitor History</h2>
+          <p>Track all visitor entries and exits across all complexes</p>
+        </div>
+
+        <!-- Search and Filter Controls -->
+        <div class="visitor-controls">
+          <div class="search-box">
+            <input
+              type="text"
+              class="form-control"
+              placeholder="🔍 Search by visitor, tenant, phones, unit..."
+              [(ngModel)]="visitorSearchTerm"
+              (input)="filterVisitors()"
+            />
+          </div>
+          <div class="filter-controls">
+            <select
+              class="form-control"
+              [(ngModel)]="timeframeFilter"
+              (change)="applyTimeframeFilter()"
+            >
+              <option value="today">Today</option>
+              <option value="last7">Last 7 Days</option>
+              <option value="last30">Last 30 Days</option>
+              <option value="thisMonth">This Month</option>
+              <option value="lastMonth">Last Month</option>
+            </select>
+            <select
+              class="form-control"
+              [(ngModel)]="selectedComplexFilter"
+              (change)="filterVisitors()"
+            >
+              <option value="">All Sites</option>
+              <option *ngFor="let complex of onboardedComplexes" [value]="complex.complexName">
+                {{ complex.complexName }}
+              </option>
+            </select>
+            <input
+              type="date"
+              class="form-control"
+              [(ngModel)]="filterStartDate"
+              (change)="onCustomDateChange()"
+              title="Start Date"
+            />
+            <input
+              type="date"
+              class="form-control"
+              [(ngModel)]="filterEndDate"
+              (change)="onCustomDateChange()"
+              title="End Date"
+            />
+            <input
+              type="time"
+              class="form-control"
+              [(ngModel)]="filterStartTime"
+              (change)="filterVisitors()"
+              (focus)="openTimePicker($event)"
+              (click)="openTimePicker($event)"
+              title="Start Time"
+            />
+            <input
+              type="time"
+              class="form-control"
+              [(ngModel)]="filterEndTime"
+              (change)="filterVisitors()"
+              (focus)="openTimePicker($event)"
+              (click)="openTimePicker($event)"
+              title="End Time"
+            />
+            <button class="btn-secondary" (click)="clearFilters()">Clear Filters</button>
+          </div>
+        </div>
+
+        <div class="visitor-table-container">
+          <table class="visitor-table">
+            <thead>
+              <tr>
+                <th (click)="sortVisitors('entryTime')" class="sortable">
+                  Date
+                  <span class="sort-icon">{{ getSortIcon('entryTime') }}</span>
+                </th>
+                <th (click)="sortVisitors('visitorName')" class="sortable">
+                  Visitor Name
+                  <span class="sort-icon">{{ getSortIcon('visitorName') }}</span>
+                </th>
+                <th (click)="sortVisitors('visitorPhone')" class="sortable">
+                  Contact
+                  <span class="sort-icon">{{ getSortIcon('visitorPhone') }}</span>
+                </th>
+                <th (click)="sortVisitors('complexName')" class="sortable">
+                  Complex
+                  <span class="sort-icon">{{ getSortIcon('complexName') }}</span>
+                </th>
+                <th (click)="sortVisitors('unitVisited')" class="sortable">
+                  Unit Number
+                  <span class="sort-icon">{{ getSortIcon('unitVisited') }}</span>
+                </th>
+                <th (click)="sortVisitors('tenantName')" class="sortable">
+                  Tenant Name
+                  <span class="sort-icon">{{ getSortIcon('tenantName') }}</span>
+                </th>
+                <th (click)="sortVisitors('tenantSurname')" class="sortable">
+                  Tenant Surname
+                  <span class="sort-icon">{{ getSortIcon('tenantSurname') }}</span>
+                </th>
+                <th (click)="sortVisitors('tenantPhone')" class="sortable">
+                  Tenant Contact
+                  <span class="sort-icon">{{ getSortIcon('tenantPhone') }}</span>
+                </th>
+                <th (click)="sortVisitors('securityGuard')" class="sortable">
+                  Security Guard
+                  <span class="sort-icon">{{ getSortIcon('securityGuard') }}</span>
+                </th>
+                <th (click)="sortVisitors('entryTime')" class="sortable">
+                  Entry Time
+                  <span class="sort-icon">{{ getSortIcon('entryTime') }}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let visit of filteredVisitorHistory">
+                <td class="date-cell">{{ visit.entryTime | date: 'dd MMM yyyy' }}</td>
+                <td class="visitor-name">{{ visit.visitorName }}</td>
+                <td>{{ visit.visitorPhone }}</td>
+                <td class="complex-name">{{ visit.complexName }}</td>
+                <td class="unit-cell">{{ visit.unitVisited }}</td>
+                <td class="tenant-name">{{ visit.tenantName }}</td>
+                <td class="tenant-surname">{{ visit.tenantSurname }}</td>
+                <td class="tenant-contact">{{ visit.tenantPhone }}</td>
+                <td class="guard-name">{{ visit.securityGuard }}</td>
+                <td class="time-cell">{{ visit.entryTime | date: 'HH:mm' }}</td>
+              </tr>
+              <tr *ngIf="filteredVisitorHistory.length === 0">
+                <td colspan="10" class="empty-state-row">
+                  <p>No visitor records found matching your filters.</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Contract History Section -->
+      <section class="contract-history-section">
+        <div class="section-header">
+          <h2>📊 Contract History</h2>
+          <p>View expired security company contracts and their assigned complexes</p>
+        </div>
+
+        <!-- Search and Filter Controls -->
+        <div class="contract-controls">
+          <div class="search-box">
+            <input
+              type="text"
+              class="form-control"
+              placeholder="🔍 Search by company, complex, email, phone, PSIRA..."
+              [(ngModel)]="contractSearchTerm"
+              (input)="filterContracts()"
+            />
+          </div>
+          <div class="filter-controls">
+            <select
+              class="form-control"
+              [(ngModel)]="contractCompanyFilter"
+              (change)="filterContracts()"
+            >
+              <option value="">All Companies</option>
+              <option *ngFor="let company of uniqueContractCompanies" [value]="company">
+                {{ company }}
+              </option>
+            </select>
+            <select
+              class="form-control"
+              [(ngModel)]="contractComplexFilter"
+              (change)="filterContracts()"
+            >
+              <option value="">All Complexes</option>
+              <option *ngFor="let complex of uniqueContractComplexes" [value]="complex">
+                {{ complex }}
+              </option>
+            </select>
+            <input
+              type="date"
+              class="form-control"
+              [(ngModel)]="contractStartDateFilter"
+              (change)="filterContracts()"
+              title="Contract Start Date"
+            />
+            <input
+              type="date"
+              class="form-control"
+              [(ngModel)]="contractEndDateFilter"
+              (change)="filterContracts()"
+              title="Contract End Date"
+            />
+            <button class="btn-secondary" (click)="clearContractFilters()">Clear Filters</button>
+          </div>
+        </div>
+
+        <div class="history-table-container">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th (click)="sortContracts('companyName')" class="sortable">
+                  Company Name {{ getContractSortIcon('companyName') }}
+                </th>
+                <th (click)="sortContracts('companyEmail')" class="sortable">
+                  Email {{ getContractSortIcon('companyEmail') }}
+                </th>
+                <th (click)="sortContracts('companyTel')" class="sortable">
+                  Telephone {{ getContractSortIcon('companyTel') }}
+                </th>
+                <th (click)="sortContracts('psiraNumber')" class="sortable">
+                  PSIRA Number {{ getContractSortIcon('psiraNumber') }}
+                </th>
+                <th (click)="sortContracts('complexName')" class="sortable">
+                  Assigned Site {{ getContractSortIcon('complexName') }}
+                </th>
+                <th (click)="sortContracts('contractStartDate')" class="sortable">
+                  Contract Start {{ getContractSortIcon('contractStartDate') }}
+                </th>
+                <th (click)="sortContracts('contractEndDate')" class="sortable">
+                  Contract End {{ getContractSortIcon('contractEndDate') }}
+                </th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let contract of filteredContractHistory">
+                <td class="company-name">{{ contract.companyName }}</td>
+                <td class="email-cell">{{ contract.companyEmail }}</td>
+                <td class="phone-cell">{{ contract.companyTel }}</td>
+                <td class="psira-cell">{{ contract.psiraNumber }}</td>
+                <td class="complex-name">{{ contract.complexName }}</td>
+                <td class="start-date">{{ contract.contractStartDate | date: 'dd MMM yyyy' }}</td>
+                <td class="end-date">{{ contract.contractEndDate | date: 'dd MMM yyyy' }}</td>
+                <td class="status-cell">
+                  <span class="status-badge" [class.ended]="contract.status === 'Ended'">
+                    {{ contract.status }}
+                  </span>
+                </td>
+              </tr>
+              <tr *ngIf="filteredContractHistory.length === 0">
+                <td colspan="8" class="empty-state-row">
+                  <p>No contract history matches your search.</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Onboarding Modal -->
+      <div class="modal-overlay" *ngIf="showOnboardingModal" (click)="closeOnboardingModal()">
+        <div class="modal-card modal-card-scroll" (click)="$event.stopPropagation()">
+          <!-- Step 1: Basic Configuration -->
+          <div *ngIf="!showUnitConfigStep">
+            <div class="modal-header">
+              <h2>Onboard New Complex</h2>
+              <button class="close-btn" (click)="closeOnboardingModal()">✕</button>
+            </div>
+
+            <form class="modal-form">
+              <div class="form-group">
+                <label for="complexName">Complex Name</label>
+                <input
+                  type="text"
+                  id="complexName"
+                  name="complexName"
+                  placeholder="e.g., Complex 2925 Fleurhof"
+                  class="form-control"
+                  [ngModel]="complexName"
+                  (ngModelChange)="complexName = $event"
+                  (input)="markTouched($event)"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="complexAddress">Address</label>
+                <input
+                  type="text"
+                  id="complexAddress"
+                  name="complexAddress"
+                  class="form-control"
+                  placeholder="e.g., 12 Main Rd, Johannesburg"
+                  [ngModel]="complexAddress"
+                  (ngModelChange)="complexAddress = $event"
+                  (input)="markTouched($event)"
+                  #complexAddressInput
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label>Has Blocks?</label>
+                <select
+                  class="form-control"
+                  [ngModel]="hasBlocks"
+                  (ngModelChange)="hasBlocks = $event"
+                  name="hasBlocks"
+                >
+                  <option [ngValue]="false">No</option>
+                  <option [ngValue]="true">Yes</option>
+                </select>
+              </div>
+
+              <div class="form-group" *ngIf="hasBlocks">
+                <label>Blocks</label>
+                <div class="form-row" *ngFor="let block of blocks; let i = index">
+                  <input
+                    type="text"
+                    class="form-control"
+                    placeholder="Block name"
+                    [(ngModel)]="blocks[i].name"
+                    name="blockName-{{ i }}"
+                    required
+                  />
+                  <input
+                    type="number"
+                    class="form-control"
+                    placeholder="Units in block"
+                    [(ngModel)]="blocks[i].numberOfUnits"
+                    name="blockUnits-{{ i }}"
+                    required
+                    min="1"
+                  />
+                  <button type="button" class="btn-secondary" (click)="removeBlock(i)">
+                    Remove
+                  </button>
+                </div>
+                <button type="button" class="btn-secondary" (click)="addBlock()">
+                  + Add Block
+                </button>
+              </div>
+
+              <div class="form-row" *ngIf="!hasBlocks">
+                <div class="form-group" style="width: 100%">
+                  <label for="numberOfUnits">Number of Units</label>
+                  <input
+                    type="number"
+                    id="numberOfUnits"
+                    name="numberOfUnits"
+                    placeholder="e.g., 120"
+                    class="form-control"
+                    [ngModel]="numberOfUnits"
+                    (ngModelChange)="numberOfUnits = $event"
+                    (input)="markTouched($event)"
+                    required
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="gatedCommunitySelect">Assign to Gated Community (Optional)</label>
+                <select
+                  id="gatedCommunitySelect"
+                  name="gatedCommunitySelect"
+                  [(ngModel)]="selectedGatedCommunityForOnboarding"
+                  class="form-control"
+                >
+                  <option value="">-- None --</option>
+                  <option *ngFor="let community of gatedCommunities()" [value]="community.name">
+                    {{ community.name }}
+                  </option>
+                </select>
+                <small class="note-text"
+                  >Select a gated community to automatically assign this complex to it.</small
+                >
+              </div>
+
+              <div class="form-group">
+                <label for="complexPrice">Price (ZAR)</label>
+                <input
+                  type="text"
+                  id="complexPrice"
+                  name="complexPrice"
+                  placeholder="e.g., 5000"
+                  class="form-control"
+                  [(ngModel)]="complexPrice"
+                  [readonly]="
+                    selectedGatedCommunityForOnboarding &&
+                    getGatedCommunityPrice(selectedGatedCommunityForOnboarding) !== null
+                  "
+                  [value]="
+                    selectedGatedCommunityForOnboarding &&
+                    getGatedCommunityPrice(selectedGatedCommunityForOnboarding) !== null
+                      ? getGatedCommunityPrice(selectedGatedCommunityForOnboarding)
+                      : complexPrice
+                  "
+                  inputmode="decimal"
+                  required
+                />
+                <small
+                  *ngIf="
+                    selectedGatedCommunityForOnboarding &&
+                    getGatedCommunityPrice(selectedGatedCommunityForOnboarding) !== null
+                  "
+                  class="note-text"
+                >
+                  Price is set by the selected gated community.
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label>Parking Configuration</label>
+                <div class="radio-group">
+                  <div class="radio-option">
+                    <input
+                      type="radio"
+                      id="parkingFixed"
+                      name="parkingMode"
+                      [value]="'fixed'"
+                      [ngModel]="parkingMode"
+                      (ngModelChange)="parkingMode = $event"
+                    />
+                    <label for="parkingFixed">Fixed Number for All Units</label>
+                  </div>
+                  <div class="radio-option">
+                    <input
+                      type="radio"
+                      id="parkingPerUnit"
+                      name="parkingMode"
+                      [value]="'per-unit'"
+                      [ngModel]="parkingMode"
+                      (ngModelChange)="parkingMode = $event"
+                    />
+                    <label for="parkingPerUnit">Configure Per Unit</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group" *ngIf="parkingMode === 'fixed'">
+                <label>Parking Bays Type</label>
+                <div class="radio-group">
+                  <div class="radio-option">
+                    <input
+                      type="radio"
+                      id="parkingLimited"
+                      name="parkingType"
+                      [value]="false"
+                      [ngModel]="parkingIsUnlimited"
+                      (ngModelChange)="parkingIsUnlimited = $event"
+                    />
+                    <label for="parkingLimited">Limited Number</label>
+                  </div>
+                  <div class="radio-option">
+                    <input
+                      type="radio"
+                      id="parkingUnlimited"
+                      name="parkingType"
+                      [value]="true"
+                      [ngModel]="parkingIsUnlimited"
+                      (ngModelChange)="parkingIsUnlimited = $event"
+                    />
+                    <label for="parkingUnlimited">Unlimited</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group" *ngIf="parkingMode === 'fixed' && !parkingIsUnlimited">
+                <label for="fixedParkingCount">Parking Bays per Unit</label>
+                <input
+                  type="number"
+                  id="fixedParkingCount"
+                  name="fixedParkingCount"
+                  placeholder="e.g., 2"
+                  class="form-control"
+                  [ngModel]="fixedParkingCount"
+                  (ngModelChange)="fixedParkingCount = $event"
+                  (input)="markTouched($event)"
+                  [required]="parkingMode === 'fixed' && !parkingIsUnlimited"
+                  min="0"
+                />
+                <small class="note-text"
+                  >Enter the number of parking bays allocated to each unit.</small
+                >
+              </div>
+
+              <small *ngIf="parkingMode === 'per-unit'" class="info-text">
+                Next step: Configure parking bays individually for each unit.
+              </small>
+
+              <small *ngIf="onboardingError" class="error-text">{{ onboardingError }}</small>
+              <small *ngIf="onboardingSuccess" class="success-text">{{ onboardingSuccess }}</small>
+
+              <div class="modal-actions">
+                <button type="button" class="btn-secondary" (click)="closeOnboardingModal()">
+                  Cancel
+                </button>
+                <button type="button" class="btn-primary" (click)="submitOnboarding()">
+                  {{ parkingMode === 'fixed' ? 'Complete Onboarding' : 'Next: Configure Units' }}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Step 2: Per-Unit Configuration -->
+          <div *ngIf="showUnitConfigStep">
+            <div class="modal-header">
+              <h2>Configure Parking per Unit</h2>
+              <button class="close-btn" (click)="closeOnboardingModal()">✕</button>
+            </div>
+
+            <div class="modal-form">
+              <p class="config-intro">
+                Enter the number of parking bays for each unit in {{ complexName }}
+              </p>
+
+              <div class="units-grid">
+                <div class="unit-row" *ngFor="let unit of unitList; let i = index">
+                  <label [for]="'unit-' + unit.unitNumber">Unit {{ unit.unitNumber }}</label>
+                  <input
+                    [id]="'unit-' + unit.unitNumber"
+                    [name]="'parking-' + unit.unitNumber"
+                    type="number"
+                    min="0"
+                    placeholder="Parking bays"
+                    class="unit-input"
+                    [ngModel]="unit.parkingBays"
+                    (ngModelChange)="unitList[i].parkingBays = $event"
+                    (input)="markTouched($event)"
+                  />
+                </div>
+              </div>
+
+              <small *ngIf="onboardingError" class="error-text">{{ onboardingError }}</small>
+              <small *ngIf="onboardingSuccess" class="success-text">{{ onboardingSuccess }}</small>
+
+              <div class="modal-actions">
+                <button type="button" class="btn-secondary" (click)="backToBasicConfig()">
+                  Back
+                </button>
+                <button
+                  type="button"
+                  class="btn-primary"
+                  [disabled]="!allUnitsConfigured"
+                  (click)="confirmUnitConfiguration()"
+                >
+                  Confirm Configuration
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Security Company Registration Modal -->
+      <div class="modal-overlay" *ngIf="showSecurityModal" (click)="closeSecurityModal()">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Register Security Company</h2>
+            <button class="close-btn" (click)="closeSecurityModal()">✕</button>
+          </div>
+
+          <form class="modal-form">
+            <p class="modal-subtitle">
+              Complex: <strong>{{ selectedComplexName }}</strong>
+            </p>
+
+            <div class="form-group">
+              <label for="companyName">Company Name</label>
+              <input
+                type="text"
+                id="companyName"
+                name="companyName"
+                placeholder="e.g., Guardian Security Services"
+                class="form-control"
+                [ngModel]="securityCompanyName"
+                (ngModelChange)="securityCompanyName = $event"
+                (input)="markTouched($event)"
+                required
+              />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="companyEmail">Company Email</label>
+                <input
+                  type="email"
+                  id="companyEmail"
+                  name="companyEmail"
+                  placeholder="e.g., info@guardiansecurity.co.za"
+                  class="form-control"
+                  [ngModel]="securityCompanyEmail"
+                  (ngModelChange)="securityCompanyEmail = $event"
+                  (input)="markTouched($event)"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="companyTel">Telephone Number</label>
+                <input
+                  type="tel"
+                  id="companyTel"
+                  name="companyTel"
+                  placeholder="e.g., +27 11 123 4567"
+                  class="form-control"
+                  [ngModel]="securityCompanyTel"
+                  (ngModelChange)="securityCompanyTel = $event"
+                  (input)="markTouched($event)"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="cipcReg">CIPC Registration Number (Optional)</label>
+              <input
+                type="text"
+                id="cipcReg"
+                name="cipcReg"
+                placeholder="e.g., 2023/123456"
+                class="form-control"
+                [ngModel]="cipcReg"
+                (ngModelChange)="cipcReg = $event"
+                (input)="markTouched($event)"
+              />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="contractStart">Contract Start Date</label>
+                <input
+                  type="date"
+                  id="contractStart"
+                  name="contractStart"
+                  class="form-control"
+                  [ngModel]="contractStart"
+                  (ngModelChange)="contractStart = $event"
+                  (input)="markTouched($event)"
+                  (focus)="$event.target.click()"
+                  (mouseenter)="$event.target.click()"
+                  title="Select when the security contract begins"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="contractEnd">Contract End Date</label>
+                <input
+                  type="date"
+                  id="contractEnd"
+                  name="contractEnd"
+                  class="form-control"
+                  [ngModel]="contractEnd"
+                  (ngModelChange)="contractEnd = $event"
+                  (input)="markTouched($event)"
+                  (focus)="$event.target.click()"
+                  (mouseenter)="$event.target.click()"
+                  title="Select when the security contract ends"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="psiraNumber">PSIRA Number (Optional)</label>
+              <input
+                type="text"
+                id="psiraNumber"
+                name="psiraNumber"
+                placeholder="e.g., PSA123456"
+                class="form-control"
+                [ngModel]="psiraNumber"
+                (ngModelChange)="psiraNumber = $event"
+                (input)="markTouched($event)"
+              />
+            </div>
+
+            <small *ngIf="securityError" class="error-text">{{ securityError }}</small>
+            <small *ngIf="securitySuccess" class="success-text">{{ securitySuccess }}</small>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-secondary" (click)="closeSecurityModal()">
+                Cancel
+              </button>
+              <button type="button" class="btn-primary" (click)="submitSecurityCompany()">
+                Register Security Company
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Assign Security Company Modal -->
+      <div class="modal-overlay" *ngIf="showAssignModal" (click)="closeAssignModal()">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Assign Security Company</h2>
+            <button class="close-btn" (click)="closeAssignModal()">✕</button>
+          </div>
+
+          <form class="modal-form">
+            <p class="modal-subtitle">
+              Company: <strong>{{ selectedCompanyForAssignment?.companyName }}</strong>
+            </p>
+
+            <div class="form-group">
+              <label for="assignComplex">Select Complex</label>
+              <select
+                id="assignComplex"
+                name="assignComplex"
+                class="form-control"
+                [ngModel]="assignmentComplexName"
+                (ngModelChange)="assignmentComplexName = $event"
+                required
+              >
+                <option value="">-- Select a complex --</option>
+                <option *ngFor="let complex of unassignedComplexes" [value]="complex.complexName">
+                  {{ complex.complexName }} (Units: {{ complex.numberOfUnits }})
+                </option>
+              </select>
+              <small class="note-text" *ngIf="unassignedComplexes.length === 0"
+                >No complexes available for assignment.</small
+              >
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="assignContractStart">Contract Start Date</label>
+                <input
+                  type="date"
+                  id="assignContractStart"
+                  name="assignContractStart"
+                  class="form-control"
+                  [ngModel]="assignmentContractStart"
+                  (ngModelChange)="assignmentContractStart = $event"
+                  (focus)="$event.target.click()"
+                  (mouseenter)="$event.target.click()"
+                  title="Select when the security contract begins"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="assignContractEnd">Contract End Date</label>
+                <input
+                  type="date"
+                  id="assignContractEnd"
+                  name="assignContractEnd"
+                  class="form-control"
+                  [ngModel]="assignmentContractEnd"
+                  (ngModelChange)="assignmentContractEnd = $event"
+                  (focus)="$event.target.click()"
+                  (mouseenter)="$event.target.click()"
+                  title="Select when the security contract ends"
+                  required
+                />
+              </div>
+            </div>
+
+            <small *ngIf="assignmentError" class="error-text">{{ assignmentError }}</small>
+            <small *ngIf="assignmentSuccess" class="success-text">{{ assignmentSuccess }}</small>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-secondary" (click)="closeAssignModal()">
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="btn-primary"
+                [disabled]="
+                  !assignmentComplexName || !assignmentContractStart || !assignmentContractEnd
+                "
+                (click)="submitAssignment()"
+              >
+                Assign Company
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Unassignment Confirmation Modal -->
+      <div class="modal-overlay" *ngIf="showUnassignModal" (click)="closeUnassignModal()">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Confirm Unassignment</h2>
+            <button type="button" class="close-btn" (click)="closeUnassignModal()">×</button>
+          </div>
+          <div class="modal-form">
+            <p class="modal-subtitle" *ngIf="unassignmentTarget">
+              Are you sure you want to unassign
+              <strong>{{ unassignmentTarget.company.companyName }}</strong> from
+              <strong>{{
+                unassignmentTarget.assignment.complexName ||
+                  unassignmentTarget.assignment.gatedCommunityName
+              }}</strong
+              >?
+            </p>
+            <p style="color: var(--portal-muted); font-size: 13px; margin: 0">
+              This action will remove the security contract for this complex.
+            </p>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-secondary" (click)="closeUnassignModal()">
+              Cancel
+            </button>
+            <button type="button" class="btn-danger" (click)="confirmUnassignment()">
+              Unassign
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gated Community Modal -->
+      <div
+        class="modal-overlay"
+        *ngIf="showGatedCommunityModal"
+        (click)="closeGatedCommunityModal()"
+      >
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Add Gated Community</h2>
+            <button class="close-btn" (click)="closeGatedCommunityModal()">✕</button>
+          </div>
+
+          <form class="modal-form">
+            <div class="form-group">
+              <label for="gatedCommunityName">Gated Community Name</label>
+              <input
+                type="text"
+                id="gatedCommunityName"
+                name="gatedCommunityName"
+                placeholder="e.g., Sunrise Estate"
+                class="form-control"
+                [ngModel]="gatedCommunityName"
+                (ngModelChange)="gatedCommunityName = $event"
+                (input)="markTouched($event)"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="gatedCommunityPrice">Price (ZAR)</label>
+              <input
+                type="text"
+                id="gatedCommunityPrice"
+                name="gatedCommunityPrice"
+                placeholder="e.g., 5000"
+                class="form-control"
+                [ngModel]="gatedCommunityPrice"
+                (ngModelChange)="gatedCommunityPrice = $event"
+                (input)="markTouched($event)"
+                inputmode="decimal"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="numberOfHouses">Number of Houses</label>
+              <input
+                type="number"
+                id="numberOfHouses"
+                name="numberOfHouses"
+                placeholder="e.g., 150"
+                class="form-control"
+                [ngModel]="numberOfHouses"
+                (ngModelChange)="numberOfHouses = $event"
+                (input)="markTouched($event)"
+                required
+                min="1"
+              />
+            </div>
+
+            <div *ngIf="gatedCommunityError" class="error-message">
+              {{ gatedCommunityError }}
+            </div>
+
+            <div *ngIf="gatedCommunitySuccess" class="success-message">
+              {{ gatedCommunitySuccess }}
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-secondary" (click)="closeGatedCommunityModal()">
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="btn-primary"
+                [disabled]="!isGatedCommunityFormValid"
+                (click)="submitGatedCommunity()"
+              >
+                {{ editingGatedCommunity ? 'Update Community' : 'Add Community' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Gated Complex Assignment Modal -->
+      <div class="modal-overlay" *ngIf="showGatedComplexAssignModal">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Assign Complex to {{ selectedGatedCommunity.name }}</h2>
+            <button class="close-btn" type="button" (click)="closeGatedComplexAssignModal()">
+              ✕
+            </button>
+          </div>
+
+          <form class="modal-form">
+            <div class="form-group">
+              <label for="gatedComplexName">Complex Name</label>
+              <select
+                id="gatedComplexName"
+                name="gatedComplexName"
+                [(ngModel)]="gatedAssignmentComplexName"
+                class="form-control"
+                required
+              >
+                <option value="">-- Select a complex --</option>
+                <option *ngFor="let complex of standaloneComplexes" [value]="complex.complexName">
+                  {{ complex.complexName }} (Current price: R {{ complex.price || 0 }})
+                </option>
+              </select>
+              <small class="note-text" *ngIf="standaloneComplexes.length === 0">
+                No standalone complexes available. Add a complex first or unassign one from another
+                gated community.
+              </small>
+            </div>
+
+            <small
+              class="note-text"
+              *ngIf="
+                selectedGatedCommunity.price !== null && selectedGatedCommunity.price !== undefined
+              "
+            >
+              Assigned complex price will be set to: R {{ selectedGatedCommunity.price }}
+            </small>
+
+            <div *ngIf="gatedAssignmentError" class="error-message">
+              {{ gatedAssignmentError }}
+            </div>
+            <div *ngIf="gatedAssignmentSuccess" class="success-message">
+              {{ gatedAssignmentSuccess }}
+            </div>
+          </form>
+
+          <div class="modal-actions">
+            <button class="btn-secondary" type="button" (click)="closeGatedComplexAssignModal()">
+              Cancel
+            </button>
+            <button
+              class="btn-primary"
+              type="button"
+              (click)="submitGatedComplexAssignment()"
+              [disabled]="!gatedAssignmentComplexName || standaloneComplexes.length === 0"
+            >
+              Assign Complex
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gated Security Assignment Modal -->
+      <div class="modal-overlay" *ngIf="showGatedSecurityAssignModal">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Assign Security Company to {{ selectedGatedCommunity.name }}</h2>
+            <button class="close-btn" type="button" (click)="closeGatedSecurityAssignModal()">
+              ✕
+            </button>
+          </div>
+
+          <p class="modal-subtitle" *ngIf="gatedSecurityTargetComplexName">
+            Target Complex: <strong>{{ gatedSecurityTargetComplexName }}</strong>
+          </p>
+
+          <form class="modal-form" #gatedSecurityForm="ngForm">
+            <div class="form-group">
+              <label for="gatedSecurityName">Security Company</label>
+              <select
+                id="gatedSecurityName"
+                name="gatedSecurityName"
+                [(ngModel)]="gatedAssignmentCompanyName"
+                class="form-control"
+                required
+              >
+                <option value="">-- Select a security company --</option>
+                <option
+                  *ngFor="let company of registeredSecurityCompanies"
+                  [value]="company.companyName"
+                >
+                  {{ company.companyName }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="gatedSecurityContractStart">Contract Start Date</label>
+              <input
+                id="gatedSecurityContractStart"
+                name="gatedSecurityContractStart"
+                type="date"
+                [(ngModel)]="gatedSecurityContractStart"
+                class="form-control"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="gatedSecurityContractEnd">Contract End Date</label>
+              <input
+                id="gatedSecurityContractEnd"
+                name="gatedSecurityContractEnd"
+                type="date"
+                [(ngModel)]="gatedSecurityContractEnd"
+                class="form-control"
+              />
+            </div>
+
+            <div *ngIf="gatedAssignmentError" class="error-message">
+              {{ gatedAssignmentError }}
+            </div>
+            <div *ngIf="gatedAssignmentSuccess" class="success-message">
+              {{ gatedAssignmentSuccess }}
+            </div>
+          </form>
+
+          <div class="modal-actions">
+            <button class="btn-secondary" type="button" (click)="closeGatedSecurityAssignModal()">
+              Cancel
+            </button>
+            <button
+              class="btn-primary"
+              type="button"
+              (click)="submitGatedSecurityAssignment()"
+              [disabled]="
+                !gatedAssignmentCompanyName ||
+                !gatedSecurityContractStart ||
+                !gatedSecurityContractEnd
+              "
+            >
+              Assign Security
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+  </section>
+</div>
 @if (showAddSecurityModal) {
   <div class="modal-overlay" (click)="closeAddSecurityModal()">
     <div class="modal-card" (click)="$event.stopPropagation()">
@@ -217,1911 +2086,4 @@
       <small class="error-text" *ngIf="removeSecurityError">{{ removeSecurityError }}</small>
     </form>
   </div>
-</div>
-<div class="admin-portal">
-  <div class="toast" *ngIf="showToast">{{ toastMessage }}</div>
-  <header class="portal-header">
-    <div>
-      <p class="eyebrow">Admin Console</p>
-      <h1>EquaSec Admin Portal</h1>
-      <p class="subtext">Signed in as {{ adminEmail }}</p>
-    </div>
-  </header>
-
-  <!-- Summary Stats Section -->
-  <section class="summary-section">
-    <div class="stat-box">
-      <div class="stat-number">{{ onboardedComplexes.length }}</div>
-      <div class="stat-label">Active Complexes</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-number">{{ gatedCommunities().length }}</div>
-      <div class="stat-label">Gated Communities</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-number">{{ registeredSecurityCompanies.length }}</div>
-      <div class="stat-label">Security Companies</div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-number">{{ activeContractsCount }}</div>
-      <div class="stat-label">Active Contracts</div>
-    </div>
-    <div class="stat-box">
-      <button class="btn-primary" (click)="openOnboardingModal()">➕ Add Complex</button>
-    </div>
-    <div class="stat-box">
-      <button class="btn-primary" (click)="openGatedCommunityModal()">
-        ➕ Add Gated Community
-      </button>
-    </div>
-  </section>
-
-  <!-- Main Content Grid -->
-  <section class="main-grid">
-    <!-- Security Companies Section -->
-    <div class="grid-column">
-      <article class="panel full-width">
-        <div class="panel-header">
-          <h2>Security Partners</h2>
-          <span class="panel-sub">Registered security companies</span>
-          <div class="security-action-buttons" style="margin-top: 10px">
-            <button
-              class="btn-primary action-btn-wide"
-              type="button"
-              (click)="openAddSecurityModal()"
-            >
-              ➕ Add Security
-            </button>
-            <button
-              class="btn-danger action-btn-wide"
-              type="button"
-              (click)="openRemoveSecurityModal()"
-            >
-              ➖ Remove Security
-            </button>
-          </div>
-        </div>
-        <div class="panel-body">
-          <div *ngIf="registeredSecurityCompanies.length === 0" class="empty-state">
-            <p>No security companies in the system. Register companies from complexes.</p>
-          </div>
-          <div class="companies-list" *ngIf="registeredSecurityCompanies.length > 0">
-            <div class="company-card" *ngFor="let company of registeredSecurityCompanies">
-              <div class="company-header">
-                <div class="company-info">
-                  <div class="company-title-row">
-                    <h3 class="company-name">{{ company.companyName }}</h3>
-                    <span
-                      class="status-badge"
-                      [class.assigned]="company.assignments && company.assignments.length > 0"
-                      [class.unassigned]="!company.assignments || company.assignments.length === 0"
-                    >
-                      {{
-                        company.assignments && company.assignments.length > 0
-                          ? 'Assigned (' + company.assignments.length + ')'
-                          : 'Unassigned'
-                      }}
-                    </span>
-                  </div>
-                  <div class="company-details">
-                    <div
-                      class="detail-item"
-                      *ngIf="company.assignments && company.assignments.length > 0"
-                    >
-                      <span class="detail-label">Assigned Sites:</span>
-                      <div class="detail-value">
-                        <div class="assignment-item" *ngFor="let assignment of company.assignments">
-                          <div class="assignment-info">
-                            <strong>{{
-                              assignment.complexName || assignment.gatedCommunityName
-                            }}</strong>
-                            <span class="contract-dates" *ngIf="assignment.gatedCommunityName">
-                              (Gated Community)</span
-                            >
-                            <span class="contract-dates">
-                              (Contract: {{ assignment.contractStart }} to
-                              {{ assignment.contractEnd }})</span
-                            >
-                          </div>
-                          <button
-                            class="btn-sm btn-danger"
-                            type="button"
-                            (click)="unassignCompanyFromComplex(company, assignment)"
-                          >
-                            🔓 Unassign
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="detail-item">
-                      <span class="detail-label">Email:</span>
-                      <span class="detail-value">{{ company.companyEmail }}</span>
-                    </div>
-                    <div class="detail-item">
-                      <span class="detail-label">Contact:</span>
-                      <span class="detail-value">{{ company.companyTel }}</span>
-                    </div>
-                    <div class="detail-item">
-                      <span class="detail-label">PSIRA Registration:</span>
-                      <span class="detail-value">{{ company.psiraNumber }}</span>
-                    </div>
-                  </div>
-                  <div class="company-actions">
-                    <button class="btn-primary" type="button" (click)="openAssignModal(company)">
-                      🔗
-                      {{
-                        company.assignments && company.assignments.length > 0
-                          ? 'Assign to Another Complex'
-                          : 'Assign to Complex'
-                      }}
-                    </button>
-                    <button
-                      class="btn-primary action-btn-wide"
-                      type="button"
-                      style="
-                        margin-top: 8px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                      "
-                      (click)="openUpdateSecurityModal(company)"
-                    >
-                      <span style="display: flex; align-items: center">
-                        Update
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          style="vertical-align: middle; margin-left: 6px"
-                        >
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z" />
-                        </svg>
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </article>
-    </div>
-
-    <!-- Gated Communities Management Section -->
-    <div class="grid-column">
-      <article class="panel full-width">
-        <div class="panel-header">
-          <h2>Gated Communities</h2>
-          <span class="panel-sub">Manage gated communities and house ranges</span>
-        </div>
-        <div class="panel-body">
-          <div *ngIf="gatedCommunities().length === 0" class="empty-state">
-            <p>No gated communities added yet. Create one to get started.</p>
-          </div>
-          <div class="gated-communities-list" *ngIf="gatedCommunities().length > 0">
-            <div class="gated-community-card" *ngFor="let community of gatedCommunities()">
-              <div class="community-header">
-                <div class="community-info">
-                  <div class="company-title-row">
-                    <h3 class="community-name">{{ community.name }}</h3>
-                    <span
-                      class="status-badge assigned"
-                      *ngIf="
-                        community.securityAssignments && community.securityAssignments.length > 0
-                      "
-                    >
-                      Security Assigned
-                    </span>
-                  </div>
-                  <div class="community-details">
-                    <div class="detail-item">
-                      <span class="detail-label">Total Houses:</span>
-                      <span class="detail-value">{{ getCommunityHouseCount(community) }}</span>
-                    </div>
-                    <div
-                      class="detail-item"
-                      *ngIf="
-                        community.price !== null &&
-                        community.price !== undefined
-                      "
-                    >
-                      <span class="detail-label">Price:</span>
-                      <span class="detail-value">R {{ community.price }}</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="community-actions">
-                  <button
-                    class="btn-secondary"
-                    type="button"
-                    (click)="openGatedComplexAssignModal(community)"
-                  >
-                    🏘️ Assign Complex
-                  </button>
-                  <button
-                    class="btn-secondary"
-                    type="button"
-                    (click)="openGatedSecurityAssignModal(community)"
-                    *ngIf="
-                      !community.securityAssignments || community.securityAssignments.length === 0
-                    "
-                  >
-                    🛡️ Assign Security
-                  </button>
-                  <button
-                    class="btn-primary"
-                    type="button"
-                    (click)="openGatedCommunityModal(community)"
-                  >
-                    ✏️ Edit
-                  </button>
-                  <button
-                    class="btn-danger"
-                    type="button"
-                    (click)="deleteGatedCommunity(community)"
-                  >
-                    🗑️ Delete
-                  </button>
-                </div>
-              </div>
-
-              <!-- Assigned Complexes -->
-              <div
-                *ngIf="getComplexesForCommunity(community.name).length > 0"
-                class="assignment-section"
-              >
-                <div class="assignment-header">
-                  <span class="assignment-title">Assigned Complexes</span>
-                </div>
-                <div class="assignment-items">
-                  <div
-                    class="assignment-item"
-                    *ngFor="
-                      let linkedComplex of getComplexesForCommunity(community.name)
-                    "
-                  >
-                    <div class="complex-card" style="margin-bottom: 10px">
-                      <div class="complex-header">
-                        <div class="complex-info">
-                          <h3 class="complex-name">{{ linkedComplex.complexName }}</h3>
-                          <div class="complex-details">
-                            <div class="detail-item">
-                              <span class="detail-label">Total Units:</span>
-                              <span class="detail-value">{{ linkedComplex.numberOfUnits }}</span>
-                            </div>
-                            <div
-                              class="detail-item"
-                              *ngIf="
-                                linkedComplex.price !== '' &&
-                                linkedComplex.price !== null &&
-                                linkedComplex.price !== undefined
-                              "
-                            >
-                              <span class="detail-label">Price:</span>
-                              <span class="detail-value">R {{ linkedComplex.price }}</span>
-                            </div>
-                            <div
-                              class="detail-item"
-                              *ngIf="linkedComplex.blocks && linkedComplex.blocks.length > 0"
-                            >
-                              <span class="detail-label">Units per Block:</span>
-                              <div class="detail-value">
-                                <div *ngFor="let block of linkedComplex.blocks">
-                                  {{ block.name }}: {{ getBlockUnitCount(block) }} units
-                                </div>
-                              </div>
-                            </div>
-                            <div class="detail-item">
-                              <span class="detail-label">Parking:</span>
-                              <span class="detail-value">{{
-                                linkedComplex.parkingMode === 'fixed'
-                                  ? 'Fixed (' + linkedComplex['fixedParkingCount'] + ')'
-                                  : 'Per-Unit'
-                              }}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div
-                          class="complex-status-wrapper"
-                          *ngIf="!isComplexAssigned(linkedComplex.complexName)"
-                        >
-                          <div class="security-unassigned security-assigned">
-                            <span
-                              class="xmark"
-                              style="
-                                color: #e53935;
-                                font-size: 18px;
-                                font-weight: bold;
-                                margin-right: 6px;
-                              "
-                              >&#10006;</span
-                            >
-                            <span class="status-text">Not Assigned</span>
-                          </div>
-                          <button
-                            class="btn-update-small"
-                            type="button"
-                            (click)="openUpdateComplexModal(linkedComplex)"
-                          >
-                            <span class="update-icon-text">
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                style="vertical-align: middle; margin-right: 4px"
-                              >
-                                <path d="M12 20h9" />
-                                <path
-                                  d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"
-                                />
-                              </svg>
-                              <span style="vertical-align: middle; font-size: 13px">Update</span>
-                            </span>
-                          </button>
-                          <button
-                            class="btn-secondary"
-                            type="button"
-                            (click)="openGatedSecurityAssignModal(community, linkedComplex)"
-                          >
-                            🛡️ Assign Security
-                          </button>
-                          <button
-                            class="btn-danger"
-                            type="button"
-                            (click)="unassignComplexFromGatedCommunity(community, linkedComplex)"
-                          >
-                            🔓 Unassign Complex
-                          </button>
-                        </div>
-                        <div
-                          class="complex-status-wrapper"
-                          *ngIf="isComplexAssigned(linkedComplex.complexName)"
-                        >
-                          <div class="security-assigned">
-                            <span class="checkmark">✓</span>
-                            <span class="status-text">Security Assigned</span>
-                          </div>
-                          <button
-                            class="btn-update-small"
-                            type="button"
-                            (click)="openUpdateComplexModal(linkedComplex)"
-                          >
-                            <span class="update-icon-text">
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                style="vertical-align: middle; margin-right: 4px"
-                              >
-                                <path d="M12 20h9" />
-                                <path
-                                  d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z"
-                                />
-                              </svg>
-                              <span style="vertical-align: middle; font-size: 13px">Update</span>
-                            </span>
-                          </button>
-                          <button
-                            class="btn-danger"
-                            type="button"
-                            (click)="unassignComplexFromGatedCommunity(community, linkedComplex)"
-                          >
-                            🔓 Unassign Complex
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Assigned Security Companies -->
-              <div
-                *ngIf="community.securityAssignments && community.securityAssignments.length > 0"
-                class="assignment-section"
-              >
-                <div class="assignment-header">
-                  <span class="assignment-title">Assigned Security Companies</span>
-                </div>
-                <div class="assignment-items">
-                  <div
-                    class="assignment-item security-company-details"
-                    *ngFor="let security of community.securityAssignments"
-                  >
-                    <div class="security-info">
-                      <div class="security-header">
-                        <span class="security-name">{{ security.companyName }}</span>
-                      </div>
-                      <div
-                        class="security-details"
-                        *ngFor="let company of registeredSecurityCompanies"
-                      >
-                        <div
-                          *ngIf="company.companyName === security.companyName"
-                          class="company-contract-info"
-                        >
-                          <div class="detail-row">
-                            <span class="detail-label">Email:</span>
-                            <span class="detail-value">{{ company.companyEmail }}</span>
-                          </div>
-                          <div class="detail-row">
-                            <span class="detail-label">Tel:</span>
-                            <span class="detail-value">{{ company.companyTel }}</span>
-                          </div>
-                          <div class="detail-row">
-                            <span class="detail-label">PSIRA:</span>
-                            <span class="detail-value">{{ company.psiraNumber }}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="contract-dates">
-                        <div class="detail-row">
-                          <span class="detail-label">Contract Start:</span>
-                          <span class="detail-value">{{ security.contractStart }}</span>
-                        </div>
-                        <div class="detail-row">
-                          <span class="detail-label">Contract End:</span>
-                          <span class="detail-value">{{ security.contractEnd }}</span>
-                        </div>
-                      </div>
-                      <button
-                        class="btn-sm btn-danger"
-                        type="button"
-                        (click)="confirmGatedSecurityUnassignment(community, security)"
-                      >
-                        🔓 Unassign
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </article>
-    </div>
-
-    <!-- Complexes Management Section -->
-    <div class="grid-column">
-      <article class="panel full-width">
-        <div class="panel-header">
-          <h2>Complex Management</h2>
-          <span class="panel-sub">Manage your residential complexes</span>
-        </div>
-        <div class="panel-body">
-          <div *ngIf="onboardedComplexes.length === 0" class="empty-state">
-            <p>No complexes onboarded yet. Create one to get started.</p>
-          </div>
-          <div class="complexes-list" *ngIf="standaloneComplexes.length > 0">
-            <div class="complex-card" *ngFor="let complex of standaloneComplexes">
-              <div class="complex-header">
-                <div class="complex-info">
-                  <h3 class="complex-name">{{ complex.complexName }}</h3>
-                  <!-- Show gated community name if complex is in a gated community -->
-                  <ng-container
-                    *ngIf="getGatedCommunityForComplex(complex.complexName) as gatedName"
-                  >
-                    <div class="gated-community-label" *ngIf="gatedName">
-                      <span
-                        style="
-                          background: #1976d2;
-                          color: #fff;
-                          padding: 2px 8px;
-                          border-radius: 12px;
-                          font-size: 12px;
-                          display: inline-block;
-                          margin-bottom: 4px;
-                        "
-                      >
-                        Gated Community: {{ gatedName }}
-                      </span>
-                    </div>
-                  </ng-container>
-                  <div class="complex-details">
-                    <div class="detail-item" *ngIf="!complex.blocks || complex.blocks.length === 0">
-                      <span class="detail-label">Total Units:</span>
-                      <span class="detail-value">{{ complex.numberOfUnits }}</span>
-                    </div>
-                    <div class="detail-item" *ngIf="complex.numberOfUnits">
-                      <span class="detail-label">Total Units:</span>
-                      <span class="detail-value">{{ complex.numberOfUnits }}</span>
-                    </div>
-                    <div class="detail-item" *ngIf="complex.address">
-                      <span class="detail-label">Address:</span>
-                      <span class="detail-value">{{ complex.address }}</span>
-                    </div>
-                    <div
-                      class="detail-item"
-                      *ngIf="
-                        complex.price !== '' &&
-                        complex.price !== null &&
-                        complex.price !== undefined
-                      "
-                    >
-                      <span class="detail-label">Price:</span>
-                      <span class="detail-value">R {{ complex.price }}</span>
-                    </div>
-                    <div class="detail-item">
-                      <span class="detail-label">Parking:</span>
-                      <span class="detail-value">{{
-                        complex.parkingMode === 'fixed'
-                          ? 'Fixed (' + complex['fixedParkingCount'] + ')'
-                          : 'Per-Unit'
-                      }}</span>
-                    </div>
-                    <div class="detail-item" *ngIf="complex.blocks && complex.blocks.length > 0">
-                      <span class="detail-label">Blocks:</span>
-                      <span class="detail-value">
-                        {{ complex.blocks.length }} block{{
-                          complex.blocks.length === 1 ? '' : 's'
-                        }}
-                      </span>
-                    </div>
-                    <div class="detail-item" *ngIf="complex.blocks && complex.blocks.length > 0">
-                      <span class="detail-label">Units per Block:</span>
-                      <div class="detail-value">
-                        <div *ngFor="let block of complex.blocks">
-                          {{ block.name }}: {{ getBlockUnitCount(block) }} units
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="complex-status-wrapper" *ngIf="!isComplexAssigned(complex.complexName)">
-                  <div class="security-unassigned security-assigned">
-                    <span
-                      class="xmark"
-                      style="color: #e53935; font-size: 18px; font-weight: bold; margin-right: 6px"
-                      >&#10006;</span
-                    >
-                    <span class="status-text">Not Assigned</span>
-                  </div>
-                  <button
-                    class="btn-danger btn-update-small complex-delete-btn"
-                    type="button"
-                    (click)="openDeleteComplexModal(complex)"
-                  >
-                    <span class="update-icon-text">
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        style="vertical-align: middle; margin-right: 4px"
-                      >
-                        <polyline points="3 6 5 6 21 6" />
-                        <path
-                          d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
-                        />
-                      </svg>
-                      <span style="vertical-align: middle; font-size: 15px">Delete</span>
-                    </span>
-                  </button>
-                  <button
-                    class="btn-update-small"
-                    type="button"
-                    (click)="openUpdateComplexModal(complex)"
-                  >
-                    <span class="update-icon-text">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        style="vertical-align: middle; margin-right: 4px"
-                      >
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z" />
-                      </svg>
-                      <span style="vertical-align: middle; font-size: 13px">Update</span>
-                    </span>
-                  </button>
-                </div>
-                <div class="complex-status-wrapper" *ngIf="isComplexAssigned(complex.complexName)">
-                  <div class="security-assigned">
-                    <span class="checkmark">✓</span>
-                    <span class="status-text">Security Assigned</span>
-                  </div>
-                  <button
-                    class="btn-update-small"
-                    type="button"
-                    (click)="openUpdateComplexModal(complex)"
-                  >
-                    <span class="update-icon-text">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        style="vertical-align: middle; margin-right: 4px"
-                      >
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z" />
-                      </svg>
-                      <span style="vertical-align: middle; font-size: 13px">Update</span>
-                    </span>
-                  </button>
-                </div>
-              </div>
-              <!-- end .complex-card -->
-            </div>
-            <!-- end .complexes-list -->
-          </div>
-          <!-- end .panel-body -->
-        </div>
-        <!-- end .grid-column -->
-
-        <!-- Delete Complex Confirmation Modal (single instance) -->
-        <div
-          class="modal-overlay"
-          *ngIf="showDeleteComplexModal"
-          (click)="closeDeleteComplexModal()"
-        >
-          <div class="modal-card" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>Confirm Delete</h2>
-              <button class="close-btn" (click)="closeDeleteComplexModal()">✕</button>
-            </div>
-            <div class="modal-form">
-              <p>
-                Are you sure you want to delete the complex
-                <strong>{{ complexToDelete?.complexName }}</strong
-                >?
-              </p>
-              <p style="color: var(--portal-muted); font-size: 13px; margin: 0">
-                This action cannot be undone.
-              </p>
-            </div>
-            <div class="modal-actions">
-              <button type="button" class="btn-secondary" (click)="closeDeleteComplexModal()">
-                Cancel
-              </button>
-              <button type="button" class="btn-danger" (click)="confirmDeleteComplex()">
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Update Complex Modal (moved outside *ngFor) -->
-        <div
-          class="modal-overlay"
-          *ngIf="showUpdateComplexModal"
-          (click)="closeUpdateComplexModal()"
-        >
-          <div class="modal-card" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>Update Complex</h2>
-              <button class="close-btn" (click)="closeUpdateComplexModal()">✕</button>
-            </div>
-            <form class="modal-form">
-              <div class="form-group">
-                <label for="updateComplexName">Complex Name</label>
-                <input
-                  type="text"
-                  id="updateComplexName"
-                  class="form-control"
-                  [(ngModel)]="editingComplex.complexName"
-                  name="updateComplexName"
-                  required
-                />
-              </div>
-              <div
-                class="form-row"
-                *ngIf="!editingComplex.blocks || editingComplex.blocks.length === 0"
-              >
-                <div class="form-group">
-                  <label for="updateUnitStart">Unit Range - Start</label>
-                  <input
-                    type="number"
-                    id="updateUnitStart"
-                    class="form-control"
-                    [(ngModel)]="editingComplex.unitStart"
-                    name="updateUnitStart"
-                    required
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="updateUnitEnd">Unit Range - End</label>
-                  <input
-                    type="number"
-                    id="updateUnitEnd"
-                    class="form-control"
-                    [(ngModel)]="editingComplex.unitEnd"
-                    name="updateUnitEnd"
-                    required
-                  />
-                </div>
-              </div>
-              <div
-                class="form-group"
-                *ngIf="editingComplex.blocks && editingComplex.blocks.length > 0"
-              >
-                <label>Blocks</label>
-                <div class="block-grid" *ngFor="let block of editingComplex.blocks; let i = index">
-                  <input
-                    class="form-control"
-                    [(ngModel)]="block.name"
-                    name="updateBlockName{{ i }}"
-                    placeholder="Block name"
-                  />
-                  <input
-                    class="form-control"
-                    type="number"
-                    [(ngModel)]="block.unitStart"
-                    name="updateBlockStart{{ i }}"
-                    placeholder="Start"
-                  />
-                  <input
-                    class="form-control"
-                    type="number"
-                    [(ngModel)]="block.unitEnd"
-                    name="updateBlockEnd{{ i }}"
-                    placeholder="End"
-                  />
-                  <button class="btn-sm btn-danger" type="button" (click)="removeUpdateBlock(i)">
-                    Remove
-                  </button>
-                </div>
-                <button class="btn-secondary" type="button" (click)="addUpdateBlock()">
-                  Add Block
-                </button>
-              </div>
-              <div class="form-group">
-                <label for="updateComplexPrice">Price (ZAR)</label>
-                <input
-                  type="text"
-                  id="updateComplexPrice"
-                  class="form-control"
-                  [(ngModel)]="editingComplex.price"
-                  name="updateComplexPrice"
-                  required
-                  inputmode="decimal"
-                  placeholder="e.g., 5000.50"
-                />
-              </div>
-              <div class="form-group">
-                <label for="updateParkingMode">Parking Configuration</label>
-                <select
-                  id="updateParkingMode"
-                  class="form-control"
-                  [(ngModel)]="editingComplex.parkingMode"
-                  name="updateParkingMode"
-                >
-                  <option value="fixed">Fixed</option>
-                  <option value="per-unit">Per Unit</option>
-                </select>
-              </div>
-              <div class="form-group" *ngIf="editingComplex.parkingMode === 'fixed'">
-                <label class="checkbox-row">
-                  <input
-                    type="checkbox"
-                    [(ngModel)]="editingComplex.parkingIsUnlimited"
-                    name="updateParkingUnlimited"
-                  />
-                  <span>Unlimited parking</span>
-                </label>
-              </div>
-              <div
-                class="form-group"
-                *ngIf="editingComplex.parkingMode === 'fixed' && !editingComplex.parkingIsUnlimited"
-              >
-                <label for="updateFixedParkingCount">Fixed Parking Bays</label>
-                <input
-                  type="number"
-                  id="updateFixedParkingCount"
-                  class="form-control"
-                  [(ngModel)]="editingComplex['fixedParkingCount']"
-                  name="updateFixedParkingCount"
-                  min="0"
-                />
-              </div>
-              <div class="modal-actions">
-                <button type="button" class="btn-secondary" (click)="closeUpdateComplexModal()">
-                  Cancel
-                </button>
-                <button type="button" class="btn-update-small" (click)="submitUpdateComplex()">
-                  <span class="update-icon-text">
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      style="vertical-align: middle; margin-right: 4px"
-                    >
-                      <path d="M12 20h9" />
-                      <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19.5 3 21l1.5-4L16.5 3.5z" />
-                    </svg>
-                    <span style="vertical-align: middle; font-size: 13px">Update</span>
-                  </span>
-                </button>
-              </div>
-              <small class="error-text" *ngIf="updateComplexError">{{ updateComplexError }}</small>
-            </form>
-          </div>
-        </div>
-
-        <!-- Visitor History Section -->
-        <section class="visitor-history-section">
-          <div class="section-header">
-            <h2>📋 Visitor History</h2>
-            <p>Track all visitor entries and exits across all complexes</p>
-          </div>
-
-          <!-- Search and Filter Controls -->
-          <div class="visitor-controls">
-            <div class="search-box">
-              <input
-                type="text"
-                class="form-control"
-                placeholder="🔍 Search by visitor, tenant, phones, unit..."
-                [(ngModel)]="visitorSearchTerm"
-                (input)="filterVisitors()"
-              />
-            </div>
-            <div class="filter-controls">
-              <select
-                class="form-control"
-                [(ngModel)]="timeframeFilter"
-                (change)="applyTimeframeFilter()"
-              >
-                <option value="today">Today</option>
-                <option value="last7">Last 7 Days</option>
-                <option value="last30">Last 30 Days</option>
-                <option value="thisMonth">This Month</option>
-                <option value="lastMonth">Last Month</option>
-              </select>
-              <select
-                class="form-control"
-                [(ngModel)]="selectedComplexFilter"
-                (change)="filterVisitors()"
-              >
-                <option value="">All Sites</option>
-                <option *ngFor="let complex of onboardedComplexes" [value]="complex.complexName">
-                  {{ complex.complexName }}
-                </option>
-              </select>
-              <input
-                type="date"
-                class="form-control"
-                [(ngModel)]="filterStartDate"
-                (change)="onCustomDateChange()"
-                title="Start Date"
-              />
-              <input
-                type="date"
-                class="form-control"
-                [(ngModel)]="filterEndDate"
-                (change)="onCustomDateChange()"
-                title="End Date"
-              />
-              <input
-                type="time"
-                class="form-control"
-                [(ngModel)]="filterStartTime"
-                (change)="filterVisitors()"
-                (focus)="openTimePicker($event)"
-                (click)="openTimePicker($event)"
-                title="Start Time"
-              />
-              <input
-                type="time"
-                class="form-control"
-                [(ngModel)]="filterEndTime"
-                (change)="filterVisitors()"
-                (focus)="openTimePicker($event)"
-                (click)="openTimePicker($event)"
-                title="End Time"
-              />
-              <button class="btn-secondary" (click)="clearFilters()">Clear Filters</button>
-            </div>
-          </div>
-
-          <div class="visitor-table-container">
-            <table class="visitor-table">
-              <thead>
-                <tr>
-                  <th (click)="sortVisitors('entryTime')" class="sortable">
-                    Date
-                    <span class="sort-icon">{{ getSortIcon('entryTime') }}</span>
-                  </th>
-                  <th (click)="sortVisitors('visitorName')" class="sortable">
-                    Visitor Name
-                    <span class="sort-icon">{{ getSortIcon('visitorName') }}</span>
-                  </th>
-                  <th (click)="sortVisitors('visitorPhone')" class="sortable">
-                    Contact
-                    <span class="sort-icon">{{ getSortIcon('visitorPhone') }}</span>
-                  </th>
-                  <th (click)="sortVisitors('complexName')" class="sortable">
-                    Complex
-                    <span class="sort-icon">{{ getSortIcon('complexName') }}</span>
-                  </th>
-                  <th (click)="sortVisitors('unitVisited')" class="sortable">
-                    Unit Number
-                    <span class="sort-icon">{{ getSortIcon('unitVisited') }}</span>
-                  </th>
-                  <th (click)="sortVisitors('tenantName')" class="sortable">
-                    Tenant Name
-                    <span class="sort-icon">{{ getSortIcon('tenantName') }}</span>
-                  </th>
-                  <th (click)="sortVisitors('tenantSurname')" class="sortable">
-                    Tenant Surname
-                    <span class="sort-icon">{{ getSortIcon('tenantSurname') }}</span>
-                  </th>
-                  <th (click)="sortVisitors('tenantPhone')" class="sortable">
-                    Tenant Contact
-                    <span class="sort-icon">{{ getSortIcon('tenantPhone') }}</span>
-                  </th>
-                  <th (click)="sortVisitors('securityGuard')" class="sortable">
-                    Security Guard
-                    <span class="sort-icon">{{ getSortIcon('securityGuard') }}</span>
-                  </th>
-                  <th (click)="sortVisitors('entryTime')" class="sortable">
-                    Entry Time
-                    <span class="sort-icon">{{ getSortIcon('entryTime') }}</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let visit of filteredVisitorHistory">
-                  <td class="date-cell">{{ visit.entryTime | date: 'dd MMM yyyy' }}</td>
-                  <td class="visitor-name">{{ visit.visitorName }}</td>
-                  <td>{{ visit.visitorPhone }}</td>
-                  <td class="complex-name">{{ visit.complexName }}</td>
-                  <td class="unit-cell">{{ visit.unitVisited }}</td>
-                  <td class="tenant-name">{{ visit.tenantName }}</td>
-                  <td class="tenant-surname">{{ visit.tenantSurname }}</td>
-                  <td class="tenant-contact">{{ visit.tenantPhone }}</td>
-                  <td class="guard-name">{{ visit.securityGuard }}</td>
-                  <td class="time-cell">{{ visit.entryTime | date: 'HH:mm' }}</td>
-                </tr>
-                <tr *ngIf="filteredVisitorHistory.length === 0">
-                  <td colspan="10" class="empty-state-row">
-                    <p>No visitor records found matching your filters.</p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Contract History Section -->
-        <section class="contract-history-section">
-          <div class="section-header">
-            <h2>📊 Contract History</h2>
-            <p>View expired security company contracts and their assigned complexes</p>
-          </div>
-
-          <!-- Search and Filter Controls -->
-          <div class="contract-controls">
-            <div class="search-box">
-              <input
-                type="text"
-                class="form-control"
-                placeholder="🔍 Search by company, complex, email, phone, PSIRA..."
-                [(ngModel)]="contractSearchTerm"
-                (input)="filterContracts()"
-              />
-            </div>
-            <div class="filter-controls">
-              <select
-                class="form-control"
-                [(ngModel)]="contractCompanyFilter"
-                (change)="filterContracts()"
-              >
-                <option value="">All Companies</option>
-                <option *ngFor="let company of uniqueContractCompanies" [value]="company">
-                  {{ company }}
-                </option>
-              </select>
-              <select
-                class="form-control"
-                [(ngModel)]="contractComplexFilter"
-                (change)="filterContracts()"
-              >
-                <option value="">All Complexes</option>
-                <option *ngFor="let complex of uniqueContractComplexes" [value]="complex">
-                  {{ complex }}
-                </option>
-              </select>
-              <input
-                type="date"
-                class="form-control"
-                [(ngModel)]="contractStartDateFilter"
-                (change)="filterContracts()"
-                title="Contract Start Date"
-              />
-              <input
-                type="date"
-                class="form-control"
-                [(ngModel)]="contractEndDateFilter"
-                (change)="filterContracts()"
-                title="Contract End Date"
-              />
-              <button class="btn-secondary" (click)="clearContractFilters()">Clear Filters</button>
-            </div>
-          </div>
-
-          <div class="history-table-container">
-            <table class="history-table">
-              <thead>
-                <tr>
-                  <th (click)="sortContracts('companyName')" class="sortable">
-                    Company Name {{ getContractSortIcon('companyName') }}
-                  </th>
-                  <th (click)="sortContracts('companyEmail')" class="sortable">
-                    Email {{ getContractSortIcon('companyEmail') }}
-                  </th>
-                  <th (click)="sortContracts('companyTel')" class="sortable">
-                    Telephone {{ getContractSortIcon('companyTel') }}
-                  </th>
-                  <th (click)="sortContracts('psiraNumber')" class="sortable">
-                    PSIRA Number {{ getContractSortIcon('psiraNumber') }}
-                  </th>
-                  <th (click)="sortContracts('complexName')" class="sortable">
-                    Assigned Site {{ getContractSortIcon('complexName') }}
-                  </th>
-                  <th (click)="sortContracts('contractStartDate')" class="sortable">
-                    Contract Start {{ getContractSortIcon('contractStartDate') }}
-                  </th>
-                  <th (click)="sortContracts('contractEndDate')" class="sortable">
-                    Contract End {{ getContractSortIcon('contractEndDate') }}
-                  </th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let contract of filteredContractHistory">
-                  <td class="company-name">{{ contract.companyName }}</td>
-                  <td class="email-cell">{{ contract.companyEmail }}</td>
-                  <td class="phone-cell">{{ contract.companyTel }}</td>
-                  <td class="psira-cell">{{ contract.psiraNumber }}</td>
-                  <td class="complex-name">{{ contract.complexName }}</td>
-                  <td class="start-date">{{ contract.contractStartDate | date: 'dd MMM yyyy' }}</td>
-                  <td class="end-date">{{ contract.contractEndDate | date: 'dd MMM yyyy' }}</td>
-                  <td class="status-cell">
-                    <span class="status-badge" [class.ended]="contract.status === 'Ended'">
-                      {{ contract.status }}
-                    </span>
-                  </td>
-                </tr>
-                <tr *ngIf="filteredContractHistory.length === 0">
-                  <td colspan="8" class="empty-state-row">
-                    <p>No contract history matches your search.</p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Onboarding Modal -->
-        <div class="modal-overlay" *ngIf="showOnboardingModal" (click)="closeOnboardingModal()">
-          <div class="modal-card modal-card-scroll" (click)="$event.stopPropagation()">
-            <!-- Step 1: Basic Configuration -->
-            <div *ngIf="!showUnitConfigStep">
-              <div class="modal-header">
-                <h2>Onboard New Complex</h2>
-                <button class="close-btn" (click)="closeOnboardingModal()">✕</button>
-              </div>
-
-              <form class="modal-form">
-                <div class="form-group">
-                  <label for="complexName">Complex Name</label>
-                  <input
-                    type="text"
-                    id="complexName"
-                    name="complexName"
-                    placeholder="e.g., Complex 2925 Fleurhof"
-                    class="form-control"
-                    [ngModel]="complexName"
-                    (ngModelChange)="complexName = $event"
-                    (input)="markTouched($event)"
-                    required
-                  />
-                </div>
-
-                <div class="form-group">
-                  <label for="complexAddress">Address</label>
-                  <input
-                    type="text"
-                    id="complexAddress"
-                    name="complexAddress"
-                    class="form-control"
-                    placeholder="e.g., 12 Main Rd, Johannesburg"
-                    [ngModel]="complexAddress"
-                    (ngModelChange)="complexAddress = $event"
-                    (input)="markTouched($event)"
-                    #complexAddressInput
-                    required
-                  />
-                </div>
-
-                <div class="form-group">
-                  <label>Has Blocks?</label>
-                  <select
-                    class="form-control"
-                    [ngModel]="hasBlocks"
-                    (ngModelChange)="hasBlocks = $event"
-                    name="hasBlocks"
-                  >
-                    <option [ngValue]="false">No</option>
-                    <option [ngValue]="true">Yes</option>
-                  </select>
-                </div>
-
-                <div class="form-group" *ngIf="hasBlocks">
-                  <label>Blocks</label>
-                  <div class="form-row" *ngFor="let block of blocks; let i = index">
-                    <input
-                      type="text"
-                      class="form-control"
-                      placeholder="Block name"
-                      [(ngModel)]="blocks[i].name"
-                      name="blockName-{{ i }}"
-                      required
-                    />
-                    <input
-                      type="number"
-                      class="form-control"
-                      placeholder="Units in block"
-                      [(ngModel)]="blocks[i].numberOfUnits"
-                      name="blockUnits-{{ i }}"
-                      required
-                      min="1"
-                    />
-                    <button type="button" class="btn-secondary" (click)="removeBlock(i)">
-                      Remove
-                    </button>
-                  </div>
-                  <button type="button" class="btn-secondary" (click)="addBlock()">
-                    + Add Block
-                  </button>
-                </div>
-
-                <div class="form-row" *ngIf="!hasBlocks">
-                  <div class="form-group" style="width: 100%">
-                    <label for="numberOfUnits">Number of Units</label>
-                    <input
-                      type="number"
-                      id="numberOfUnits"
-                      name="numberOfUnits"
-                      placeholder="e.g., 120"
-                      class="form-control"
-                      [ngModel]="numberOfUnits"
-                      (ngModelChange)="numberOfUnits = $event"
-                      (input)="markTouched($event)"
-                      required
-                      min="1"
-                    />
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <label for="gatedCommunitySelect">Assign to Gated Community (Optional)</label>
-                  <select
-                    id="gatedCommunitySelect"
-                    name="gatedCommunitySelect"
-                    [(ngModel)]="selectedGatedCommunityForOnboarding"
-                    class="form-control"
-                  >
-                    <option value="">-- None --</option>
-                    <option
-                      *ngFor="let community of gatedCommunities()"
-                      [value]="community.name"
-                    >
-                      {{ community.name }}
-                    </option>
-                  </select>
-                  <small class="note-text"
-                    >Select a gated community to automatically assign this complex to it.</small
-                  >
-                </div>
-
-                <div class="form-group">
-                  <label for="complexPrice">Price (ZAR)</label>
-                  <input
-                    type="text"
-                    id="complexPrice"
-                    name="complexPrice"
-                    placeholder="e.g., 5000"
-                    class="form-control"
-                    [(ngModel)]="complexPrice"
-                    [readonly]="
-                      selectedGatedCommunityForOnboarding &&
-                      getGatedCommunityPrice(selectedGatedCommunityForOnboarding) !== null
-                    "
-                    [value]="
-                      selectedGatedCommunityForOnboarding &&
-                      getGatedCommunityPrice(selectedGatedCommunityForOnboarding) !== null
-                        ? getGatedCommunityPrice(selectedGatedCommunityForOnboarding)
-                        : complexPrice
-                    "
-                    inputmode="decimal"
-                    required
-                  />
-                  <small
-                    *ngIf="
-                      selectedGatedCommunityForOnboarding &&
-                      getGatedCommunityPrice(selectedGatedCommunityForOnboarding) !== null
-                    "
-                    class="note-text"
-                  >
-                    Price is set by the selected gated community.
-                  </small>
-                </div>
-
-                <div class="form-group">
-                  <label>Parking Configuration</label>
-                  <div class="radio-group">
-                    <div class="radio-option">
-                      <input
-                        type="radio"
-                        id="parkingFixed"
-                        name="parkingMode"
-                        [value]="'fixed'"
-                        [ngModel]="parkingMode"
-                        (ngModelChange)="parkingMode = $event"
-                      />
-                      <label for="parkingFixed">Fixed Number for All Units</label>
-                    </div>
-                    <div class="radio-option">
-                      <input
-                        type="radio"
-                        id="parkingPerUnit"
-                        name="parkingMode"
-                        [value]="'per-unit'"
-                        [ngModel]="parkingMode"
-                        (ngModelChange)="parkingMode = $event"
-                      />
-                      <label for="parkingPerUnit">Configure Per Unit</label>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="form-group" *ngIf="parkingMode === 'fixed'">
-                  <label>Parking Bays Type</label>
-                  <div class="radio-group">
-                    <div class="radio-option">
-                      <input
-                        type="radio"
-                        id="parkingLimited"
-                        name="parkingType"
-                        [value]="false"
-                        [ngModel]="parkingIsUnlimited"
-                        (ngModelChange)="parkingIsUnlimited = $event"
-                      />
-                      <label for="parkingLimited">Limited Number</label>
-                    </div>
-                    <div class="radio-option">
-                      <input
-                        type="radio"
-                        id="parkingUnlimited"
-                        name="parkingType"
-                        [value]="true"
-                        [ngModel]="parkingIsUnlimited"
-                        (ngModelChange)="parkingIsUnlimited = $event"
-                      />
-                      <label for="parkingUnlimited">Unlimited</label>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="form-group" *ngIf="parkingMode === 'fixed' && !parkingIsUnlimited">
-                  <label for="fixedParkingCount">Parking Bays per Unit</label>
-                  <input
-                    type="number"
-                    id="fixedParkingCount"
-                    name="fixedParkingCount"
-                    placeholder="e.g., 2"
-                    class="form-control"
-                    [ngModel]="fixedParkingCount"
-                    (ngModelChange)="fixedParkingCount = $event"
-                    (input)="markTouched($event)"
-                    [required]="parkingMode === 'fixed' && !parkingIsUnlimited"
-                    min="0"
-                  />
-                  <small class="note-text"
-                    >Enter the number of parking bays allocated to each unit.</small
-                  >
-                </div>
-
-                <small *ngIf="parkingMode === 'per-unit'" class="info-text">
-                  Next step: Configure parking bays individually for each unit.
-                </small>
-
-                <small *ngIf="onboardingError" class="error-text">{{ onboardingError }}</small>
-                <small *ngIf="onboardingSuccess" class="success-text">{{
-                  onboardingSuccess
-                }}</small>
-
-                <div class="modal-actions">
-                  <button type="button" class="btn-secondary" (click)="closeOnboardingModal()">
-                    Cancel
-                  </button>
-                  <button type="button" class="btn-primary" (click)="submitOnboarding()">
-                    {{ parkingMode === 'fixed' ? 'Complete Onboarding' : 'Next: Configure Units' }}
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            <!-- Step 2: Per-Unit Configuration -->
-            <div *ngIf="showUnitConfigStep">
-              <div class="modal-header">
-                <h2>Configure Parking per Unit</h2>
-                <button class="close-btn" (click)="closeOnboardingModal()">✕</button>
-              </div>
-
-              <div class="modal-form">
-                <p class="config-intro">
-                  Enter the number of parking bays for each unit in {{ complexName }}
-                </p>
-
-                <div class="units-grid">
-                  <div class="unit-row" *ngFor="let unit of unitList; let i = index">
-                    <label [for]="'unit-' + unit.unitNumber">Unit {{ unit.unitNumber }}</label>
-                    <input
-                      [id]="'unit-' + unit.unitNumber"
-                      [name]="'parking-' + unit.unitNumber"
-                      type="number"
-                      min="0"
-                      placeholder="Parking bays"
-                      class="unit-input"
-                      [ngModel]="unit.parkingBays"
-                      (ngModelChange)="unitList[i].parkingBays = $event"
-                      (input)="markTouched($event)"
-                    />
-                  </div>
-                </div>
-
-                <small *ngIf="onboardingError" class="error-text">{{ onboardingError }}</small>
-                <small *ngIf="onboardingSuccess" class="success-text">{{
-                  onboardingSuccess
-                }}</small>
-
-                <div class="modal-actions">
-                  <button type="button" class="btn-secondary" (click)="backToBasicConfig()">
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    class="btn-primary"
-                    [disabled]="!allUnitsConfigured"
-                    (click)="confirmUnitConfiguration()"
-                  >
-                    Confirm Configuration
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Security Company Registration Modal -->
-        <div class="modal-overlay" *ngIf="showSecurityModal" (click)="closeSecurityModal()">
-          <div class="modal-card" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>Register Security Company</h2>
-              <button class="close-btn" (click)="closeSecurityModal()">✕</button>
-            </div>
-
-            <form class="modal-form">
-              <p class="modal-subtitle">
-                Complex: <strong>{{ selectedComplexName }}</strong>
-              </p>
-
-              <div class="form-group">
-                <label for="companyName">Company Name</label>
-                <input
-                  type="text"
-                  id="companyName"
-                  name="companyName"
-                  placeholder="e.g., Guardian Security Services"
-                  class="form-control"
-                  [ngModel]="securityCompanyName"
-                  (ngModelChange)="securityCompanyName = $event"
-                  (input)="markTouched($event)"
-                  required
-                />
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="companyEmail">Company Email</label>
-                  <input
-                    type="email"
-                    id="companyEmail"
-                    name="companyEmail"
-                    placeholder="e.g., info@guardiansecurity.co.za"
-                    class="form-control"
-                    [ngModel]="securityCompanyEmail"
-                    (ngModelChange)="securityCompanyEmail = $event"
-                    (input)="markTouched($event)"
-                    required
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="companyTel">Telephone Number</label>
-                  <input
-                    type="tel"
-                    id="companyTel"
-                    name="companyTel"
-                    placeholder="e.g., +27 11 123 4567"
-                    class="form-control"
-                    [ngModel]="securityCompanyTel"
-                    (ngModelChange)="securityCompanyTel = $event"
-                    (input)="markTouched($event)"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label for="cipcReg">CIPC Registration Number (Optional)</label>
-                <input
-                  type="text"
-                  id="cipcReg"
-                  name="cipcReg"
-                  placeholder="e.g., 2023/123456"
-                  class="form-control"
-                  [ngModel]="cipcReg"
-                  (ngModelChange)="cipcReg = $event"
-                  (input)="markTouched($event)"
-                />
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="contractStart">Contract Start Date</label>
-                  <input
-                    type="date"
-                    id="contractStart"
-                    name="contractStart"
-                    class="form-control"
-                    [ngModel]="contractStart"
-                    (ngModelChange)="contractStart = $event"
-                    (input)="markTouched($event)"
-                    (focus)="$event.target.click()"
-                    (mouseenter)="$event.target.click()"
-                    title="Select when the security contract begins"
-                    required
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="contractEnd">Contract End Date</label>
-                  <input
-                    type="date"
-                    id="contractEnd"
-                    name="contractEnd"
-                    class="form-control"
-                    [ngModel]="contractEnd"
-                    (ngModelChange)="contractEnd = $event"
-                    (input)="markTouched($event)"
-                    (focus)="$event.target.click()"
-                    (mouseenter)="$event.target.click()"
-                    title="Select when the security contract ends"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label for="psiraNumber">PSIRA Number (Optional)</label>
-                <input
-                  type="text"
-                  id="psiraNumber"
-                  name="psiraNumber"
-                  placeholder="e.g., PSA123456"
-                  class="form-control"
-                  [ngModel]="psiraNumber"
-                  (ngModelChange)="psiraNumber = $event"
-                  (input)="markTouched($event)"
-                />
-              </div>
-
-              <small *ngIf="securityError" class="error-text">{{ securityError }}</small>
-              <small *ngIf="securitySuccess" class="success-text">{{ securitySuccess }}</small>
-
-              <div class="modal-actions">
-                <button type="button" class="btn-secondary" (click)="closeSecurityModal()">
-                  Cancel
-                </button>
-                <button type="button" class="btn-primary" (click)="submitSecurityCompany()">
-                  Register Security Company
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <!-- Assign Security Company Modal -->
-        <div class="modal-overlay" *ngIf="showAssignModal" (click)="closeAssignModal()">
-          <div class="modal-card" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>Assign Security Company</h2>
-              <button class="close-btn" (click)="closeAssignModal()">✕</button>
-            </div>
-
-            <form class="modal-form">
-              <p class="modal-subtitle">
-                Company: <strong>{{ selectedCompanyForAssignment?.companyName }}</strong>
-              </p>
-
-              <div class="form-group">
-                <label for="assignComplex">Select Complex</label>
-                <select
-                  id="assignComplex"
-                  name="assignComplex"
-                  class="form-control"
-                  [ngModel]="assignmentComplexName"
-                  (ngModelChange)="assignmentComplexName = $event"
-                  required
-                >
-                  <option value="">-- Select a complex --</option>
-                  <option *ngFor="let complex of unassignedComplexes" [value]="complex.complexName">
-                    {{ complex.complexName }} (Units: {{ complex.numberOfUnits }})
-                  </option>
-                </select>
-                <small class="note-text" *ngIf="unassignedComplexes.length === 0"
-                  >No complexes available for assignment.</small
-                >
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="assignContractStart">Contract Start Date</label>
-                  <input
-                    type="date"
-                    id="assignContractStart"
-                    name="assignContractStart"
-                    class="form-control"
-                    [ngModel]="assignmentContractStart"
-                    (ngModelChange)="assignmentContractStart = $event"
-                    (focus)="$event.target.click()"
-                    (mouseenter)="$event.target.click()"
-                    title="Select when the security contract begins"
-                    required
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="assignContractEnd">Contract End Date</label>
-                  <input
-                    type="date"
-                    id="assignContractEnd"
-                    name="assignContractEnd"
-                    class="form-control"
-                    [ngModel]="assignmentContractEnd"
-                    (ngModelChange)="assignmentContractEnd = $event"
-                    (focus)="$event.target.click()"
-                    (mouseenter)="$event.target.click()"
-                    title="Select when the security contract ends"
-                    required
-                  />
-                </div>
-              </div>
-
-              <small *ngIf="assignmentError" class="error-text">{{ assignmentError }}</small>
-              <small *ngIf="assignmentSuccess" class="success-text">{{ assignmentSuccess }}</small>
-
-              <div class="modal-actions">
-                <button type="button" class="btn-secondary" (click)="closeAssignModal()">
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  class="btn-primary"
-                  [disabled]="
-                    !assignmentComplexName || !assignmentContractStart || !assignmentContractEnd
-                  "
-                  (click)="submitAssignment()"
-                >
-                  Assign Company
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <!-- Unassignment Confirmation Modal -->
-        <div class="modal-overlay" *ngIf="showUnassignModal" (click)="closeUnassignModal()">
-          <div class="modal-card" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>Confirm Unassignment</h2>
-              <button type="button" class="close-btn" (click)="closeUnassignModal()">×</button>
-            </div>
-            <div class="modal-form">
-              <p class="modal-subtitle" *ngIf="unassignmentTarget">
-                Are you sure you want to unassign
-                <strong>{{ unassignmentTarget.company.companyName }}</strong> from
-                <strong>{{
-                  unassignmentTarget.assignment.complexName ||
-                    unassignmentTarget.assignment.gatedCommunityName
-                }}</strong
-                >?
-              </p>
-              <p style="color: var(--portal-muted); font-size: 13px; margin: 0">
-                This action will remove the security contract for this complex.
-              </p>
-            </div>
-            <div class="modal-actions">
-              <button type="button" class="btn-secondary" (click)="closeUnassignModal()">
-                Cancel
-              </button>
-              <button type="button" class="btn-danger" (click)="confirmUnassignment()">
-                Unassign
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Gated Community Modal -->
-        <div
-          class="modal-overlay"
-          *ngIf="showGatedCommunityModal"
-          (click)="closeGatedCommunityModal()"
-        >
-          <div class="modal-card" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>Add Gated Community</h2>
-              <button class="close-btn" (click)="closeGatedCommunityModal()">✕</button>
-            </div>
-
-            <form class="modal-form">
-              <div class="form-group">
-                <label for="gatedCommunityName">Gated Community Name</label>
-                <input
-                  type="text"
-                  id="gatedCommunityName"
-                  name="gatedCommunityName"
-                  placeholder="e.g., Sunrise Estate"
-                  class="form-control"
-                  [ngModel]="gatedCommunityName"
-                  (ngModelChange)="gatedCommunityName = $event"
-                  (input)="markTouched($event)"
-                  required
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="gatedCommunityPrice">Price (ZAR)</label>
-                <input
-                  type="text"
-                  id="gatedCommunityPrice"
-                  name="gatedCommunityPrice"
-                  placeholder="e.g., 5000"
-                  class="form-control"
-                  [ngModel]="gatedCommunityPrice"
-                  (ngModelChange)="gatedCommunityPrice = $event"
-                  (input)="markTouched($event)"
-                  inputmode="decimal"
-                  required
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="numberOfHouses">Number of Houses</label>
-                <input
-                  type="number"
-                  id="numberOfHouses"
-                  name="numberOfHouses"
-                  placeholder="e.g., 150"
-                  class="form-control"
-                  [ngModel]="numberOfHouses"
-                  (ngModelChange)="numberOfHouses = $event"
-                  (input)="markTouched($event)"
-                  required
-                  min="1"
-                />
-              </div>
-
-              <div *ngIf="gatedCommunityError" class="error-message">
-                {{ gatedCommunityError }}
-              </div>
-
-              <div *ngIf="gatedCommunitySuccess" class="success-message">
-                {{ gatedCommunitySuccess }}
-              </div>
-
-              <div class="modal-actions">
-                <button type="button" class="btn-secondary" (click)="closeGatedCommunityModal()">
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  class="btn-primary"
-                  [disabled]="!isGatedCommunityFormValid"
-                  (click)="submitGatedCommunity()"
-                >
-                  {{ editingGatedCommunity ? 'Update Community' : 'Add Community' }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <!-- Gated Complex Assignment Modal -->
-        <div class="modal-overlay" *ngIf="showGatedComplexAssignModal">
-          <div class="modal-card" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>Assign Complex to {{ selectedGatedCommunity.name }}</h2>
-              <button class="close-btn" type="button" (click)="closeGatedComplexAssignModal()">
-                ✕
-              </button>
-            </div>
-
-            <form class="modal-form">
-              <div class="form-group">
-                <label for="gatedComplexName">Complex Name</label>
-                <select
-                  id="gatedComplexName"
-                  name="gatedComplexName"
-                  [(ngModel)]="gatedAssignmentComplexName"
-                  class="form-control"
-                  required
-                >
-                  <option value="">-- Select a complex --</option>
-                  <option *ngFor="let complex of standaloneComplexes" [value]="complex.complexName">
-                    {{ complex.complexName }} (Current price: R {{ complex.price || 0 }})
-                  </option>
-                </select>
-                <small class="note-text" *ngIf="standaloneComplexes.length === 0">
-                  No standalone complexes available. Add a complex first or unassign one from
-                  another gated community.
-                </small>
-              </div>
-
-              <small
-                class="note-text"
-                *ngIf="
-                  selectedGatedCommunity.price !== null &&
-                  selectedGatedCommunity.price !== undefined
-                "
-              >
-                Assigned complex price will be set to: R {{ selectedGatedCommunity.price }}
-              </small>
-
-              <div *ngIf="gatedAssignmentError" class="error-message">
-                {{ gatedAssignmentError }}
-              </div>
-              <div *ngIf="gatedAssignmentSuccess" class="success-message">
-                {{ gatedAssignmentSuccess }}
-              </div>
-            </form>
-
-            <div class="modal-actions">
-              <button class="btn-secondary" type="button" (click)="closeGatedComplexAssignModal()">
-                Cancel
-              </button>
-              <button
-                class="btn-primary"
-                type="button"
-                (click)="submitGatedComplexAssignment()"
-                [disabled]="!gatedAssignmentComplexName || standaloneComplexes.length === 0"
-              >
-                Assign Complex
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Gated Security Assignment Modal -->
-        <div class="modal-overlay" *ngIf="showGatedSecurityAssignModal">
-          <div class="modal-card" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-              <h2>Assign Security Company to {{ selectedGatedCommunity.name }}</h2>
-              <button class="close-btn" type="button" (click)="closeGatedSecurityAssignModal()">
-                ✕
-              </button>
-            </div>
-
-            <p class="modal-subtitle" *ngIf="gatedSecurityTargetComplexName">
-              Target Complex: <strong>{{ gatedSecurityTargetComplexName }}</strong>
-            </p>
-
-            <form class="modal-form" #gatedSecurityForm="ngForm">
-              <div class="form-group">
-                <label for="gatedSecurityName">Security Company</label>
-                <select
-                  id="gatedSecurityName"
-                  name="gatedSecurityName"
-                  [(ngModel)]="gatedAssignmentCompanyName"
-                  class="form-control"
-                  required
-                >
-                  <option value="">-- Select a security company --</option>
-                  <option
-                    *ngFor="let company of registeredSecurityCompanies"
-                    [value]="company.companyName"
-                  >
-                    {{ company.companyName }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label for="gatedSecurityContractStart">Contract Start Date</label>
-                <input
-                  id="gatedSecurityContractStart"
-                  name="gatedSecurityContractStart"
-                  type="date"
-                  [(ngModel)]="gatedSecurityContractStart"
-                  class="form-control"
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="gatedSecurityContractEnd">Contract End Date</label>
-                <input
-                  id="gatedSecurityContractEnd"
-                  name="gatedSecurityContractEnd"
-                  type="date"
-                  [(ngModel)]="gatedSecurityContractEnd"
-                  class="form-control"
-                />
-              </div>
-
-              <div *ngIf="gatedAssignmentError" class="error-message">
-                {{ gatedAssignmentError }}
-              </div>
-              <div *ngIf="gatedAssignmentSuccess" class="success-message">
-                {{ gatedAssignmentSuccess }}
-              </div>
-            </form>
-
-            <div class="modal-actions">
-              <button class="btn-secondary" type="button" (click)="closeGatedSecurityAssignModal()">
-                Cancel
-              </button>
-              <button
-                class="btn-primary"
-                type="button"
-                (click)="submitGatedSecurityAssignment()"
-                [disabled]="
-                  !gatedAssignmentCompanyName ||
-                  !gatedSecurityContractStart ||
-                  !gatedSecurityContractEnd
-                "
-              >
-                Assign Security
-              </button>
-            </div>
-          </div>
-        </div>
-      </article>
-    </div>
-  </section>
 </div>
