@@ -8,6 +8,7 @@ import { ChangePin } from '../update-profile/change-pin/change-pin';
 import { StorageService } from '../services/storage.service';
 import { MatSnackBar, MatSnackBarHorizontalPosition, MatSnackBarVerticalPosition } from '@angular/material/snack-bar';
 import { Loader } from "../components/loader/loader";
+import { Paygate } from '../components/paygate/paygate';
 
 @Component({
   selector: 'app-dashboard',
@@ -54,6 +55,10 @@ export class Dashboard implements OnDestroy {
 
   openUpdateDetailsModal() {
     this.dialog.open(UpdateProfile);
+  }
+
+  openPaymentModal() {
+    this.dialog.open(Paygate)
   }
 
   protected startSosHold(event: Event): void {

@@ -1,0 +1,9 @@
+@if (submitting()) {
+  <app-loader />
+}
+<div>
+  <button type="button">Setup Recurring Payment (BETA)</button>
+  <button type="button" (click)="processSinglePayment('Single-Payment')">
+    Make a Single Payment
+  </button>
+</div>

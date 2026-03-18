@@ -71,7 +71,9 @@
             }
           },
           "defaultConfiguration": "development",
-          "options": {}
+          "options": {
+            "allowedHosts": ["18e1-105-245-118-182.ngrok-free.app"]
+          }
         },
         "test": {
           "builder": "@ngx-env/builder:unit-test",

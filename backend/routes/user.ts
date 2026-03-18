@@ -1716,7 +1716,7 @@ userRouter.get("/current", AuthMiddleware, async (req, res) => {
     }
 
     const user = (await userSchema.findOne({ emailAddress: currentUserEmail }).exec()) as unknown as UserDTO;
-
+    
     if (user) {
       return res.status(200).json({ message: "Successfully retrieved User!", payload: user });
     } else {

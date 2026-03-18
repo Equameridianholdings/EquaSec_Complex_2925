@@ -22,6 +22,14 @@ export class DataService {
     });
   }
 
+  uniquePost<T>(endpoint: string, data: any): Observable<T> {
+    return this.http.post<T>(endpoint, data, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  }
+
   put<T>(endpoint: string, data: any): Observable<T> {
     return this.http.patch<T>(`${this.apiUrl}/${endpoint}`, data, {
       headers: {

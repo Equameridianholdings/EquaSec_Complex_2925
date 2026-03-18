@@ -4,6 +4,7 @@ import gatedCommunityRouter from "#routes/gatedCommunity.js";
 import guardHistoryRouter from "#routes/guardHistory.js";
 import incidentRouter from "#routes/incident.js";
 import logsRouter from "#routes/logs.js";
+import paymentRouter from "#routes/payment.js";
 import securityCompanyRouter from "#routes/securityCompany.js";
 import sosRouter from "#routes/sos.js";
 import unitRouter from "#routes/unit.js";
@@ -25,7 +26,7 @@ const DB_NAME = process.env.DB_NAME as unknown as string;
 const app = express();
 
 // Define your list of allowed origins
-const allowedOrigins = ["http://localhost:4200", "http://localhost:8100", "https://equasec.co.za","https://equa-sec-complex-2925-ldhl.vercel.app"]; // Replace with your frontend URLs
+const allowedOrigins = ["http://localhost:4200", "http://localhost:8100", "https://equasec.co.za","https://equa-sec-complex-2925-ldhl.vercel.app", "https://18e1-105-245-118-182.ngrok-free.app"]; // Replace with your frontend URLs
 
 // Configure CORS options
 const corsOptions: CorsOptions = {
@@ -66,5 +67,6 @@ app.use("/sos", sosRouter);
 app.use("/vehicle", vehicleRouter);
 app.use("/gatedCommunity", gatedCommunityRouter);
 app.use("/guardHistory", guardHistoryRouter);
+app.use("/payment", paymentRouter);
 
 export default app;
