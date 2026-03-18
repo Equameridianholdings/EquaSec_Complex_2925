@@ -59,21 +59,6 @@
                 {{ user | safeUserName }}
               </li>
             </ul>
-            <div
-              *ngIf="selectedUser"
-              style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem"
-            >
-              <span style="font-weight: 500">Selected:</span>
-              <span>{{ selectedUser | safeUserName }}</span>
-              <button
-                type="button"
-                class="btn-icon"
-                (click)="selectedUser = null; userSearch = ''; filteredUsers = users"
-                style="margin-left: 0.5rem"
-              >
-                ✕
-              </button>
-            </div>
             <small *ngIf="!selectedUser && bookingForm['submitted']" class="error"
               >Please select a resident/tenant.</small
             >
@@ -213,7 +198,7 @@
                 type="text"
                 class="form-control"
                 placeholder="e.g. ABC 123 GP"
-                [(ngModel)]="newVehicle.registrationNumber"
+                [(ngModel)]="newVehicle.registerationNumber"
                 required
                 #vehicleRegInput
               />
@@ -249,8 +234,12 @@
       }
       
       <div class="modal-actions">
-        <button type="button" class="btn-secondary" (click)="closeModal()">Cancel</button>
-        <button type="submit" class="btn-main" [disabled]="!bookingForm.checkValidity()">
+        <button type="button" class="btn-secondary btn-cancel" (click)="closeModal()">
+          <span class="material-icons" style="font-size: 18px; line-height: 1">close</span>
+          Cancel
+        </button>
+        <button type="submit" class="btn-main btn-create" [disabled]="!bookingForm.checkValidity()">
+          <span class="material-icons" style="font-size: 18px; line-height: 1">event_available</span>
           Create Booking
         </button>
       </div>

@@ -434,32 +434,53 @@
 
 .resident-card {
 	padding: 18px;
+	position: relative;
 }
 
 .resident-card.compact {
 	padding: 12px;
 }
 
+.vehicle-card {
+	position: relative;
+}
+
+.resident-badge-corner {
+	position: absolute;
+	top: 0;
+	right: 0;
+	padding: 6px 18px 6px 14px;
+	border-radius: 0 8px 0 0;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%);
+	background: #1e3a5f;
+	color: #ffffff;
+	border: none;
+}
+
 .resident-main {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 16px;
+	gap: 12px;
 	width: 100%;
 }
 
 .resident-avatar {
-	width: 240px;
-	height: 240px;
+	width: 130px;
+	height: 130px;
 	border-radius: 50%;
 	overflow: hidden;
-	border: 4px solid rgba(59, 130, 246, 0.6);
+	border: 3px solid rgba(59, 130, 246, 0.6);
 	background: rgba(226, 232, 240, 0.8);
 	display: grid;
 	place-items: center;
 	font-weight: 700;
 	color: #1e293b;
-	font-size: 56px;
+	font-size: 36px;
 	flex-shrink: 0;
 }
 

@@ -143,11 +143,33 @@
     </section>
   </ng-template>
 
-  <ng-container *ngIf="!(searchUnit || '').trim()">
+  <ng-container *ngIf="!(searchUnit || '').trim() && !(searchReg || '').trim() && !searchTerm()">
     <ng-container *ngTemplateOutlet="visitorCodesSection"></ng-container>
   </ng-container>
 
-  <section class="info-section" *ngIf="showResidents && isStationSelected && !showStationPrompt && !searchReg">
+  <ng-container *ngIf="searchTerm()">
+    <section class="codes-section">
+      <div class="section-title">
+        <div>
+          <h2>Active Visitor Codes</h2>
+          <span class="helper">Verify visitor details before granting access.</span>
+        </div>
+      </div>
+      <div class="code-grid" *ngIf="filteredVisitors() && filteredVisitors().length > 0; else noCodeMatch">
+        @for (visitor of filteredVisitors(); track $index) {
+          <app-visitor-card [visitor]="visitor" [gaurd]="false"/>
+        }
+      </div>
+      <ng-template #noCodeMatch>
+        <div class="empty-state">
+          <h3>No codes found</h3>
+          <p>No active visitor codes match this code.</p>
+        </div>
+      </ng-template>
+    </section>
+  </ng-container>
+
+  <section class="info-section" *ngIf="showResidents && isStationSelected && !showStationPrompt && !searchReg && !searchTerm()">
     <div class="section-title">
       <div>
         <h2>Residents</h2>
@@ -163,8 +185,9 @@
     </ng-template>
     <div class="info-grid" *ngIf="showResidents && filteredResidents.length > 0; else noResidents">
       <article class="info-card resident-card" *ngFor="let resident of filteredResidents" [class.compact]="searchUnit">
+        <span class="resident-badge-corner">{{ formatResidenceBadge(resident.unit) }}</span>
         <div class="resident-main">
-          <div class="resident-avatar resident-avatar-clickable" (click)="openResidentPhotoModal(resident.photoDataUrl, resident.name)">
+          <div class="resident-avatar resident-avatar-clickable" (click)="openResidentPhotoModal(resident.photoDataUrl, resident.name)" title="Click to enlarge">
             <img
               *ngIf="resident.photoDataUrl"
               [src]="resident.photoDataUrl"
@@ -175,11 +198,9 @@
           <div class="resident-info">
             <div class="info-header">
               <h3>{{ resident.name }}</h3>
-              <span class="pill resident-badge">{{ formatResidenceBadge(resident.unit) }}</span>
             </div>
             <p><strong>Cell:</strong> {{ resident.cellphone }}</p>
             <p><strong>Email:</strong> {{ resident.email }}</p>
-            <span class="status-label">Resident</span>
             <div class="tenant-card-actions">
               <button type="button" class="btn-book-visitor" (click)="openBookVisitorModal(resident)">Book Visitor</button>
               <button
@@ -242,8 +263,32 @@
     </div>
   </div>
 
-  <!-- Vehicles section moved outside modal -->
-  <section class="info-section" *ngIf="showVehicles && isStationSelected && !showStationPrompt">
+  <ng-container *ngIf="(searchUnit || '').trim() && !(searchReg || '').trim()">
+    <ng-container *ngTemplateOutlet="visitorCodesSection"></ng-container>
+  </ng-container>
+
+  <ng-container *ngIf="(searchReg || '').trim()">
+    <section class="codes-section">
+      <div class="section-title">
+        <div>
+          <h2>Visitor Codes — Vehicle Match</h2>
+          <span class="helper">Active visitor codes matching the registration number.</span>
+        </div>
+      </div>
+      <div class="code-grid" *ngIf="filteredVisitorVehiclesByReg.length > 0; else noRegMatch">
+        <app-visitor-card *ngFor="let visitor of filteredVisitorVehiclesByReg" [visitor]="visitor" [gaurd]="false"/>
+      </div>
+      <ng-template #noRegMatch>
+        <div class="empty-state">
+          <h3>No match found</h3>
+          <p>No active visitor codes match this registration number.</p>
+        </div>
+      </ng-template>
+    </section>
+  </ng-container>
+
+  <!-- Vehicles section -->
+  <section class="info-section" *ngIf="showVehicles && isStationSelected && !showStationPrompt && !(searchCode || '').trim() && !searchTerm()">
     <div class="section-title">
       <h2>Vehicles</h2>
     </div>
@@ -252,10 +297,10 @@
       <div class="info-subsection">
         <h3>Registered Vehicles</h3>
         <div class="info-grid" *ngIf="filteredRegisteredVehiclesByReg.length > 0; else noRegistered">
-          <article class="info-card" *ngFor="let vehicle of filteredRegisteredVehiclesByReg">
+          <article class="info-card vehicle-card" *ngFor="let vehicle of filteredRegisteredVehiclesByReg">
+            <span class="resident-badge-corner">{{ formatResidenceBadge(vehicle.unit) }}</span>
             <div class="info-header">
               <h3>{{ vehicle.make }} {{ vehicle.model }}</h3>
-              <span class="pill">{{ formatResidenceBadge(vehicle.unit) }}</span>
             </div>
             <p><strong>Owner:</strong> {{ vehicle.owner }}</p>
             <p><strong>Registration:</strong> {{ vehicle.regNumber || '-' }}</p>
@@ -274,10 +319,10 @@
       <div class="info-subsection">
         <h3>Vehicles</h3>
         <div class="info-grid" *ngIf="filteredVehiclesByUnit.length > 0; else noVehicles">
-          <article class="info-card" *ngFor="let vehicle of filteredVehiclesByUnit">
+          <article class="info-card vehicle-card" *ngFor="let vehicle of filteredVehiclesByUnit">
+            <span class="resident-badge-corner">{{ formatResidenceBadge(vehicle.unit) }}</span>
             <div class="info-header">
               <h3>{{ vehicle.make }} {{ vehicle.model }}</h3>
-              <span class="pill">{{ formatResidenceBadge(vehicle.unit) }}</span>
             </div>
             <p><strong>Owner:</strong> {{ vehicle.owner }}</p>
             <p><strong>Registration:</strong> {{ vehicle.regNumber }}</p>
@@ -292,10 +337,6 @@
       </div>
     </ng-template>
   </section>
-
-  <ng-container *ngIf="(searchUnit || '').trim()">
-    <ng-container *ngTemplateOutlet="visitorCodesSection"></ng-container>
-  </ng-container>
 
   <footer class="guard-footer">
     <span>© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</span>

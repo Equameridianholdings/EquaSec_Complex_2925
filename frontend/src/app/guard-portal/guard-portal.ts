@@ -282,10 +282,6 @@ export class GuardPortal implements OnInit, OnDestroy {
         let regValue = (v.regNumber || '').toString().trim().toLowerCase().replace(/\s+/g, '');
         return regValue.includes(regQuery);
       });
-      // DEBUG: If no vehicles match, show all vehicles to help diagnose
-      if (filtered.length === 0 && vehicles.length > 0) {
-        return vehicles.map((v) => ({ ...v, isVisitor: false, debug: true }));
-      }
     }
     return filtered.map((v) => ({ ...v, isVisitor: false }));
   }
@@ -300,12 +296,9 @@ export class GuardPortal implements OnInit, OnDestroy {
     return (Array.isArray(this.visitorList()) ? this.visitorList() : [])
       .filter((code) => code.driving && code.vehicle)
       .filter((code) => {
-        // Normalize and check multiple possible registration properties
-        let regValue = code.vehicle?.registrationNumber
-          .toString()
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, '') as string;
+        const reg = (code.vehicle as any)?.registrationNumber ||
+                    (code.vehicle as any)?.registerationNumber || '';
+        const regValue = reg.toString().trim().toLowerCase().replace(/\s+/g, '');
         return regValue.includes(regQuery);
       });
   }
@@ -483,7 +476,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     unit: string;
     houseNumber: string;
     cellphone: string;
-    emailAddress: string;
+    email: string;
     photoDataUrl: string;
     complexId: string;
     gatedCommunityId: string;
@@ -947,7 +940,7 @@ export class GuardPortal implements OnInit, OnDestroy {
                   '',
                 houseNumber: linkedTenantLocation?.houseNumber ?? user.houseNumber ?? '',
                 cellphone: user.cellNumber ?? '',
-                emailAddress: user.emailAddress ?? '',
+                email: user.emailAddress ?? '',
                 photoDataUrl: user.profilePhoto ?? '',
                 complexId:
                   linkedTenantLocation?.complexId ??
@@ -1599,7 +1592,7 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     const normalizedTenantEmail = tenantData.email.trim().toLowerCase();
     const existingTenant = this.residents.find(
-      (resident) => resident.emailAddress?.trim().toLowerCase() === normalizedTenantEmail,
+      (resident) => resident.email?.trim().toLowerCase() === normalizedTenantEmail,
     );
     if (existingTenant) {
       this.tenantError = 'A tenant with this email already exists.';
@@ -2385,14 +2378,25 @@ export class GuardPortal implements OnInit, OnDestroy {
       vehicles = vehicles.filter(
         (v) => v.gatedCommunityId === this.filtersForm.selectedGatedCommunity,
       );
-      this.visitorList.update(() =>
-        this.visitorList().filter(
-          (c) => c.destination.gatedCommunity?._id === this.filtersForm.selectedGatedCommunity,
-        ),
-      );
     }
 
-    return vehicles;
+    const query = (this.filtersForm.searchReg || '').trim().toLowerCase().replace(/\s+/g, '');
+
+    const registeredRegs = vehicles
+      .filter((v) => v.regNumber)
+      .filter((v) => !query || v.regNumber.toLowerCase().replace(/\s+/g, '').includes(query));
+
+    const visitorRegs = (Array.isArray(this.visitorList()) ? this.visitorList() : [])
+      .filter((code) => code.driving && code.vehicle)
+      .map((code) => {
+        const reg = (code.vehicle as any)?.registrationNumber ||
+                    (code.vehicle as any)?.registerationNumber || '';
+        return { regNumber: reg, isVisitor: true };
+      })
+      .filter((v) => v.regNumber)
+      .filter((v) => !query || v.regNumber.toLowerCase().replace(/\s+/g, '').includes(query));
+
+    return [...registeredRegs, ...visitorRegs];
   }
 
   protected get filteredVisitorsForUnit() {

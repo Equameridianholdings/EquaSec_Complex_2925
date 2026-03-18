@@ -1227,7 +1227,7 @@ export class SecurityManager implements OnInit {
               ? {
                   make: visitor.vehicle.make,
                   model: visitor.vehicle.model,
-                  reg: visitor.vehicle?.registrationNumber,
+                  reg: visitor.vehicle?.registerationNumber,
                   color: visitor.vehicle.color,
                 }
               : undefined,

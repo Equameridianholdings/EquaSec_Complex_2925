@@ -5,6 +5,7 @@ export interface vehicleDTO {
     color: string;
     make: string;
     model: string;
-    registrationNumber: string;
+    registerationNumber: string;
+    registrationNumber?: string;
     user?: any;
 }
