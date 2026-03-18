@@ -1993,9 +1993,7 @@ export class SecurityManager implements OnInit {
       const communityName = this.getCommunityName(String(tenant.communityId));
       if (communityName && communityName !== 'Unknown') {
         path.push(communityName);
-      } else {
-        path.push('Gated Community');
-      }
+      } 
 
       if (tenant.communityResidenceType === 'house') {
         // → House Number
@@ -2033,10 +2031,11 @@ export class SecurityManager implements OnInit {
   }
 
   protected getTenantLocationTypeLabel(tenant: any): string {
+    console.log(tenant);
     if (tenant?.residenceType === 'community') {
-      return tenant?.communityResidenceType === 'house' ? 'Gated Community • House' : 'Gated Community • Complex';
+      return tenant?.communityId !== "undefined" ? 'House' : 'Complex';
     }
-    return 'Complex';
+    return 'Gated Community';
   }
 
   private refreshTenantLocationPaths(): void {

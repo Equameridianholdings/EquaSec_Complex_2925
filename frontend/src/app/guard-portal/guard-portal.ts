@@ -476,7 +476,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     unit: string;
     houseNumber: string;
     cellphone: string;
-    email: string;
+    emailAddress: string;
     photoDataUrl: string;
     complexId: string;
     gatedCommunityId: string;
@@ -940,7 +940,7 @@ export class GuardPortal implements OnInit, OnDestroy {
                   '',
                 houseNumber: linkedTenantLocation?.houseNumber ?? user.houseNumber ?? '',
                 cellphone: user.cellNumber ?? '',
-                email: user.emailAddress ?? '',
+                emailAddress: user.emailAddress ?? '',
                 photoDataUrl: user.profilePhoto ?? '',
                 complexId:
                   linkedTenantLocation?.complexId ??
@@ -1592,7 +1592,7 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     const normalizedTenantEmail = tenantData.email.trim().toLowerCase();
     const existingTenant = this.residents.find(
-      (resident) => resident.email?.trim().toLowerCase() === normalizedTenantEmail,
+      (resident) => resident.emailAddress?.trim().toLowerCase() === normalizedTenantEmail,
     );
     if (existingTenant) {
       this.tenantError = 'A tenant with this email already exists.';

@@ -28,7 +28,6 @@ export class ChangePin implements AfterViewInit {
     if (!this.user) {
       this.service.get<ResponseBody>('user/current').subscribe({
         next: (res) => {
-          this.submitting.update(() => false);
           this.user = res.payload as UserDTO;
         },
         error: (err) => {
@@ -38,6 +37,7 @@ export class ChangePin implements AfterViewInit {
           });
         },
       });
+      this.submitting.update(() => false);
     } else {
       this.submitting.update(() => false);
     }
@@ -89,18 +89,21 @@ export class ChangePin implements AfterViewInit {
     if (oldP.length !== 6 || !/^\d+$/.test(oldP)) {
       this.changePinError = 'Current PIN must be 6 digits.';
       this.changePinSuccess = '';
+      this.submitting.update(() => false);
       return;
     }
 
     if (newP.length !== 6 || !/^\d+$/.test(newP)) {
       this.changePinError = 'New PIN must be 6 digits.';
       this.changePinSuccess = '';
+      this.submitting.update(() => false);
       return;
     }
 
     if (confirmedP.length !== 6 || !/^\d+$/.test(confirmedP)) {
       this.changePinError = 'Confirm PIN must be 6 digits.';
       this.changePinSuccess = '';
+      this.submitting.update(() => false);
       return;
     }
 
@@ -108,6 +111,7 @@ export class ChangePin implements AfterViewInit {
     if (!isValid) {
       this.changePinError = 'New PINs do not match.';
       this.changePinSuccess = '';
+      this.submitting.update(() => false);
       return;
     }
 
@@ -115,6 +119,7 @@ export class ChangePin implements AfterViewInit {
     if (oldP === newP) {
       this.changePinError = 'New PIN cannot be the same as current PIN.';
       this.changePinSuccess = '';
+      this.submitting.update(() => false);
       return;
     }
 

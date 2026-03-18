@@ -299,18 +299,12 @@
 	letter-spacing: 0.5px;
 }
 
-/* Grid Layout */
-.manager-grid {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 32px;
-}
-
 /* Panel Section */
 .panel-section {
 	background: var(--manager-card);
 	border-radius: 16px;
-	padding: 32px;
+	padding: 20px;
+	margin: 20px auto;
 	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
@@ -431,9 +425,8 @@
 /* Security Managers Grid */
 .security-managers-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-	gap: 20px;
 	margin-bottom: 20px;
+	width: 100%;
 }
 
 .manager-card {
@@ -831,7 +824,7 @@ table tbody tr:hover {
 /* Data Cards Grid Layout */
 .data-cards-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	width: 100%;
 	gap: 20px;
 	margin-bottom: 20px;
 }
