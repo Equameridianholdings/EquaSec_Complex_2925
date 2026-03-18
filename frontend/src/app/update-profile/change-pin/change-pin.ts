@@ -53,6 +53,31 @@ export class ChangePin implements AfterViewInit {
     this.dialogRef.close();
   }
 
+  onPinInput(event: Event, index: number, group: 'old' | 'new' | 'confirm'): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) return;
+    const digit = (input.value || '').replace(/\D/g, '').slice(0, 1);
+    input.value = digit;
+    if (group === 'old') this.oldPassword[index] = digit as unknown as number;
+    if (group === 'new') this.newPassword[index] = digit as unknown as number;
+    if (group === 'confirm') this.confirmPassword[index] = digit as unknown as number;
+    if (digit && input.nextElementSibling instanceof HTMLInputElement) {
+      input.nextElementSibling.focus();
+    }
+  }
+
+  onPinKeydown(event: KeyboardEvent): void {
+    const input = event.target as HTMLInputElement | null;
+    if (!input) return;
+    if (event.key === 'Backspace' && !input.value) {
+      const prev = input.previousElementSibling;
+      if (prev instanceof HTMLInputElement) {
+        prev.focus();
+        prev.value = '';
+      }
+    }
+  }
+
   saveChanges() {
     this.submitting.update(() => true);
     const oldP = this.oldPassword.join().replaceAll(",", "");

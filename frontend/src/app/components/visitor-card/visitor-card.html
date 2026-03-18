@@ -1,19 +1,22 @@
 <div class="code-card p-4">
+  <span class="transport-badge" [class.driving]="visitor.driving" [class.walking]="!visitor.driving">
+    {{ visitor.driving ? 'Driving' : 'Walking' }}
+  </span>
   <div class="code-info">
     <span class="code-number">{{ visitor.code }}</span>
     <span class="visitor-name">{{ visitor.name }} {{ visitor.surname }}</span>
-    <small
-      >Transport: {{ visitor.driving ? 'Car' : 'Walking' }} | Cellphone:
-      {{ visitor.contact }}</small
-    >
-    <small>
-      Location:
-      {{
-        visitor.destination.complex?.name ||
-          visitor.destination.gatedCommunity?.name ||
-          'Not linked'
-      }}
-    </small>
+    <small>Cellphone: {{ visitor.contact }}</small>
+    @if (visitor.driving && visitor.vehicle) {
+      <strong>{{ visitor.vehicle.make }} {{ visitor.vehicle.model }} | Reg: {{ visitor.vehicle.registrationNumber || visitor.vehicle.registerationNumber }} | Colour: {{ visitor.vehicle.color }}</strong>
+    }
+    <div class="visitor-location">
+      <strong>
+        {{ visitor.destination.complex?.name || visitor.destination.gatedCommunity?.name || 'Not linked' }}
+        @if (visitor.destination.number) {
+          — {{ visitor.destination.house ? 'House' : 'Unit' }} {{ visitor.destination.number }}
+        }
+      </strong>
+    </div>
     <small>Expires in {{ hours }} hours</small>
   </div>
   <div class="code-actions" [hidden]="!gaurd">

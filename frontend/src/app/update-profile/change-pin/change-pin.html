@@ -30,6 +30,8 @@
               [aria-label]="'Digit' + $index"
               [ngModel]=""
               (ngModelChange)="oldPassword[$index] = $event"
+              (input)="onPinInput($event, $index, 'old')"
+              (keydown)="onPinKeydown($event)"
             />
           }
         </div>
@@ -50,6 +52,8 @@
               [aria-label]="'new-Digit' + $index"
               [ngModel]=""
               (ngModelChange)="newPassword[$index] = $event"
+              (input)="onPinInput($event, $index, 'new')"
+              (keydown)="onPinKeydown($event)"
             />
           }
         </div>
@@ -70,6 +74,8 @@
               [aria-label]="'confirm-Digit' + $index"
               [ngModel]=""
               (ngModelChange)="confirmPassword[$index] = $event"
+              (input)="onPinInput($event, $index, 'confirm')"
+              (keydown)="onPinKeydown($event)"
             />
           }
         </div>
@@ -83,8 +89,8 @@
       }
 
       <div class="modal-actions">
-        <button type="button" class="btn-secondary" (click)="closeModal()">Cancel</button>
-        <button type="submit" class="btn-main">Update PIN</button>
+        <button type="button" class="btn-action btn-action--cancel" (click)="closeModal()">Cancel</button>
+        <button type="submit" class="btn-action btn-action--save">Update PIN</button>
       </div>
     </form>
   </div>

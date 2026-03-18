@@ -23,11 +23,11 @@
           <p><strong>ID Number:</strong> {{ visitorIdNumber }}</p>
         }
         <p><strong>Transport:</strong> {{ !visitor.data.driving ? 'Walking' : 'Vehicle' }}</p>
-        @if (visitor.driving) {
+        @if (visitor.data.driving) {
           <ng-container>
             <p><strong>Make:</strong> {{ visitor.data.vehicle?.make }}</p>
             <p><strong>Model:</strong> {{ visitor.data.vehicle?.model }}</p>
-            <p><strong>Registration:</strong> {{ visitor.data.vehicle?.registrationNumber }}</p>
+            <p><strong>Registration:</strong> {{ visitor.data.vehicle?.registrationNumber || visitor.data.vehicle?.registerationNumber }}</p>
             <p><strong>Colour:</strong> {{ visitor.data.vehicle?.color }}</p>
           </ng-container>
         }

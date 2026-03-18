@@ -198,7 +198,7 @@ export class BookVisitor implements OnInit {
     color: '',
     make: '',
     model: '',
-    registrationNumber: '',
+    registerationNumber: '',
   };
   newVisitor: visitorDTO = {
     access: false,

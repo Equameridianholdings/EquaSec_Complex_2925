@@ -386,6 +386,36 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  position: relative;
+}
+
+.transport-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 6px 18px 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 0 8px 0 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%);
+}
+
+.transport-badge.driving {
+  background: #1e3a5f;
+  color: #ffffff;
+}
+
+.transport-badge.walking {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.visitor-location {
+  font-size: 14px;
+  color: #1e293b;
+  margin-top: 2px;
 }
 
 .code-info {
@@ -980,7 +1010,7 @@
 
 .modal-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   flex-wrap: wrap;
   gap: 12px;
   padding: 16px 24px;
@@ -990,6 +1020,63 @@
 .modal-actions > button {
   flex: 1 1 150px;
   max-width: 220px;
+}
+
+.btn-action {
+  flex: 1 1 150px;
+  max-width: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-action--outline {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.btn-action--outline:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-action--save {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
+.btn-action--save:hover:not(:disabled) {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+.btn-action--save:disabled {
+  background: #d1d5db;
+  border-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-action--cancel {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.btn-action--cancel:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
 }
 
 .camera-card {
@@ -1006,6 +1093,9 @@
 }
 
 .camera-video {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1016,6 +1106,9 @@
 }
 
 .camera-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1132,6 +1225,48 @@
 
 .modal-actions .btn-main {
   min-width: 160px;
+}
+
+.modal-actions .btn-cancel {
+  background: #ffffff;
+  color: #dc2626;
+  border: 2px solid #dc2626;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.modal-actions .btn-cancel:hover {
+  background: #fef2f2;
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+.modal-actions .btn-create {
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.modal-actions .btn-create:hover:not(:disabled) {
+  background: #15803d;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+}
+
+.modal-actions .btn-create:not(:disabled) {
+  box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.4), 0 4px 12px rgba(22, 163, 74, 0.2);
+}
+
+.modal-actions .btn-create:disabled {
+  background: #cbd5e0;
+  color: #ffffff;
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 .delete-link {
@@ -1520,7 +1655,7 @@
   display: block;
   width: 22px;
   height: 2px;
-  background: #3dff9a;
+  background: #1e3a5f;
   transition:
     transform 0.3s,
     opacity 0.3s;
@@ -1541,11 +1676,12 @@
 .mobile-menu {
   display: none;
   flex-direction: column;
-  background: #08080c;
-  border-top: 1px solid #1a1a2e;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
   overflow: hidden;
   max-height: 0;
   transition: max-height 0.35s ease;
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.08);
 }
 
 .mobile-menu.open {
@@ -1562,21 +1698,23 @@
   font-size: 0.8rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #555570;
-  border-bottom: 1px solid #1a1a2e;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
   transition:
     color 0.2s,
     background 0.2s;
 }
 
 .mobile-link:hover {
-  color: #c0c0d8;
-  background: #0e0e18;
+  color: #1e3a5f;
+  background: #f1f5f9;
 }
 
 .mobile-link.active {
-  color: #3dff9a;
-  border-left: 2px solid #3dff9a;
+  color: #1e3a5f;
+  border-left: 3px solid #1e3a5f;
+  background: #f1f5f9;
+  font-weight: 700;
 }
 
 /* ── Responsive breakpoint ── */
