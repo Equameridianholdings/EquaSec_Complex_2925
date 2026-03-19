@@ -196,9 +196,11 @@ export class GuardPortal implements OnInit, OnDestroy {
     unit: string;
   } = null;
   protected deletingTenant = false;
+  protected isTenantConfirmModalOpen = false;
   protected tenantError = '';
   protected tenantSuccess = '';
   protected tenantSubmitting = false;
+  protected tenantHasCar: boolean | null = null;
   protected canRegisterTenant = false;
   protected isSosEnabledForCompany = false;
   protected showStationPrompt = false;
@@ -1484,6 +1486,72 @@ export class GuardPortal implements OnInit, OnDestroy {
     });
   }
 
+  protected get tenantConfirmSummary(): { label: string; value: string }[] {
+    const f = this.tenantForm;
+    const rows: { label: string; value: string }[] = [];
+    rows.push({ label: 'Name', value: `${f.name} ${f.surname}` });
+    rows.push({ label: 'Email', value: f.email });
+    rows.push({ label: 'Phone', value: f.phone });
+
+    if (f.residenceType === 'complex') {
+      const complexName = this.stationScopedComplexes.find((c) => c.id === f.complexId)?.name ?? f.complexId;
+      rows.push({ label: 'Complex', value: complexName });
+      rows.push({ label: 'Unit', value: f.address });
+    } else if (f.residenceType === 'community') {
+      const communityName = this.stationScopedCommunities.find((c) => c.id === f.communityId)?.name ?? f.communityId;
+      rows.push({ label: 'Community', value: communityName });
+      if (f.communityResidenceType === 'complex') {
+        const commComplexName = this.availableCommunityComplexes.find((c) => c.id === f.communityComplexId)?.name ?? f.communityComplexId;
+        rows.push({ label: 'Complex', value: commComplexName });
+        rows.push({ label: 'Unit', value: f.address });
+      } else {
+        rows.push({ label: 'House', value: f.address });
+      }
+    }
+
+    if (f.vehicles.length > 0) {
+      f.vehicles.forEach((v, i) => {
+        const label = f.vehicles.length > 1 ? `Vehicle ${i + 1}` : 'Vehicle';
+        rows.push({ label, value: `${v.make} ${v.model} — ${v.reg}${v.color ? ` (${v.color})` : ''}` });
+      });
+    } else {
+      rows.push({ label: 'Vehicle', value: 'None' });
+    }
+
+    return rows;
+  }
+
+  protected openConfirmTenantModal(): void {
+    this.isTenantConfirmModalOpen = true;
+  }
+
+  protected closeConfirmTenantModal(): void {
+    this.isTenantConfirmModalOpen = false;
+  }
+
+  protected confirmAndSubmitTenant(): void {
+    this.isTenantConfirmModalOpen = false;
+    this.submitTenantForm();
+  }
+
+  protected get isTenantFormReady(): boolean {
+    const f = this.tenantForm;
+    if (!f.name?.trim() || !f.surname?.trim() || !f.email?.trim()) return false;
+    if (!f.phone?.trim() || !/^0\d{9}$/.test(f.phone.trim())) return false;
+    if (this.tenantHasCar === null) return false;
+    if (this.tenantHasCar === true && f.vehicles.length === 0) return false;
+    if (f.residenceType === 'complex') {
+      return !!f.complexId && !!f.address;
+    }
+    if (f.residenceType === 'community') {
+      if (!f.communityId) return false;
+      if (!f.communityResidenceType) return false;
+      if (f.communityResidenceType === 'house') return !!f.address;
+      if (f.communityResidenceType === 'complex') return !!f.communityComplexId && !!f.address;
+    }
+    return !!f.address;
+  }
+
   protected submitTenantForm(): void {
     if (this.tenantSubmitting) {
       return;
@@ -2538,6 +2606,7 @@ export class GuardPortal implements OnInit, OnDestroy {
       color: '',
     };
 
+    this.tenantHasCar = null;
     this.tenantError = '';
     this.tenantSuccess = '';
   }
