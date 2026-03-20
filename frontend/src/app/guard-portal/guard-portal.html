@@ -227,6 +227,8 @@
               <button
                 type="button"
                 class="btn-book-visitor"
+                *ngIf="canRegisterTenant"
+                (click)="openUpdateTenantModal(resident)"
               >
                 Update Tenant
               </button>
@@ -498,7 +500,7 @@
   <div class="modal-backdrop" *ngIf="isTenantModalOpen" (click)="closeTenantModal()">
     <div class="modal large" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2>Register Tenant</h2>
+        <h2>{{ isUpdateMode ? 'Update Tenant' : 'Register Tenant' }}</h2>
         <button class="btn-icon" type="button" (click)="closeTenantModal()">✕</button>
       </div>
 
@@ -542,6 +544,7 @@
               [(ngModel)]="tenantForm.email"
               name="guardTenantEmail"
               required
+              [disabled]="isUpdateMode"
             />
           </div>
           <div class="form-group">
@@ -747,25 +750,35 @@
         <ng-container *ngIf="tenantHasCar === true">
           <div *ngIf="tenantForm.vehicles.length > 0" class="vehicle-list">
             <h4>Registered Vehicles ({{ tenantForm.vehicles.length }})</h4>
-            <div *ngFor="let vehicle of tenantForm.vehicles; let i = index" class="vehicle-item">
+            <div *ngFor="let vehicle of tenantForm.vehicles; let i = index" class="vehicle-item" [class.vehicle-item-editing]="editingVehicleIndex === i">
               <div class="vehicle-details">
                 <strong>{{ vehicle.make }} {{ vehicle.model }}</strong>
                 <span class="vehicle-reg">{{ vehicle.reg }}</span>
                 <span *ngIf="vehicle.color" class="vehicle-color">{{ vehicle.color }}</span>
               </div>
-              <button
-                type="button"
-                class="btn-icon"
-                (click)="removeVehicle(i)"
-                title="Remove vehicle"
-              >
-                🗑️
-              </button>
+              <div class="vehicle-item-actions">
+                <button
+                  type="button"
+                  class="btn-icon"
+                  (click)="editVehicle(i)"
+                  title="Edit vehicle"
+                >
+                  ✏️
+                </button>
+                <button
+                  type="button"
+                  class="btn-icon"
+                  (click)="removeVehicle(i)"
+                  title="Remove vehicle"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
           </div>
 
           <div class="vehicle-form">
-            <h4>{{ tenantForm.vehicles.length > 0 ? 'Add Another Vehicle' : 'Add Vehicle' }}</h4>
+            <h4>{{ editingVehicleIndex !== null ? 'Edit Vehicle' : (tenantForm.vehicles.length > 0 ? 'Add Another Vehicle' : 'Add Vehicle') }}</h4>
             <div class="form-row">
               <div class="form-group">
                 <label for="guard-vehicle-make">Vehicle Make</label>
@@ -799,8 +812,10 @@
                   type="text"
                   class="form-control"
                   placeholder="e.g. ABC 123 GP"
-                  [(ngModel)]="currentVehicle.reg"
+                  [ngModel]="currentVehicle.reg"
+                  (ngModelChange)="currentVehicle.reg = $event.toUpperCase()"
                   name="guardVehicleReg"
+                  style="text-transform: uppercase"
                 />
               </div>
               <div class="form-group">
@@ -817,7 +832,7 @@
             </div>
 
             <button type="button" class="btn-secondary" (click)="addVehicle()">
-              {{ tenantForm.vehicles.length > 0 ? '+ Add Another Vehicle' : '+ Add Vehicle' }}
+              {{ editingVehicleIndex !== null ? 'Save Changes' : (tenantForm.vehicles.length > 0 ? '+ Add Another Vehicle' : '+ Add Vehicle') }}
             </button>
           </div>
         </ng-container>
@@ -836,7 +851,7 @@
             (click)="openConfirmTenantModal()"
             [disabled]="tenantSubmitting || !isTenantFormReady"
           >
-            Register Tenant
+            {{ isUpdateMode ? 'Update Tenant' : 'Register Tenant' }}
           </button>
         </div>
       </form>
@@ -852,11 +867,11 @@
       (click)="$event.stopPropagation()"
     >
       <div class="modal-header">
-        <h2 id="confirm-tenant-title">Confirm Registration</h2>
+        <h2 id="confirm-tenant-title">{{ isUpdateMode ? 'Confirm Update' : 'Confirm Registration' }}</h2>
         <button class="btn-icon" type="button" (click)="closeConfirmTenantModal()">✕</button>
       </div>
       <div class="modal-body">
-        <p class="confirm-intro">Please review the details below before registering the tenant.</p>
+        <p class="confirm-intro">Please review the details below before {{ isUpdateMode ? 'updating' : 'registering' }} the tenant.</p>
         <dl class="confirm-summary">
           <div class="confirm-row" *ngFor="let row of tenantConfirmSummary">
             <dt>{{ row.label }}</dt>
@@ -869,7 +884,7 @@
           Go Back
         </button>
         <button type="button" class="btn-main" (click)="confirmAndSubmitTenant()">
-          Confirm &amp; Register
+          {{ isUpdateMode ? 'Confirm &amp; Update' : 'Confirm &amp; Register' }}
         </button>
       </div>
     </div>
