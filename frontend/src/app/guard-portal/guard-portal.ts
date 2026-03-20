@@ -188,6 +188,8 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected selectedCodeVehicle: any | null = null;
   protected selectedCodeVisitorName = '';
   protected isTenantModalOpen = false;
+  protected isUpdateMode = false;
+  protected editingVehicleIndex: number | null = null;
   protected isDeleteTenantModalOpen = false;
   protected selectedTenantToDelete: null | {
     email: string;
@@ -1398,8 +1400,68 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected closeTenantModal(): void {
     this.isTenantModalOpen = false;
+    this.isUpdateMode = false;
     this.tenantSubmitting = false;
     this.resetTenantForm();
+  }
+
+  protected openUpdateTenantModal(resident: any): void {
+    if (!this.hasValidStationSelection()) {
+      this.tenantError = 'Select your current station before updating a tenant.';
+      this.tenantSuccess = '';
+      return;
+    }
+
+    this.resetTenantForm();
+
+    // Determine residence type from the resident's linked ids
+    const isComplex = !!resident.complexId && !resident.gatedCommunityId;
+    const isCommunity = !!resident.gatedCommunityId;
+    const residenceType: 'complex' | 'community' = isCommunity ? 'community' : 'complex';
+
+    // Resolve the unit value to match the format used in availableUnits (e.g. "Unit 7")
+    const complexIdForLookup = isComplex ? (resident.complexId ?? '') : (resident.complexId ?? '');
+    const complexForUnits = this.stationScopedComplexes.find((c) => c.id === complexIdForLookup);
+    const rawUnitValue = resident.unit || resident.houseNumber || '';
+    let resolvedAddress = rawUnitValue;
+    if (complexForUnits?.units?.length) {
+      const exactMatch = complexForUnits.units.find((u) => u === rawUnitValue);
+      const prefixedMatch = complexForUnits.units.find((u) => u === `Unit ${rawUnitValue}`);
+      resolvedAddress = exactMatch ?? prefixedMatch ?? rawUnitValue;
+    }
+
+    // Map resident vehicles from the loaded vehicles list
+    const residentVehicles = (Array.isArray(this.vehicles) ? this.vehicles : [])
+      .filter((v: any) => v.owner === resident.name || v.unit === resident.unit)
+      .map((v: any) => ({
+        make: v.make ?? '',
+        model: v.model ?? '',
+        reg: v.regNumber ?? v.reg ?? '',
+        color: v.color ?? '',
+      }));
+
+    this.tenantForm = {
+      id: resident.id ?? '',
+      name: resident.firstName ?? resident.name?.split(' ')[0] ?? '',
+      surname: resident.surname ?? resident.name?.split(' ').slice(1).join(' ') ?? '',
+      email: resident.emailAddress ?? '',
+      phone: resident.phone ?? resident.cellphone ?? '',
+      idNumber: resident.idNumber ?? '',
+      residenceType,
+      complexId: isComplex ? (resident.complexId ?? '') : '',
+      communityId: isCommunity ? (resident.gatedCommunityId ?? '') : '',
+      communityResidenceType: isCommunity && resident.complexId ? 'complex' : 'house',
+      communityComplexId: isCommunity ? (resident.complexId ?? '') : '',
+      address: resolvedAddress,
+      vehicles: residentVehicles,
+    };
+
+    this.tenantHasCar = residentVehicles.length > 0 ? true : false;
+    this.isUpdateMode = true;
+    this.isTenantModalOpen = true;
+    this.tenantError = '';
+    this.tenantSuccess = '';
+    this.tenantSubmitting = false;
   }
 
   protected openDeleteTenantModal(resident: any): void {
@@ -1651,15 +1713,19 @@ export class GuardPortal implements OnInit, OnDestroy {
     };
 
     const normalizedTenantEmail = tenantData.email.trim().toLowerCase();
-    const existingTenant = this.residents.find(
-      (resident) => resident.emailAddress?.trim().toLowerCase() === normalizedTenantEmail,
-    );
-    if (existingTenant) {
-      this.tenantError = 'A tenant with this email already exists.';
-      this.tenantSuccess = '';
-      this.tenantSubmitting = false;
-      this.submitting.update(() => false);
-      return;
+
+    // Duplicate email check only when registering (not updating)
+    if (!this.isUpdateMode) {
+      const existingTenant = this.residents.find(
+        (resident) => resident.emailAddress?.trim().toLowerCase() === normalizedTenantEmail,
+      );
+      if (existingTenant) {
+        this.tenantError = 'A tenant with this email already exists.';
+        this.tenantSuccess = '';
+        this.tenantSubmitting = false;
+        this.submitting.update(() => false);
+        return;
+      }
     }
 
     const selectedComplexForTenant =
@@ -1687,38 +1753,73 @@ export class GuardPortal implements OnInit, OnDestroy {
       communityComplexId: tenantData.communityComplexId,
       vehicles: tenantData.vehicles,
     };
-    console.log(payload);
-    this.dataService.post<ResponseBody>('user/tenant', payload).subscribe({
-      next: (response) => {
-        const emailSent = response?.payload?.emailSent !== false;
-        const successMessage = emailSent
-          ? `${response.message} Login credentials were sent by email.`
-          : `${response.message} Tenant created, but credentials email was not confirmed.`;
 
-        this._snackBar.open(successMessage, 'close', {
-          horizontalPosition: this.horizontalPosition,
-          verticalPosition: this.verticalPosition,
-        });
-        this.tenantSuccess = successMessage;
-
-        setTimeout(() => {
-          this.tenantSubmitting = false;
-          this.submitting.update(() => false);
-          this.closeTenantModal();
-          this.loadGuardPortalData();
-        }, 1500);
-      },
-      error: (error: HttpErrorResponse) => {
-        this.tenantSuccess = '';
-        this.tenantError = error?.error?.message ?? 'Unable to register tenant.';
-        this._snackBar.open(error.error.message, 'close', {
-          horizontalPosition: this.horizontalPosition,
-          verticalPosition: this.verticalPosition,
-        });
+    if (this.isUpdateMode) {
+      const tenantId = this.tenantForm.id;
+      if (!tenantId) {
+        this.tenantError = 'Tenant ID is missing. Please close and try again.';
         this.tenantSubmitting = false;
         this.submitting.update(() => false);
-      },
-    });
+        return;
+      }
+      this.dataService.put<ResponseBody>(`user/tenant/${tenantId}`, payload).subscribe({
+        next: (response) => {
+          this._snackBar.open(response.message ?? 'Tenant updated successfully!', 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
+          this.tenantSuccess = response.message ?? 'Tenant updated successfully!';
+          setTimeout(() => {
+            this.tenantSubmitting = false;
+            this.submitting.update(() => false);
+            this.closeTenantModal();
+            this.loadGuardPortalData();
+          }, 1500);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.tenantSuccess = '';
+          this.tenantError = error?.error?.message ?? 'Unable to update tenant.';
+          this._snackBar.open(this.tenantError, 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
+          this.tenantSubmitting = false;
+          this.submitting.update(() => false);
+        },
+      });
+    } else {
+      this.dataService.post<ResponseBody>('user/tenant', payload).subscribe({
+        next: (response) => {
+          const emailSent = response?.payload?.emailSent !== false;
+          const successMessage = emailSent
+            ? `${response.message} Login credentials were sent by email.`
+            : `${response.message} Tenant created, but credentials email was not confirmed.`;
+
+          this._snackBar.open(successMessage, 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
+          this.tenantSuccess = successMessage;
+
+          setTimeout(() => {
+            this.tenantSubmitting = false;
+            this.submitting.update(() => false);
+            this.closeTenantModal();
+            this.loadGuardPortalData();
+          }, 1500);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.tenantSuccess = '';
+          this.tenantError = error?.error?.message ?? 'Unable to register tenant.';
+          this._snackBar.open(error.error.message, 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
+          this.tenantSubmitting = false;
+          this.submitting.update(() => false);
+        },
+      });
+    }
   }
 
   protected addVehicle(): void {
@@ -1729,35 +1830,54 @@ export class GuardPortal implements OnInit, OnDestroy {
       return;
     }
 
-    if (
-      this.tenantForm.vehicles.some(
-        (vehicle) => vehicle.reg.toLowerCase() === this.currentVehicle.reg.trim().toLowerCase(),
-      )
-    ) {
+    // When editing an existing vehicle, allow its own reg but not any other duplicate
+    const isDuplicate = this.tenantForm.vehicles.some(
+      (vehicle, idx) =>
+        vehicle.reg.toLowerCase() === this.currentVehicle.reg.trim().toLowerCase() &&
+        idx !== this.editingVehicleIndex,
+    );
+    if (isDuplicate) {
       this.tenantError = 'A vehicle with this registration number is already added.';
       this.submitting.update(() => false);
       return;
     }
 
-    this.tenantForm.vehicles.push({
+    const vehicleData = {
       make: this.currentVehicle.make.trim(),
       model: this.currentVehicle.model.trim(),
       reg: this.currentVehicle.reg.trim(),
       color: this.currentVehicle.color.trim(),
-    });
-
-    this.currentVehicle = {
-      make: '',
-      model: '',
-      reg: '',
-      color: '',
     };
+
+    if (this.editingVehicleIndex !== null) {
+      const updated = [...this.tenantForm.vehicles];
+      updated[this.editingVehicleIndex] = vehicleData;
+      this.tenantForm = { ...this.tenantForm, vehicles: updated };
+      this.editingVehicleIndex = null;
+    } else {
+      this.tenantForm = { ...this.tenantForm, vehicles: [...this.tenantForm.vehicles, vehicleData] };
+    }
+
+    this.currentVehicle = { make: '', model: '', reg: '', color: '' };
     this.tenantError = '';
     this.submitting.update(() => false);
   }
 
+  protected editVehicle(index: number): void {
+    const v = this.tenantForm.vehicles[index];
+    this.currentVehicle = { make: v.make, model: v.model, reg: v.reg, color: v.color };
+    this.editingVehicleIndex = index;
+  }
+
   protected removeVehicle(index: number): void {
-    this.tenantForm.vehicles.splice(index, 1);
+    const updated = this.tenantForm.vehicles.filter((_, i) => i !== index);
+    this.tenantForm = { ...this.tenantForm, vehicles: updated };
+    if (this.editingVehicleIndex === index) {
+      this.editingVehicleIndex = null;
+      this.currentVehicle = { make: '', model: '', reg: '', color: '' };
+    } else if (this.editingVehicleIndex !== null && this.editingVehicleIndex > index) {
+      this.editingVehicleIndex--;
+    }
   }
 
   protected onResidenceTypeChange(): void {
