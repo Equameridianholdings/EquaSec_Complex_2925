@@ -59,6 +59,7 @@
           maxlength="6"
           inputmode="numeric"
           placeholder="000000"
+          [value]="searchTerm()"
           (input)="filterCodes($event)"
           class="search-input"
           (focus)="clearOtherSearches('code')"

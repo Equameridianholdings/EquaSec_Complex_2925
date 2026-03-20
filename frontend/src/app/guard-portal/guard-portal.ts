@@ -86,7 +86,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     }
     return stationResidents.filter((resident) => {
       const unit = (resident.unit || resident.houseNumber || '').toString().toLowerCase();
-      return unit.includes(unitQuery);
+      return unit === unitQuery;
     });
   }
 
@@ -311,9 +311,10 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected get filteredResidentsByUnit() {
     const unitQuery = this.filtersForm.searchUnit.trim().toLowerCase();
     if (!unitQuery) return this.filteredResidents;
-    return this.filteredResidents.filter((resident) =>
-      (resident.unit || '').toLowerCase().includes(unitQuery),
-    );
+    return this.filteredResidents.filter((resident) => {
+      const unit = (resident.unit || resident.houseNumber || '').toString().toLowerCase();
+      return unit === unitQuery;
+    });
   }
 
   protected get guardInitials(): string {
@@ -669,7 +670,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     const registeredVehicles = this.filteredVehicles.filter((vehicle) => !vehicle.isVisitor);
     if (!unitQuery) return registeredVehicles;
     return registeredVehicles.filter((vehicle) =>
-      (vehicle.unit || '').toLowerCase().includes(unitQuery),
+      (vehicle.unit || '').toLowerCase() === unitQuery,
     );
   }
 
@@ -1489,9 +1490,7 @@ export class GuardPortal implements OnInit, OnDestroy {
         this.stationScopedCommunities.find((c) => c.id === f.communityId)?.name ?? f.communityId;
       rows.push({ label: 'Community', value: communityName });
       if (f.communityResidenceType === 'complex') {
-        const commComplexName =
-          this.availableCommunityComplexes.find((c) => c.id === f.communityComplexId)?.name ??
-          f.communityComplexId;
+        const commComplexName = this.availableCommunityComplexes.find((c) => c.id === f.communityComplexId)?.name ?? f.communityComplexId;
         rows.push({ label: 'Complex', value: commComplexName });
         rows.push({ label: 'Unit', value: f.address });
       } else {
@@ -2364,10 +2363,13 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.showVehicles = true;
     if (activeField === 'unit') {
       this.filtersForm.searchCode = '';
+      this.searchTerm.set('');
       this.filtersForm.searchReg = '';
       this.showRegOptions = false;
+      this.showCodes = false;
     } else if (activeField === 'reg') {
       this.filtersForm.searchCode = '';
+      this.searchTerm.set('');
       this.filtersForm.searchUnit = '';
       this.showUnitOptions = false;
     } else if (activeField === 'code') {
