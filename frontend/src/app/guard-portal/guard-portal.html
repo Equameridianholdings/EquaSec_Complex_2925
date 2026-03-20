@@ -25,9 +25,7 @@
         <button type="button" class="station-change" (click)="updateProfile()">
           Update Profile
         </button>
-         <button type="button" class="station-change" (click)="logout()">
-          Logout
-        </button>
+        <button type="button" class="station-change" (click)="logout()">Logout</button>
       </div>
     </div>
   </header>
@@ -64,7 +62,7 @@
           (input)="filterCodes($event)"
           class="search-input"
           (focus)="clearOtherSearches('code')"
-        >
+        />
       </div>
       <div class="search-field">
         <label for="searchUnit">{{ residenceSearchLabel }}</label>
@@ -75,10 +73,10 @@
           [(ngModel)]="searchUnit"
           class="search-input"
           (input)="updateUnitSearch($event)"
-           (focus)="clearOtherSearches('unit'); setUnitDropdown(true)"
+          (focus)="clearOtherSearches('unit'); setUnitDropdown(true)"
           (blur)="setUnitDropdown(false)"
           [disabled]="unitSearchDisabled"
-        >
+        />
         <div class="typeahead-list" *ngIf="showUnitOptions && filteredUnitOptions.length">
           <button
             type="button"
@@ -99,9 +97,9 @@
           [(ngModel)]="searchReg"
           class="search-input"
           (input)="updateRegSearch($event)"
-           (focus)="clearOtherSearches('reg'); setRegDropdown(true)"
+          (focus)="clearOtherSearches('reg'); setRegDropdown(true)"
           (blur)="setRegDropdown(false)"
-        >
+        />
         <div class="typeahead-list" *ngIf="showRegOptions && filteredRegOptions.length">
           <button
             type="button"
@@ -129,9 +127,9 @@
       </div>
       <div class="code-grid">
         <div *ngIf="filteredVisitors() && filteredVisitors().length > 0; else emptyState">
-           @for (visitor of filteredVisitors(); track $index) {
-            <app-visitor-card [visitor]="visitor" [gaurd]="false"/>
-           }
+          @for (visitor of filteredVisitors(); track $index) {
+            <app-visitor-card [visitor]="visitor" [gaurd]="false" />
+          }
         </div>
       </div>
       <ng-template #emptyState>
@@ -155,9 +153,12 @@
           <span class="helper">Verify visitor details before granting access.</span>
         </div>
       </div>
-      <div class="code-grid" *ngIf="filteredVisitors() && filteredVisitors().length > 0; else noCodeMatch">
+      <div
+        class="code-grid"
+        *ngIf="filteredVisitors() && filteredVisitors().length > 0; else noCodeMatch"
+      >
         @for (visitor of filteredVisitors(); track $index) {
-          <app-visitor-card [visitor]="visitor" [gaurd]="false"/>
+          <app-visitor-card [visitor]="visitor" [gaurd]="false" />
         }
       </div>
       <ng-template #noCodeMatch>
@@ -169,13 +170,18 @@
     </section>
   </ng-container>
 
-  <section class="info-section" *ngIf="showResidents && isStationSelected && !showStationPrompt && !searchReg && !searchTerm()">
+  <section
+    class="info-section"
+    *ngIf="showResidents && isStationSelected && !showStationPrompt && !searchReg && !searchTerm()"
+  >
     <div class="section-title">
       <div>
         <h2>Residents</h2>
         <span class="helper">Tenant residences linked to your selected station.</span>
       </div>
-      <button *ngIf="canRegisterTenant" type="button" class="btn-add" (click)="openTenantModal()">+ Register Tenant</button>
+      <button *ngIf="canRegisterTenant" type="button" class="btn-add" (click)="openTenantModal()">
+        + Register Tenant
+      </button>
     </div>
     <ng-template #noResidents>
       <div class="empty-state">
@@ -184,10 +190,18 @@
       </div>
     </ng-template>
     <div class="info-grid" *ngIf="showResidents && filteredResidents.length > 0; else noResidents">
-      <article class="info-card resident-card" *ngFor="let resident of filteredResidents" [class.compact]="searchUnit">
+      <article
+        class="info-card resident-card"
+        *ngFor="let resident of filteredResidents"
+        [class.compact]="searchUnit"
+      >
         <span class="resident-badge-corner">{{ formatResidenceBadge(resident.unit) }}</span>
         <div class="resident-main">
-          <div class="resident-avatar resident-avatar-clickable" (click)="openResidentPhotoModal(resident.photoDataUrl, resident.name)" title="Click to enlarge">
+          <div
+            class="resident-avatar resident-avatar-clickable"
+            (click)="openResidentPhotoModal(resident.photoDataUrl, resident.name)"
+            title="Click to enlarge"
+          >
             <img
               *ngIf="resident.photoDataUrl"
               [src]="resident.photoDataUrl"
@@ -202,7 +216,19 @@
             <p><strong>Cell:</strong> {{ resident.cellphone }}</p>
             <p><strong>Email:</strong> {{ resident.emailAddress }}</p>
             <div class="tenant-card-actions">
-              <button type="button" class="btn-book-visitor" (click)="openBookVisitorModal(resident)">Book Visitor</button>
+              <button
+                type="button"
+                class="btn-book-visitor"
+                (click)="openBookVisitorModal(resident)"
+              >
+                Book Visitor
+              </button>
+              <button
+                type="button"
+                class="btn-book-visitor"
+              >
+                Update Tenant
+              </button>
               <button
                 *ngIf="canRegisterTenant"
                 type="button"
@@ -224,28 +250,36 @@
       <p>Where are you working today?</p>
       <div class="station-type">
         <label>
-          <input type="radio" name="stationType" [value]="'gated'" [(ngModel)]="stationType" (change)="chooseStationType('gated')">
+          <input
+            type="radio"
+            name="stationType"
+            [value]="'gated'"
+            [(ngModel)]="stationType"
+            (change)="chooseStationType('gated')"
+          />
           Gated community
         </label>
         <label>
-          <input type="radio" name="stationType" [value]="'complex'" [(ngModel)]="stationType" (change)="chooseStationType('complex')">
+          <input
+            type="radio"
+            name="stationType"
+            [value]="'complex'"
+            [(ngModel)]="stationType"
+            (change)="chooseStationType('complex')"
+          />
           Complex
         </label>
       </div>
 
       <div class="station-picker" *ngIf="stationType === 'gated'">
         <label for="stationGated">Select gated community</label>
-        <select id="stationGated" [(ngModel)]="selectedGatedCommunity" (change)="onStationGatedChange()">
+        <select
+          id="stationGated"
+          [(ngModel)]="selectedGatedCommunity"
+          (change)="onStationGatedChange()"
+        >
           <option value="" disabled>Select gated community</option>
           <option *ngFor="let gc of gatedCommunities" [value]="gc.id">{{ gc.name }}</option>
-        </select>
-      </div>
-
-      <div class="station-picker" *ngIf="stationType === 'gated' && selectedGatedCommunity">
-        <label for="stationGatedComplex">Select complex (optional)</label>
-        <select id="stationGatedComplex" [(ngModel)]="selectedComplex">
-          <option value="">All complexes</option>
-          <option *ngFor="let complex of complexes" [value]="complex.id">{{ complex.name }}</option>
         </select>
       </div>
 
@@ -253,11 +287,18 @@
         <label for="stationComplex">Select complex</label>
         <select id="stationComplex" [(ngModel)]="selectedComplex">
           <option value="" disabled>Select complex</option>
-          <option *ngFor="let complex of assignedComplexes" [value]="complex.id">{{ complex.name }}</option>
+          <option *ngFor="let complex of assignedComplexes" [value]="complex.id">
+            {{ complex.name }}
+          </option>
         </select>
       </div>
 
-      <button type="button" class="station-confirm" (click)="confirmStationSelection()" [disabled]="!stationSelectionReady">
+      <button
+        type="button"
+        class="station-confirm"
+        (click)="confirmStationSelection()"
+        [disabled]="!stationSelectionReady"
+      >
         Start shift
       </button>
     </div>
@@ -276,7 +317,11 @@
         </div>
       </div>
       <div class="code-grid" *ngIf="filteredVisitorVehiclesByReg.length > 0; else noRegMatch">
-        <app-visitor-card *ngFor="let visitor of filteredVisitorVehiclesByReg" [visitor]="visitor" [gaurd]="false"/>
+        <app-visitor-card
+          *ngFor="let visitor of filteredVisitorVehiclesByReg"
+          [visitor]="visitor"
+          [gaurd]="false"
+        />
       </div>
       <ng-template #noRegMatch>
         <div class="empty-state">
@@ -288,7 +333,16 @@
   </ng-container>
 
   <!-- Vehicles section -->
-  <section class="info-section" *ngIf="showVehicles && isStationSelected && !showStationPrompt && !(searchCode || '').trim() && !searchTerm()">
+  <section
+    class="info-section"
+    *ngIf="
+      showVehicles &&
+      isStationSelected &&
+      !showStationPrompt &&
+      !(searchCode || '').trim() &&
+      !searchTerm()
+    "
+  >
     <div class="section-title">
       <h2>Vehicles</h2>
     </div>
@@ -296,8 +350,14 @@
     <ng-container *ngIf="searchReg; else unitVehicleSection">
       <div class="info-subsection">
         <h3>Registered Vehicles</h3>
-        <div class="info-grid" *ngIf="filteredRegisteredVehiclesByReg.length > 0; else noRegistered">
-          <article class="info-card vehicle-card" *ngFor="let vehicle of filteredRegisteredVehiclesByReg">
+        <div
+          class="info-grid"
+          *ngIf="filteredRegisteredVehiclesByReg.length > 0; else noRegistered"
+        >
+          <article
+            class="info-card vehicle-card"
+            *ngFor="let vehicle of filteredRegisteredVehiclesByReg"
+          >
             <span class="resident-badge-corner">{{ formatResidenceBadge(vehicle.unit) }}</span>
             <div class="info-header">
               <h3>{{ vehicle.make }} {{ vehicle.model }}</h3>
@@ -342,307 +402,529 @@
     <span>© 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</span>
   </footer>
 
-<button
-  *ngIf="isSosEnabledForCompany"
-  type="button"
-  class="sos-fab"
-  [class.holding]="isHoldingSos"
-  (mousedown)="startSosHold($event)"
-  (touchstart)="startSosHold($event)"
-  (mouseup)="endSosHold()"
-  (mouseleave)="endSosHold()"
-  (touchend)="endSosHold()"
-  (touchcancel)="endSosHold()"
-  aria-label="Emergency SOS"
->
-  <span class="sos-text">SOS</span>
-  <span class="sos-sub">Hold 5s</span>
-</button>
-            
-      
-          <ng-template #noRegs>
-            <div class="empty-message">No vehicles found.</div>
-          </ng-template>
-<!-- removed extra closing div tag -->
+  <button
+    *ngIf="isSosEnabledForCompany"
+    type="button"
+    class="sos-fab"
+    [class.holding]="isHoldingSos"
+    (mousedown)="startSosHold($event)"
+    (touchstart)="startSosHold($event)"
+    (mouseup)="endSosHold()"
+    (mouseleave)="endSosHold()"
+    (touchend)="endSosHold()"
+    (touchcancel)="endSosHold()"
+    aria-label="Emergency SOS"
+  >
+    <span class="sos-text">SOS</span>
+    <span class="sos-sub">Hold 5s</span>
+  </button>
 
-<div class="toast" *ngIf="toastVisible" role="status" aria-live="polite">
-  <span class="toast-icon">✅</span>
-  <span>{{ toastMessage }}</span>
-</div>
+  <ng-template #noRegs>
+    <div class="empty-message">No vehicles found.</div>
+  </ng-template>
+  <!-- removed extra closing div tag -->
 
-<div class="modal-backdrop" *ngIf="isResidentPhotoModalOpen" (click)="closeResidentPhotoModal()">
-  <div class="modal resident-photo-modal" role="dialog" aria-modal="true" aria-labelledby="resident-photo-title" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2 id="resident-photo-title">Resident Photo</h2>
-      <button class="btn-icon" type="button" (click)="closeResidentPhotoModal()">✕</button>
-    </div>
-    <div class="resident-photo-modal-body">
-      <img *ngIf="selectedResidentPhotoUrl; else residentInitialsFallback" [src]="selectedResidentPhotoUrl" alt="Resident profile photo" class="resident-photo-enlarged" />
-      <ng-template #residentInitialsFallback>
-        <div class="resident-photo-fallback">{{ selectedResidentInitials }}</div>
-      </ng-template>
+  <div class="toast" *ngIf="toastVisible" role="status" aria-live="polite">
+    <span class="toast-icon">✅</span>
+    <span>{{ toastMessage }}</span>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="isResidentPhotoModalOpen" (click)="closeResidentPhotoModal()">
+    <div
+      class="modal resident-photo-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="resident-photo-title"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-header">
+        <h2 id="resident-photo-title">Resident Photo</h2>
+        <button class="btn-icon" type="button" (click)="closeResidentPhotoModal()">✕</button>
+      </div>
+      <div class="resident-photo-modal-body">
+        <img
+          *ngIf="selectedResidentPhotoUrl; else residentInitialsFallback"
+          [src]="selectedResidentPhotoUrl"
+          alt="Resident profile photo"
+          class="resident-photo-enlarged"
+        />
+        <ng-template #residentInitialsFallback>
+          <div class="resident-photo-fallback">{{ selectedResidentInitials }}</div>
+        </ng-template>
+      </div>
     </div>
   </div>
-</div>
 
-<div class="modal-backdrop" *ngIf="isCodeVehicleModalOpen" (click)="closeCodeVehicleModal()">
-  <div class="modal vehicle-details-modal" role="dialog" aria-modal="true" aria-labelledby="vehicle-details-title" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2 id="vehicle-details-title">Vehicle Details</h2>
-      <button class="btn-icon" type="button" (click)="closeCodeVehicleModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="detail">
-        <span>Visitor</span>
-        <strong>{{ selectedCodeVisitorName || 'Visitor' }}</strong>
+  <div class="modal-backdrop" *ngIf="isCodeVehicleModalOpen" (click)="closeCodeVehicleModal()">
+    <div
+      class="modal vehicle-details-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vehicle-details-title"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-header">
+        <h2 id="vehicle-details-title">Vehicle Details</h2>
+        <button class="btn-icon" type="button" (click)="closeCodeVehicleModal()">✕</button>
       </div>
-      <div class="detail">
-        <span>Make & Model</span>
-        <strong>{{ selectedCodeVehicle?.make || selectedCodeVehicle?.makeModel }}{{ selectedCodeVehicle?.model ? ' ' + selectedCodeVehicle?.model : '' }}</strong>
+      <div class="modal-body">
+        <div class="detail">
+          <span>Visitor</span>
+          <strong>{{ selectedCodeVisitorName || 'Visitor' }}</strong>
+        </div>
+        <div class="detail">
+          <span>Make & Model</span>
+          <strong
+            >{{ selectedCodeVehicle?.make || selectedCodeVehicle?.makeModel
+            }}{{ selectedCodeVehicle?.model ? ' ' + selectedCodeVehicle?.model : '' }}</strong
+          >
+        </div>
+        <div class="detail">
+          <span>Registration</span>
+          <strong>{{ selectedCodeVehicle?.registration || '-' }}</strong>
+        </div>
+        <div class="detail">
+          <span>Colour</span>
+          <strong>{{ selectedCodeVehicle?.color || '-' }}</strong>
+        </div>
       </div>
-      <div class="detail">
-        <span>Registration</span>
-        <strong>{{ selectedCodeVehicle?.registration || '-' }}</strong>
+      <div class="modal-actions">
+        <button type="button" class="btn-main" (click)="closeCodeVehicleModal()">Close</button>
       </div>
-      <div class="detail">
-        <span>Colour</span>
-        <strong>{{ selectedCodeVehicle?.color || '-' }}</strong>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn-main" (click)="closeCodeVehicleModal()">Close</button>
     </div>
   </div>
-</div>
 
-<div class="modal-backdrop" *ngIf="isTenantModalOpen" (click)="closeTenantModal()">
-  <div class="modal large" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2>Register Tenant</h2>
-      <button class="btn-icon" type="button" (click)="closeTenantModal()">✕</button>
-    </div>
-
-    <form class="modal-form" novalidate>
-      <h3>Personal Information</h3>
-      <div class="form-row">
-        <div class="form-group">
-          <label for="guard-tenant-name">Name *</label>
-          <input id="guard-tenant-name" type="text" class="form-control" placeholder="First name" [(ngModel)]="tenantForm.name" name="guardTenantName" required>
-        </div>
-        <div class="form-group">
-          <label for="guard-tenant-surname">Surname *</label>
-          <input id="guard-tenant-surname" type="text" class="form-control" placeholder="Last name" [(ngModel)]="tenantForm.surname" name="guardTenantSurname" required>
-        </div>
+  <div class="modal-backdrop" *ngIf="isTenantModalOpen" (click)="closeTenantModal()">
+    <div class="modal large" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Register Tenant</h2>
+        <button class="btn-icon" type="button" (click)="closeTenantModal()">✕</button>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label for="guard-tenant-email">Email *</label>
-          <input id="guard-tenant-email" type="email" class="form-control" placeholder="email@example.com" [(ngModel)]="tenantForm.email" name="guardTenantEmail" required>
-        </div>
-        <div class="form-group">
-          <label for="guard-tenant-phone">Phone *</label>
-          <input id="guard-tenant-phone" type="tel" class="form-control" placeholder="0123456789" [(ngModel)]="tenantForm.phone" name="guardTenantPhone" inputmode="numeric" maxlength="10" pattern="0[0-9]{9}" required>
-        </div>
-      </div>
-
-      <div class="section-divider"></div>
-
-      <h3>Residence Information</h3>
-      <div class="form-row">
-        <div class="form-group">
-          <label for="guard-tenant-residence-type">Residence Type *</label>
-          <select id="guard-tenant-residence-type" class="form-control" [(ngModel)]="tenantForm.residenceType" name="guardTenantResidenceType" (ngModelChange)="onResidenceTypeChange()" required>
-            <option *ngFor="let type of availableTenantResidenceTypes" [value]="type.value">{{ type.label }}</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-row" *ngIf="tenantForm.residenceType === 'complex'">
-        <div class="form-group">
-          <label for="guard-tenant-complex">Complex *</label>
-          <select id="guard-tenant-complex" class="form-control" [(ngModel)]="tenantForm.complexId" name="guardTenantComplexId" [required]="tenantForm.residenceType === 'complex'" (ngModelChange)="onComplexChange()">
-            <option value="">Select Complex</option>
-            <option *ngFor="let complex of stationScopedComplexes" [value]="complex.id">{{ complex.name }}</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="guard-tenant-unit">Unit Number *</label>
-          <select id="guard-tenant-unit" class="form-control" [(ngModel)]="tenantForm.address" name="guardTenantAddressComplex" [required]="tenantForm.residenceType === 'complex'" [disabled]="!tenantForm.complexId">
-            <option value="">Select Unit</option>
-            <option *ngFor="let unit of availableUnits" [value]="unit">{{ unit }}</option>
-          </select>
-        </div>
-      </div>
-
-      <div *ngIf="tenantForm.residenceType === 'community'">
+      <form class="modal-form" novalidate>
+        <h3>Personal Information</h3>
         <div class="form-row">
           <div class="form-group">
-            <label for="guard-tenant-community">Gated Community *</label>
-            <select id="guard-tenant-community" class="form-control" [(ngModel)]="tenantForm.communityId" name="guardTenantCommunityId" [required]="tenantForm.residenceType === 'community'" (ngModelChange)="onCommunityChange()">
-              <option value="">Select Gated Community</option>
-              <option *ngFor="let community of stationScopedCommunities" [value]="community.id">{{ community.name }}</option>
+            <label for="guard-tenant-name">Name *</label>
+            <input
+              id="guard-tenant-name"
+              type="text"
+              class="form-control"
+              placeholder="First name"
+              [(ngModel)]="tenantForm.name"
+              name="guardTenantName"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="guard-tenant-surname">Surname *</label>
+            <input
+              id="guard-tenant-surname"
+              type="text"
+              class="form-control"
+              placeholder="Last name"
+              [(ngModel)]="tenantForm.surname"
+              name="guardTenantSurname"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="guard-tenant-email">Email *</label>
+            <input
+              id="guard-tenant-email"
+              type="email"
+              class="form-control"
+              placeholder="email@example.com"
+              [(ngModel)]="tenantForm.email"
+              name="guardTenantEmail"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="guard-tenant-phone">Phone *</label>
+            <input
+              id="guard-tenant-phone"
+              type="tel"
+              class="form-control"
+              placeholder="0123456789"
+              [(ngModel)]="tenantForm.phone"
+              name="guardTenantPhone"
+              inputmode="numeric"
+              maxlength="10"
+              pattern="0[0-9]{9}"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <h3>Residence Information</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="guard-tenant-residence-type">Residence Type *</label>
+            <select
+              id="guard-tenant-residence-type"
+              class="form-control"
+              [(ngModel)]="tenantForm.residenceType"
+              name="guardTenantResidenceType"
+              (ngModelChange)="onResidenceTypeChange()"
+              required
+            >
+              <option *ngFor="let type of availableTenantResidenceTypes" [value]="type.value">
+                {{ type.label }}
+              </option>
             </select>
           </div>
         </div>
 
-        <div class="form-row" *ngIf="tenantForm.communityId">
+        <div class="form-row" *ngIf="tenantForm.residenceType === 'complex'">
           <div class="form-group">
-            <label for="guard-tenant-community-type">Residence Type in Community *</label>
-            <select id="guard-tenant-community-type" class="form-control" [(ngModel)]="tenantForm.communityResidenceType" name="guardTenantCommunityResidenceType" (ngModelChange)="onCommunityResidenceTypeChange()" required>
-              <option *ngIf="availableCommunityResidenceTypes.includes('house')" value="house">Standalone House</option>
-              <option *ngIf="availableCommunityResidenceTypes.includes('complex')" value="complex">Complex/Building</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row" *ngIf="tenantForm.communityId && tenantForm.communityResidenceType === 'house'">
-          <div class="form-group">
-            <label for="guard-tenant-house">House Number *</label>
-            <select id="guard-tenant-house" class="form-control" [(ngModel)]="tenantForm.address" name="guardTenantAddressHouse" [required]="tenantForm.communityResidenceType === 'house'">
-              <option value="">Select House</option>
-              <option *ngFor="let house of availableHouses" [value]="house">{{ house }}</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row" *ngIf="tenantForm.communityId && tenantForm.communityResidenceType === 'complex'">
-          <div class="form-group">
-            <label for="guard-tenant-community-complex">Complex in Community *</label>
-            <select id="guard-tenant-community-complex" class="form-control" [(ngModel)]="tenantForm.communityComplexId" name="guardTenantCommunityComplexId" (ngModelChange)="onCommunityComplexChange()" [required]="tenantForm.communityResidenceType === 'complex'">
+            <label for="guard-tenant-complex">Complex *</label>
+            <select
+              id="guard-tenant-complex"
+              class="form-control"
+              [(ngModel)]="tenantForm.complexId"
+              name="guardTenantComplexId"
+              [required]="tenantForm.residenceType === 'complex'"
+              (ngModelChange)="onComplexChange()"
+            >
               <option value="">Select Complex</option>
-              <option *ngFor="let complex of availableCommunityComplexes" [value]="complex.id">{{ complex.name }}</option>
+              <option *ngFor="let complex of stationScopedComplexes" [value]="complex.id">
+                {{ complex.name }}
+              </option>
             </select>
           </div>
           <div class="form-group">
-            <label for="guard-tenant-community-unit">Unit Number *</label>
-            <select id="guard-tenant-community-unit" class="form-control" [(ngModel)]="tenantForm.address" name="guardTenantAddressCommunityUnit" [required]="tenantForm.communityResidenceType === 'complex'" [disabled]="!tenantForm.communityComplexId">
+            <label for="guard-tenant-unit">Unit Number *</label>
+            <select
+              id="guard-tenant-unit"
+              class="form-control"
+              [(ngModel)]="tenantForm.address"
+              name="guardTenantAddressComplex"
+              [required]="tenantForm.residenceType === 'complex'"
+              [disabled]="!tenantForm.complexId"
+            >
               <option value="">Select Unit</option>
-              <option *ngFor="let unit of availableCommunityUnits" [value]="unit">{{ unit }}</option>
+              <option *ngFor="let unit of availableUnits" [value]="unit">{{ unit }}</option>
             </select>
           </div>
         </div>
-      </div>
 
-      <div class="section-divider"></div>
-
-      <h3>Vehicle Information</h3>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Does the tenant have a vehicle to register?</label>
-          <div class="toggle-btn-group">
-            <button type="button" class="toggle-btn" [class.active]="tenantHasCar === true" (click)="tenantHasCar = true">Yes</button>
-            <button type="button" class="toggle-btn" [class.active]="tenantHasCar === false" (click)="tenantHasCar = false">No</button>
-          </div>
-        </div>
-      </div>
-
-      <ng-container *ngIf="tenantHasCar === true">
-        <div *ngIf="tenantForm.vehicles.length > 0" class="vehicle-list">
-          <h4>Registered Vehicles ({{ tenantForm.vehicles.length }})</h4>
-          <div *ngFor="let vehicle of tenantForm.vehicles; let i = index" class="vehicle-item">
-            <div class="vehicle-details">
-              <strong>{{ vehicle.make }} {{ vehicle.model }}</strong>
-              <span class="vehicle-reg">{{ vehicle.reg }}</span>
-              <span *ngIf="vehicle.color" class="vehicle-color">{{ vehicle.color }}</span>
-            </div>
-            <button type="button" class="btn-icon" (click)="removeVehicle(i)" title="Remove vehicle">🗑️</button>
-          </div>
-        </div>
-
-        <div class="vehicle-form">
-          <h4>{{ tenantForm.vehicles.length > 0 ? 'Add Another Vehicle' : 'Add Vehicle' }}</h4>
+        <div *ngIf="tenantForm.residenceType === 'community'">
           <div class="form-row">
             <div class="form-group">
-              <label for="guard-vehicle-make">Vehicle Make</label>
-              <input id="guard-vehicle-make" type="text" class="form-control" placeholder="e.g. Toyota" [(ngModel)]="currentVehicle.make" name="guardVehicleMake">
-            </div>
-            <div class="form-group">
-              <label for="guard-vehicle-model">Vehicle Model</label>
-              <input id="guard-vehicle-model" type="text" class="form-control" placeholder="e.g. Corolla" [(ngModel)]="currentVehicle.model" name="guardVehicleModel">
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label for="guard-vehicle-reg">Registration Number</label>
-              <input id="guard-vehicle-reg" type="text" class="form-control" placeholder="e.g. ABC 123 GP" [(ngModel)]="currentVehicle.reg" name="guardVehicleReg">
-            </div>
-            <div class="form-group">
-              <label for="guard-vehicle-color">Color</label>
-              <input id="guard-vehicle-color" type="text" class="form-control" placeholder="e.g. Silver" [(ngModel)]="currentVehicle.color" name="guardVehicleColor">
+              <label for="guard-tenant-community">Gated Community *</label>
+              <select
+                id="guard-tenant-community"
+                class="form-control"
+                [(ngModel)]="tenantForm.communityId"
+                name="guardTenantCommunityId"
+                [required]="tenantForm.residenceType === 'community'"
+                (ngModelChange)="onCommunityChange()"
+              >
+                <option value="">Select Gated Community</option>
+                <option *ngFor="let community of stationScopedCommunities" [value]="community.id">
+                  {{ community.name }}
+                </option>
+              </select>
             </div>
           </div>
 
-          <button type="button" class="btn-secondary" (click)="addVehicle()">
-            {{ tenantForm.vehicles.length > 0 ? '+ Add Another Vehicle' : '+ Add Vehicle' }}
+          <div class="form-row" *ngIf="tenantForm.communityId">
+            <div class="form-group">
+              <label for="guard-tenant-community-type">Residence Type in Community *</label>
+              <select
+                id="guard-tenant-community-type"
+                class="form-control"
+                [(ngModel)]="tenantForm.communityResidenceType"
+                name="guardTenantCommunityResidenceType"
+                (ngModelChange)="onCommunityResidenceTypeChange()"
+                required
+              >
+                <option *ngIf="availableCommunityResidenceTypes.includes('house')" value="house">
+                  Standalone House
+                </option>
+                <option
+                  *ngIf="availableCommunityResidenceTypes.includes('complex')"
+                  value="complex"
+                >
+                  Complex/Building
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            class="form-row"
+            *ngIf="tenantForm.communityId && tenantForm.communityResidenceType === 'house'"
+          >
+            <div class="form-group">
+              <label for="guard-tenant-house">House Number *</label>
+              <select
+                id="guard-tenant-house"
+                class="form-control"
+                [(ngModel)]="tenantForm.address"
+                name="guardTenantAddressHouse"
+                [required]="tenantForm.communityResidenceType === 'house'"
+              >
+                <option value="">Select House</option>
+                <option *ngFor="let house of availableHouses" [value]="house">{{ house }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            class="form-row"
+            *ngIf="tenantForm.communityId && tenantForm.communityResidenceType === 'complex'"
+          >
+            <div class="form-group">
+              <label for="guard-tenant-community-complex">Complex in Community *</label>
+              <select
+                id="guard-tenant-community-complex"
+                class="form-control"
+                [(ngModel)]="tenantForm.communityComplexId"
+                name="guardTenantCommunityComplexId"
+                (ngModelChange)="onCommunityComplexChange()"
+                [required]="tenantForm.communityResidenceType === 'complex'"
+              >
+                <option value="">Select Complex</option>
+                <option *ngFor="let complex of availableCommunityComplexes" [value]="complex.id">
+                  {{ complex.name }}
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="guard-tenant-community-unit">Unit Number *</label>
+              <select
+                id="guard-tenant-community-unit"
+                class="form-control"
+                [(ngModel)]="tenantForm.address"
+                name="guardTenantAddressCommunityUnit"
+                [required]="tenantForm.communityResidenceType === 'complex'"
+                [disabled]="!tenantForm.communityComplexId"
+              >
+                <option value="">Select Unit</option>
+                <option *ngFor="let unit of availableCommunityUnits" [value]="unit">
+                  {{ unit }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <h3>Vehicle Information</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Does the tenant have a vehicle to register?</label>
+            <div class="toggle-btn-group">
+              <button
+                type="button"
+                class="toggle-btn"
+                [class.active]="tenantHasCar === true"
+                (click)="tenantHasCar = true"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                class="toggle-btn"
+                [class.active]="tenantHasCar === false"
+                (click)="tenantHasCar = false"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <ng-container *ngIf="tenantHasCar === true">
+          <div *ngIf="tenantForm.vehicles.length > 0" class="vehicle-list">
+            <h4>Registered Vehicles ({{ tenantForm.vehicles.length }})</h4>
+            <div *ngFor="let vehicle of tenantForm.vehicles; let i = index" class="vehicle-item">
+              <div class="vehicle-details">
+                <strong>{{ vehicle.make }} {{ vehicle.model }}</strong>
+                <span class="vehicle-reg">{{ vehicle.reg }}</span>
+                <span *ngIf="vehicle.color" class="vehicle-color">{{ vehicle.color }}</span>
+              </div>
+              <button
+                type="button"
+                class="btn-icon"
+                (click)="removeVehicle(i)"
+                title="Remove vehicle"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+
+          <div class="vehicle-form">
+            <h4>{{ tenantForm.vehicles.length > 0 ? 'Add Another Vehicle' : 'Add Vehicle' }}</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="guard-vehicle-make">Vehicle Make</label>
+                <input
+                  id="guard-vehicle-make"
+                  type="text"
+                  class="form-control"
+                  placeholder="e.g. Toyota"
+                  [(ngModel)]="currentVehicle.make"
+                  name="guardVehicleMake"
+                />
+              </div>
+              <div class="form-group">
+                <label for="guard-vehicle-model">Vehicle Model</label>
+                <input
+                  id="guard-vehicle-model"
+                  type="text"
+                  class="form-control"
+                  placeholder="e.g. Corolla"
+                  [(ngModel)]="currentVehicle.model"
+                  name="guardVehicleModel"
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="guard-vehicle-reg">Registration Number</label>
+                <input
+                  id="guard-vehicle-reg"
+                  type="text"
+                  class="form-control"
+                  placeholder="e.g. ABC 123 GP"
+                  [(ngModel)]="currentVehicle.reg"
+                  name="guardVehicleReg"
+                />
+              </div>
+              <div class="form-group">
+                <label for="guard-vehicle-color">Color</label>
+                <input
+                  id="guard-vehicle-color"
+                  type="text"
+                  class="form-control"
+                  placeholder="e.g. Silver"
+                  [(ngModel)]="currentVehicle.color"
+                  name="guardVehicleColor"
+                />
+              </div>
+            </div>
+
+            <button type="button" class="btn-secondary" (click)="addVehicle()">
+              {{ tenantForm.vehicles.length > 0 ? '+ Add Another Vehicle' : '+ Add Vehicle' }}
+            </button>
+          </div>
+        </ng-container>
+
+        <div *ngIf="tenantError" class="error-message">{{ tenantError }}</div>
+        <div *ngIf="tenantSuccess" class="success-message">{{ tenantSuccess }}</div>
+        <div *ngIf="tenantSubmitting" class="success-message">
+          Please wait, processing your request...
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" (click)="closeTenantModal()">Cancel</button>
+          <button
+            type="button"
+            class="btn-main"
+            (click)="openConfirmTenantModal()"
+            [disabled]="tenantSubmitting || !isTenantFormReady"
+          >
+            Register Tenant
           </button>
         </div>
-      </ng-container>
+      </form>
+    </div>
+  </div>
 
-      <div *ngIf="tenantError" class="error-message">{{ tenantError }}</div>
-      <div *ngIf="tenantSuccess" class="success-message">{{ tenantSuccess }}</div>
-      <div *ngIf="tenantSubmitting" class="success-message">Please wait, processing your request...</div>
-
+  <div class="modal-backdrop" *ngIf="isTenantConfirmModalOpen" (click)="closeConfirmTenantModal()">
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-tenant-title"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-header">
+        <h2 id="confirm-tenant-title">Confirm Registration</h2>
+        <button class="btn-icon" type="button" (click)="closeConfirmTenantModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="confirm-intro">Please review the details below before registering the tenant.</p>
+        <dl class="confirm-summary">
+          <div class="confirm-row" *ngFor="let row of tenantConfirmSummary">
+            <dt>{{ row.label }}</dt>
+            <dd>{{ row.value }}</dd>
+          </div>
+        </dl>
+      </div>
       <div class="modal-actions">
-        <button type="button" class="btn-secondary" (click)="closeTenantModal()">Cancel</button>
-        <button type="button" class="btn-main" (click)="openConfirmTenantModal()" [disabled]="tenantSubmitting || !isTenantFormReady">
-          Register Tenant
+        <button type="button" class="btn-secondary" (click)="closeConfirmTenantModal()">
+          Go Back
+        </button>
+        <button type="button" class="btn-main" (click)="confirmAndSubmitTenant()">
+          Confirm &amp; Register
         </button>
       </div>
-    </form>
-  </div>
-</div>
-
-<div class="modal-backdrop" *ngIf="isTenantConfirmModalOpen" (click)="closeConfirmTenantModal()">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-tenant-title" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2 id="confirm-tenant-title">Confirm Registration</h2>
-      <button class="btn-icon" type="button" (click)="closeConfirmTenantModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <p class="confirm-intro">Please review the details below before registering the tenant.</p>
-      <dl class="confirm-summary">
-        <div class="confirm-row" *ngFor="let row of tenantConfirmSummary">
-          <dt>{{ row.label }}</dt>
-          <dd>{{ row.value }}</dd>
-        </div>
-      </dl>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn-secondary" (click)="closeConfirmTenantModal()">Go Back</button>
-      <button type="button" class="btn-main" (click)="confirmAndSubmitTenant()">Confirm &amp; Register</button>
     </div>
   </div>
-</div>
 
-<div class="modal-backdrop" *ngIf="isDeleteTenantModalOpen" (click)="closeDeleteTenantModal()">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="delete-tenant-title" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <h2 id="delete-tenant-title">Remove Tenant</h2>
-      <button class="btn-icon" type="button" (click)="closeDeleteTenantModal()" [disabled]="deletingTenant">✕</button>
-    </div>
-    <div class="modal-body">
-      <p>
-        Are you sure you want to remove
-        <strong>{{ selectedTenantToDelete?.name || 'this tenant' }}</strong>
-        from the system?
-      </p>
-      <p>
-        Residence: <strong>{{ selectedTenantToDelete?.unit || '-' }}</strong>
-      </p>
-      <p>
-        Email: <strong>{{ selectedTenantToDelete?.email || '-' }}</strong>
-      </p>
-      <p class="error-text">This will also remove all linked vehicle records for this tenant.</p>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn-secondary" (click)="closeDeleteTenantModal()" [disabled]="deletingTenant">Cancel</button>
-      <button type="button" class="btn-main" (click)="confirmDeleteTenant()" [disabled]="deletingTenant">
-        {{ deletingTenant ? 'Removing...' : 'Confirm Remove' }}
-      </button>
+  <div class="modal-backdrop" *ngIf="isDeleteTenantModalOpen" (click)="closeDeleteTenantModal()">
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-tenant-title"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-header">
+        <h2 id="delete-tenant-title">Remove Tenant</h2>
+        <button
+          class="btn-icon"
+          type="button"
+          (click)="closeDeleteTenantModal()"
+          [disabled]="deletingTenant"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>
+          Are you sure you want to remove
+          <strong>{{ selectedTenantToDelete?.name || 'this tenant' }}</strong>
+          from the system?
+        </p>
+        <p>
+          Residence: <strong>{{ selectedTenantToDelete?.unit || '-' }}</strong>
+        </p>
+        <p>
+          Email: <strong>{{ selectedTenantToDelete?.email || '-' }}</strong>
+        </p>
+        <p class="error-text">This will also remove all linked vehicle records for this tenant.</p>
+      </div>
+      <div class="modal-actions">
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="closeDeleteTenantModal()"
+          [disabled]="deletingTenant"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn-main"
+          (click)="confirmDeleteTenant()"
+          [disabled]="deletingTenant"
+        >
+          {{ deletingTenant ? 'Removing...' : 'Confirm Remove' }}
+        </button>
+      </div>
     </div>
   </div>
-</div>
-
 </div>

@@ -52,15 +52,15 @@ export class GuardPortal implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   visitorList = signal<visitorDTO[]>([]);
   protected storageService = inject(StorageService);
-  router = inject(Router)
+  router = inject(Router);
 
   updateProfile() {
     this.dialog.open(UpdateProfile);
   }
 
   logout() {
-    this.storageService.removeItem("bearer-token");
-    this.router.navigate(['/login'])
+    this.storageService.removeItem('bearer-token');
+    this.router.navigate(['/login']);
   }
   // Dynamic filtered lists for residents and vehicles by unit search
   protected get filteredResidents(): any[] {
@@ -298,8 +298,10 @@ export class GuardPortal implements OnInit, OnDestroy {
     return (Array.isArray(this.visitorList()) ? this.visitorList() : [])
       .filter((code) => code.driving && code.vehicle)
       .filter((code) => {
-        const reg = (code.vehicle as any)?.registrationNumber ||
-                    (code.vehicle as any)?.registerationNumber || '';
+        const reg =
+          (code.vehicle as any)?.registrationNumber ||
+          (code.vehicle as any)?.registerationNumber ||
+          '';
         const regValue = reg.toString().trim().toLowerCase().replace(/\s+/g, '');
         return regValue.includes(regQuery);
       });
@@ -830,7 +832,7 @@ export class GuardPortal implements OnInit, OnDestroy {
             .filter((community) => allowedGatedCommunityIds.has(community.id))
             .map((community) => ({
               ...community,
-              complexes: allowedComplexes
+              complexes: allComplexes
                 .filter(
                   (complex) =>
                     this.normalizeName(complex.gatedCommunityName) ===
@@ -841,7 +843,7 @@ export class GuardPortal implements OnInit, OnDestroy {
                   name: complex.name,
                   address: complex.address,
                 })),
-              complexesInCommunity: allowedComplexes
+              complexesInCommunity: allComplexes
                 .filter(
                   (complex) =>
                     this.normalizeName(complex.gatedCommunityName) ===
@@ -1375,22 +1377,6 @@ export class GuardPortal implements OnInit, OnDestroy {
     return '';
   }
 
-  private formatExpiryLabel(expiry: unknown): string {
-    if (!expiry) {
-      return '';
-    }
-    const expiryDate = new Date(expiry as string);
-    if (Number.isNaN(expiryDate.getTime())) {
-      return '';
-    }
-    const diffMs = expiryDate.getTime() - Date.now();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    if (diffHours <= 0) {
-      return 'Expired';
-    }
-    return `In ${diffHours} hours`;
-  }
-
   protected openTenantModal(): void {
     if (!this.canRegisterTenant) {
       return;
@@ -1494,14 +1480,18 @@ export class GuardPortal implements OnInit, OnDestroy {
     rows.push({ label: 'Phone', value: f.phone });
 
     if (f.residenceType === 'complex') {
-      const complexName = this.stationScopedComplexes.find((c) => c.id === f.complexId)?.name ?? f.complexId;
+      const complexName =
+        this.stationScopedComplexes.find((c) => c.id === f.complexId)?.name ?? f.complexId;
       rows.push({ label: 'Complex', value: complexName });
       rows.push({ label: 'Unit', value: f.address });
     } else if (f.residenceType === 'community') {
-      const communityName = this.stationScopedCommunities.find((c) => c.id === f.communityId)?.name ?? f.communityId;
+      const communityName =
+        this.stationScopedCommunities.find((c) => c.id === f.communityId)?.name ?? f.communityId;
       rows.push({ label: 'Community', value: communityName });
       if (f.communityResidenceType === 'complex') {
-        const commComplexName = this.availableCommunityComplexes.find((c) => c.id === f.communityComplexId)?.name ?? f.communityComplexId;
+        const commComplexName =
+          this.availableCommunityComplexes.find((c) => c.id === f.communityComplexId)?.name ??
+          f.communityComplexId;
         rows.push({ label: 'Complex', value: commComplexName });
         rows.push({ label: 'Unit', value: f.address });
       } else {
@@ -1512,7 +1502,10 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (f.vehicles.length > 0) {
       f.vehicles.forEach((v, i) => {
         const label = f.vehicles.length > 1 ? `Vehicle ${i + 1}` : 'Vehicle';
-        rows.push({ label, value: `${v.make} ${v.model} — ${v.reg}${v.color ? ` (${v.color})` : ''}` });
+        rows.push({
+          label,
+          value: `${v.make} ${v.model} — ${v.reg}${v.color ? ` (${v.color})` : ''}`,
+        });
       });
     } else {
       rows.push({ label: 'Vehicle', value: 'None' });
@@ -1881,6 +1874,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     );
     this.availableUnitsCache = complex?.units ?? [];
     this.availableUnitsKey = key;
+    console.log(this.availableUnitsCache);
     return this.availableUnitsCache;
   }
 
@@ -2072,7 +2066,7 @@ export class GuardPortal implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.filtersForm.selectedComplex) {
+    if (this.filtersForm.selectedComplex) {
       return;
     }
 
@@ -2141,23 +2135,23 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.ensureStationSelectionRequiredState();
     this.dataService.get<ResponseBody>(`visitor/security/`).subscribe({
       next: (res) => {
-        this.visitorList.update(() => res.payload as visitorDTO[])
+        this.visitorList.update(() => res.payload as visitorDTO[]);
         if (this.stationType === 'complex') {
-            this.visitorList.update(() =>
-              this.visitorList().filter(
-                (visitors) => visitors.destination.complex?.name === this.activeShiftStationName,
-              ),
-            );
-          } else {
-            this.visitorList.update(() =>
-              this.visitorList().filter(
-                (visitors) =>
-                  visitors.destination.gatedCommunity?.name === this.activeShiftStationName,
-              ),
-            );
-          }
-      }
-    })
+          this.visitorList.update(() =>
+            this.visitorList().filter(
+              (visitors) => visitors.destination.complex?.name === this.activeShiftStationName,
+            ),
+          );
+        } else {
+          this.visitorList.update(() =>
+            this.visitorList().filter(
+              (visitors) =>
+                visitors.destination.gatedCommunity?.name === this.activeShiftStationName,
+            ),
+          );
+        }
+      },
+    });
   }
 
   protected changeStation(): void {
@@ -2457,8 +2451,10 @@ export class GuardPortal implements OnInit, OnDestroy {
     const visitorRegs = (Array.isArray(this.visitorList()) ? this.visitorList() : [])
       .filter((code) => code.driving && code.vehicle)
       .map((code) => {
-        const reg = (code.vehicle as any)?.registrationNumber ||
-                    (code.vehicle as any)?.registerationNumber || '';
+        const reg =
+          (code.vehicle as any)?.registrationNumber ||
+          (code.vehicle as any)?.registerationNumber ||
+          '';
         return { regNumber: reg, isVisitor: true };
       })
       .filter((v) => v.regNumber)

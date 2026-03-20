@@ -47,9 +47,4 @@ export const vehicleBodyValidation: Schema = {
         errorMessage: "Field must be of type object.",
         isObject: true,
     },
-    year: {
-        errorMessage: "Field is required",
-        isEmpty: false,
-        isNumeric: true,
-    },
 };
