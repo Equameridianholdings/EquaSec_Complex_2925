@@ -1495,16 +1495,12 @@ export class GuardPortal implements OnInit, OnDestroy {
     rows.push({ label: 'Phone', value: f.phone });
 
     if (f.residenceType === 'complex') {
-      const complexName = this.stationScopedComplexes.find((c) => c.id === f.complexId)?.name ?? f.complexId;
-      rows.push({ label: 'Complex', value: complexName });
-      rows.push({ label: 'Unit', value: f.address });
+      // Complex and unit are not shown in the confirmation summary
     } else if (f.residenceType === 'community') {
       const communityName = this.stationScopedCommunities.find((c) => c.id === f.communityId)?.name ?? f.communityId;
       rows.push({ label: 'Community', value: communityName });
       if (f.communityResidenceType === 'complex') {
-        const commComplexName = this.availableCommunityComplexes.find((c) => c.id === f.communityComplexId)?.name ?? f.communityComplexId;
-        rows.push({ label: 'Complex', value: commComplexName });
-        rows.push({ label: 'Unit', value: f.address });
+        // Complex and unit are not shown in the confirmation summary
       } else {
         rows.push({ label: 'House', value: f.address });
       }
