@@ -914,6 +914,25 @@ userRouter.post(
         if (!linkedGatedCommunity) {
           return res.status(404).json({ message: "Gated community not found." });
         }
+
+        if (body.communityResidenceType === "complex") {
+          if (!body.communityComplexId || !ObjectId.isValid(body.communityComplexId)) {
+            return res.status(400).json({ message: "Valid complex is required for complex residence within a gated community." });
+          }
+
+          const communityComplex = await complexSchema.findById(body.communityComplexId).select({ _id: 1, gatedCommunityName: 1, name: 1 }).lean();
+          if (!communityComplex) {
+            return res.status(404).json({ message: "Complex not found." });
+          }
+
+          const complexCommunityName = String(communityComplex.gatedCommunityName ?? "").trim().toLowerCase();
+          const selectedCommunityName = String(linkedGatedCommunity.name ?? "").trim().toLowerCase();
+          if (!complexCommunityName || complexCommunityName !== selectedCommunityName) {
+            return res.status(400).json({ message: "Selected complex does not belong to the selected gated community." });
+          }
+
+          linkedComplex = communityComplex;
+        }
       }
 
       const tenantUser = new userSchema({

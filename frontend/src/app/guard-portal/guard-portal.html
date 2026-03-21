@@ -39,6 +39,22 @@
     </div>
     <!-- ...existing code... -->
     <div class="search-grid">
+      <div class="search-field" *ngIf="stationType === 'gated' && isStationSelected && !showStationPrompt">
+        <label for="gatedTypeFilter">Filter by</label>
+        <select
+          id="gatedTypeFilter"
+          class="search-input"
+          [(ngModel)]="gatedTypeFilter"
+          name="gatedTypeFilter"
+        >
+          <option value="all">All</option>
+          <option value="houses">Houses</option>
+          <option
+            *ngFor="let complex of currentGatedCommunityComplexes"
+            [value]="complex.id"
+          >{{ complex.name }}</option>
+        </select>
+      </div>
       <div class="search-field" *ngIf="stationType === 'gated' && selectedComplex">
         <label for="searchComplexFilter">Complex (for unit search)</label>
         <select
