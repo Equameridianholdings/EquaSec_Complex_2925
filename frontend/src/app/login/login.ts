@@ -12,6 +12,8 @@ import {
   MatSnackBarVerticalPosition,
 } from '@angular/material/snack-bar';
 import { Loader } from '../components/loader/loader';
+import { MatDialog } from '@angular/material/dialog';
+import { ForgotPasswordModal } from '../components/forgot-password-modal/forgot-password-modal';
 
 @Component({
   selector: 'app-login',
@@ -26,6 +28,7 @@ export class Login {
   private _snackBar = inject(MatSnackBar);
   horizontalPosition: MatSnackBarHorizontalPosition = 'center';
   verticalPosition: MatSnackBarVerticalPosition = 'top';
+  dialog = inject(MatDialog);
 
   private readonly stationStorageKey = 'equasec.guard.station';
   protected loginForm: LoginFormDTO = {
@@ -285,5 +288,9 @@ export class Login {
 
   protected closeTermsModal(): void {
     this.isTermsModalOpen = false;
+  }
+
+  openForgotPasswordModal() {
+    this.dialog.open(ForgotPasswordModal);
   }
 }

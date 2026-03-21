@@ -1433,7 +1433,7 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     // Map resident vehicles from the loaded vehicles list
     const residentVehicles = (Array.isArray(this.vehicles) ? this.vehicles : [])
-      .filter((v: any) => v.owner === resident.name || v.unit === resident.unit)
+      .filter((v: any) => v.owner === resident.name)
       .map((v: any) => ({
         make: v.make ?? '',
         model: v.model ?? '',
@@ -1539,7 +1539,7 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected get tenantConfirmSummary(): { label: string; value: string }[] {
     const f = this.tenantForm;
-    const rows: { label: string; value: string }[] = [];
+    let rows: { label: string; value: string }[] = [];
     rows.push({ label: 'Name', value: `${f.name} ${f.surname}` });
     rows.push({ label: 'Email', value: f.email });
     rows.push({ label: 'Phone', value: f.phone });
@@ -1565,10 +1565,10 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (f.vehicles.length > 0) {
       f.vehicles.forEach((v, i) => {
         const label = f.vehicles.length > 1 ? `Vehicle ${i + 1}` : 'Vehicle';
-        rows.push({
-          label,
+        rows = [...rows, {
+          label: label,
           value: `${v.make} ${v.model} — ${v.reg}${v.color ? ` (${v.color})` : ''}`,
-        });
+        }];
       });
     } else {
       rows.push({ label: 'Vehicle', value: 'None' });
@@ -1714,6 +1714,8 @@ export class GuardPortal implements OnInit, OnDestroy {
       address: this.tenantForm.address.trim(),
       vehicles: this.tenantForm.vehicles,
     };
+
+    console.log(this.tenantForm);
 
     const normalizedTenantEmail = tenantData.email.trim().toLowerCase();
 

@@ -1,4 +1,12 @@
+import { UserDTO } from "#interfaces/userDTO.js";
 import nodemailer from "nodemailer";
+
+const CLIENT_URI = process.env.CLIENT_URI;
+export interface SendEmailOptions {
+  hash: string;
+  to: string;
+  user: UserDTO;
+}
 
 interface SendCodeOptions {
   code: string;
@@ -21,6 +29,65 @@ interface SmtpPublicConfig {
   port: number;
   secure: boolean;
   user: string;
+}
+
+export async function sendForgotPasswordEmail(options: SendEmailOptions): Promise<boolean> {
+  const smtp = getSmtpConfig();
+
+  const transporter = nodemailer.createTransport({
+    auth: {
+      pass: smtp.pass,
+      user: smtp.user,
+    },
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+  });
+
+  try {
+    await transporter.verify();
+  } catch (error) {
+    const smtpError = error as {
+      code?: string;
+      command?: string;
+      response?: string;
+      responseCode?: number;
+    };
+    console.error("[email] smtp verify failed", {
+      code: smtpError.code,
+      command: smtpError.command,
+      response: smtpError.response,
+      responseCode: smtpError.responseCode,
+    });
+    throw error;
+  }
+
+  const subject = "Your EquaSec Change Password Link";
+  const text = `Hey there ${options.user.name} ${options.user.surname}, \n\nSeems like you've hit a little snag with your password!\n\nUse the following url to change your password:\n\nClick here: ${CLIENT_URI as unknown as string}/forgot-password/${encodeURIComponent(options.user.emailAddress).replace(/%20/g, "+")}/${encodeURIComponent(options.hash).replace(/%20/g, "+")}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #1e293b;">
+      <h2 style="margin: 0 0 12px; color: #1e3a5f;">Forgot Password?</h2>
+      <div style="margin: 12px 0;">
+        <div></div>
+      </div>
+      <p>${text}</p>
+      <p>If you did not request this, you can ignore this email.</p>
+    </div>
+  `;
+
+  const result = await transporter.sendMail({
+    from: `EquaSec <${smtp.from}>`,
+    html,
+    subject,
+    text,
+    to: options.to,
+  });
+
+  if (Array.isArray(result.rejected) && result.rejected.length > 0) {
+    throw new Error(`SMTP rejected recipients: ${result.rejected.map(String).join(", ")}`);
+  }
+
+  return true;
 }
 
 export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise<boolean> {

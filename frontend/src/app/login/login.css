@@ -1,6 +1,5 @@
 :host {
 	display: block;
-	min-height: 100vh;
 	background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
 	color: #1e293b;
 	font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -19,14 +18,14 @@
 	max-width: 420px;
 	background: #ffffff;
 	border: 2px solid #1e3a5f;
-	border-radius: 12px;
-	padding: 32px;
+	border-radius: 28px;
 	box-shadow: 0 20px 60px rgba(30, 58, 95, 0.15);
+	padding: 24px;
 }
 
 .header {
 	display: flex;
-	align-items: center;
+	flex-direction: row;
 	gap: 16px;
 	margin-bottom: 24px;
 }
@@ -361,7 +360,7 @@ select.form-control option {
 	}
 
 	.header {
-		flex-direction: column;
+		flex-direction: row;
 		align-items: flex-start;
 	}
 

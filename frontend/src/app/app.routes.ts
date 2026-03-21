@@ -11,6 +11,7 @@ import { AllUnits } from './dashboard/all-units/all-units';
 import { Vehicles } from './dashboard/vehicles/vehicles';
 import { Notfound } from './notfound/notfound';
 import { clientGuard } from './client-guard';
+import { ForgetPassword } from './forget-password/forget-password';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -46,5 +47,6 @@ export const routes: Routes = [
   { path: 'guard-portal', component: GuardPortal, canActivate: [clientGuard] },
   { path: 'admin-portal', component: AdminPortal, canActivate: [clientGuard] },
   { path: 'security-manager', component: SecurityManager, canActivate: [clientGuard] },
+  { path: 'forgot-password/:email/:token', component: ForgetPassword },
   { path: '**', component: Notfound },
 ];

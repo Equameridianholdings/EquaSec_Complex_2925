@@ -11,7 +11,7 @@ import RoleMiddleware from "#middleware/role.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 // import { encrypt } from "#utils/encryption.js";
 import GenerateJWT from "#utils/generateJWT.js";
-import { sendSecurityCompanyCode } from "#utils/sendEmail.js";
+import { SendEmailOptions, sendForgotPasswordEmail, sendSecurityCompanyCode } from "#utils/sendEmail.js";
 import VerifyToken from "#utils/verifyToken.js";
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
@@ -1007,7 +1007,7 @@ userRouter.post(
   },
 );
 
-userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyValidation), validateSchema, async (req: Request, res: Response) => {
+userRouter.patch("/tenant/:id", AuthMiddleware, RoleMiddleware(["admin", "security", "manager"]), checkSchema(tenantUpdateBodyValidation), validateSchema, async (req: Request, res: Response) => {
   try {
     const requestId = getRequestIdParam(req);
     const managerEmail = res.get("email");
@@ -1019,18 +1019,7 @@ userRouter.patch("/tenant/:id", AuthMiddleware, checkSchema(tenantUpdateBodyVali
     if (!ObjectId.isValid(requestId)) {
       return res.status(400).json({ message: "Invalid tenant id." });
     }
-
-    const managerUser = await userSchema.findOne({ emailAddress: managerEmail }).select({}).exec();
-
-    if (!managerUser || !(Array.isArray(managerUser.type) && managerUser.type.includes("manager"))) {
-      return res.status(403).json({ message: "Access Forbidden!" });
-    }
-
-    const linkedSecurityCompany = await resolveSecurityCompanyForUser(managerUser);
-    if (!linkedSecurityCompany) {
-      return res.status(400).json({ message: "Manager is not linked to a security company." });
-    }
-
+    
     const tenantId = new ObjectId(requestId);
     const existingTenant = await userSchema.findById<UserDTO>(tenantId).select({}).exec();
 
@@ -1822,6 +1811,67 @@ userRouter.patch("/changePin", AuthMiddleware, async (req, res) => {
     }
 
     return res.status(200).json({ message: "User details updated", payload: user });
+  } catch {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+userRouter.post("/forgot-password", async (req, res) => {
+  const { emailAddress } = req.body as { emailAddress: string };
+
+  try {
+    const user = await userSchema.findOne({ emailAddress: emailAddress }).exec();
+
+    if (!user) return res.status(200).json({ message: "Check your email to receive change password link."});
+
+    const tempPassword = "supersecretpasskey";
+    const hashPassword = await bcrypt.hash(tempPassword, user.salt);
+
+    const sendEmail: SendEmailOptions = {
+      hash: hashPassword,
+      to: user.emailAddress,
+      user: user as unknown as UserDTO,
+    }
+    await sendForgotPasswordEmail(sendEmail)
+    return res.status(200).json({ message: "Check your email to receive change password link."});
+  } catch (error) {
+    return res.status(500).json({ message: `Internal Server Error ${error as string}`})
+  }
+});
+
+userRouter.patch("/forgot-password/:email/:token", async (req, res) => {
+  try {
+    console.log("hit");
+    const { email, token } = req.params;
+    console.log(email);
+    const user = await userSchema.findOne({ emailAddress: email }).exec();
+
+    if (!user) {
+      return res.status(404).json({ message: "User details not found!" });
+    }
+
+    const hash = await bcrypt.hash("supersecretpasskey", user.salt);
+
+    if (hash !== token) return res.status(400).json({ message: "Bad Request! Please contact administrator "});
+
+    const updatePayload = req.body as {
+      confirmedPin: string;
+      newPin: string;
+    };
+
+    const newPassword = await bcrypt.hash(updatePayload.confirmedPin, user.salt);
+
+    const updateQuery = {
+      $set: { password: newPassword },
+    };
+
+    const updatedUser = await userSchema.findOneAndUpdate({ emailAddress: email }, updateQuery, { returnDocument: "after" }).lean().exec();
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User details not found!" });
+    }
+
+    return res.status(200).json({ message: "Password updated", payload: user });
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }

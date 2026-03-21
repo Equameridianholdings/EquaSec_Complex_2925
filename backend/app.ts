@@ -20,9 +20,6 @@ export interface ResponseBody {
   payload?: unknown;
 }
 
-const URI = process.env.MONGODB_URI as unknown as string;
-const DB_NAME = process.env.DB_NAME as unknown as string;
-
 const app = express();
 
 // Define your list of allowed origins
@@ -51,7 +48,7 @@ app.use(helmet.contentSecurityPolicy());
 app.disable("x-powered-by");
 
 app.get("/", (req, res) => {
-  res.send(`Welcome to the API. Connecting to MongoDB database: ${DB_NAME}. Connection String: ${URI}`);
+  res.send(`Welcome to the API.`);
 });
 
 // Routes

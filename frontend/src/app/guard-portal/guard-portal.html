@@ -721,36 +721,41 @@
         </div>
 
         <div class="section-divider"></div>
-
-        <h3>Vehicle Information</h3>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Does the tenant have a vehicle to register?</label>
-            <div class="toggle-btn-group">
-              <button
-                type="button"
-                class="toggle-btn"
-                [class.active]="tenantHasCar === true"
-                (click)="tenantHasCar = true"
-              >
-                Yes
-              </button>
-              <button
-                type="button"
-                class="toggle-btn"
-                [class.active]="tenantHasCar === false"
-                (click)="tenantHasCar = false"
-              >
-                No
-              </button>
+        @if (!isUpdateMode) {
+          <div class="form-row">
+            <div class="form-group">
+              <label>Does the tenant have a vehicle to register?</label>
+              <div class="toggle-btn-group">
+                <button
+                  type="button"
+                  class="toggle-btn"
+                  [class.active]="tenantHasCar === true"
+                  (click)="tenantHasCar = true"
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  class="toggle-btn"
+                  [class.active]="tenantHasCar === false"
+                  (click)="tenantHasCar = false"
+                >
+                  No
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        }
+        <h3>Vehicle Information</h3>
 
         <ng-container *ngIf="tenantHasCar === true">
           <div *ngIf="tenantForm.vehicles.length > 0" class="vehicle-list">
             <h4>Registered Vehicles ({{ tenantForm.vehicles.length }})</h4>
-            <div *ngFor="let vehicle of tenantForm.vehicles; let i = index" class="vehicle-item" [class.vehicle-item-editing]="editingVehicleIndex === i">
+            <div
+              *ngFor="let vehicle of tenantForm.vehicles; let i = index"
+              class="vehicle-item"
+              [class.vehicle-item-editing]="editingVehicleIndex === i"
+            >
               <div class="vehicle-details">
                 <strong>{{ vehicle.make }} {{ vehicle.model }}</strong>
                 <span class="vehicle-reg">{{ vehicle.reg }}</span>
@@ -777,18 +782,23 @@
             </div>
           </div>
 
-          <div *ngIf="tenantForm.vehicles.length > 0 && tenantAnotherVehicle === null && editingVehicleIndex === null" class="form-row" style="margin-top: 0.75rem;">
-            <div class="form-group">
-              <label>Would you like to add another vehicle?</label>
-              <div class="toggle-btn-group">
-                <button type="button" class="toggle-btn" (click)="tenantAnotherVehicle = true">Yes</button>
-                <button type="button" class="toggle-btn" (click)="tenantAnotherVehicle = false">No</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="vehicle-form" *ngIf="tenantForm.vehicles.length === 0 || tenantAnotherVehicle === true || editingVehicleIndex !== null">
-            <h4>{{ editingVehicleIndex !== null ? 'Edit Vehicle' : (tenantForm.vehicles.length > 0 ? 'Add Another Vehicle' : 'Add Vehicle') }}</h4>
+          <div
+            class="vehicle-form"
+            *ngIf="
+              tenantForm.vehicles.length === 0 ||
+              tenantAnotherVehicle === true ||
+              editingVehicleIndex !== null
+            "
+          >
+            <h4>
+              {{
+                editingVehicleIndex !== null
+                  ? 'Edit Vehicle'
+                  : tenantForm.vehicles.length > 0
+                    ? 'Add Another Vehicle'
+                    : 'Add Vehicle'
+              }}
+            </h4>
             <div class="form-row">
               <div class="form-group">
                 <label for="guard-vehicle-make">Vehicle Make</label>
@@ -842,8 +852,36 @@
             </div>
 
             <button type="button" class="btn-add" (click)="addVehicle()">
-              {{ editingVehicleIndex !== null ? '💾 Save Changes' : (tenantForm.vehicles.length > 0 ? '+ Add Another Vehicle' : '+ Add Vehicle') }}
+              {{
+                editingVehicleIndex !== null
+                  ? '💾 Save Changes'
+                  : tenantForm.vehicles.length > 0
+                    ? '+ Add Another Vehicle'
+                    : '+ Add Vehicle'
+              }}
             </button>
+          </div>
+          <div
+            *ngIf="
+              (tenantForm.vehicles.length > 0 &&
+                tenantAnotherVehicle === null &&
+                editingVehicleIndex === null) ||
+              isUpdateMode
+            "
+            class="form-row"
+            style="margin-top: 0.75rem"
+          >
+            <div class="form-group">
+              <label>Would you like to add another vehicle?</label>
+              <div class="toggle-btn-group">
+                <button type="button" class="toggle-btn" (click)="tenantAnotherVehicle = true">
+                  Yes
+                </button>
+                <button type="button" class="toggle-btn" (click)="tenantAnotherVehicle = false">
+                  No
+                </button>
+              </div>
+            </div>
           </div>
         </ng-container>
 
@@ -859,7 +897,7 @@
             type="button"
             class="btn-main"
             (click)="openConfirmTenantModal()"
-            [disabled]="tenantSubmitting || !isTenantFormReady"
+            [disabled]="tenantSubmitting"
           >
             {{ isUpdateMode ? 'Update Tenant' : 'Register Tenant' }}
           </button>
@@ -877,16 +915,23 @@
       (click)="$event.stopPropagation()"
     >
       <div class="modal-header">
-        <h2 id="confirm-tenant-title">{{ isUpdateMode ? 'Confirm Update' : 'Confirm Registration' }}</h2>
+        <h2 id="confirm-tenant-title">
+          {{ isUpdateMode ? 'Confirm Update' : 'Confirm Registration' }}
+        </h2>
         <button class="btn-icon" type="button" (click)="closeConfirmTenantModal()">✕</button>
       </div>
       <div class="modal-body">
-        <p class="confirm-intro">Please review the details below before {{ isUpdateMode ? 'updating' : 'registering' }} the tenant.</p>
-        <dl class="confirm-summary">
-          <div class="confirm-row" *ngFor="let row of tenantConfirmSummary">
-            <dt>{{ row.label }}</dt>
-            <dd>{{ row.value }}</dd>
-          </div>
+        <p class="confirm-intro">
+          Please review the details below before {{ isUpdateMode ? 'updating' : 'registering' }} the
+          tenant.
+        </p>
+        <dl class="confirm-summary overflow-auto">
+          @for (row of tenantConfirmSummary; track $index) {
+            <div class="confirm-row">
+              <dt>{{ row.label }}</dt>
+              <dd>{{ row.value }}</dd>
+            </div>
+          }
         </dl>
       </div>
       <div class="modal-actions">
