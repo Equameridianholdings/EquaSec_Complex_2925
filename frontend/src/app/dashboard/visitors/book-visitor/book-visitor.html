@@ -201,7 +201,14 @@
                 [(ngModel)]="newVehicle.registerationNumber"
                 required
                 #vehicleRegInput
+                (focus)="showRegHint.set(true)"
+                (blur)="showRegHint.set(false)"
               />
+              @if (showRegHint()) {
+                <small style="color: #6b7280; margin-top: 0.25rem; display: block;">
+                  No number plate? Enter <strong>NO plate</strong>
+                </small>
+              }
               @if (
                 vehicleRegInput.classList.contains('touched') && !vehicleRegInput.validity.valid
               ) {
