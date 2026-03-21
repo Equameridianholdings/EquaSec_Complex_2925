@@ -63,6 +63,15 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.router.navigate(['/login']);
   }
   // Dynamic filtered lists for residents and vehicles by unit search
+  protected gatedTypeFilter = 'all';
+
+  protected get currentGatedCommunityComplexes(): Array<{ id: string; name: string }> {
+    const gc = this.gatedCommunities.find(
+      (g) => g.id === this.filtersForm.selectedGatedCommunity,
+    );
+    return gc?.complexesInCommunity ?? [];
+  }
+
   protected get filteredResidents(): any[] {
     const allResidents = Array.isArray(this.residents) ? this.residents : [];
     const selectedComplexId = String(this.filtersForm.selectedComplex || '').trim();
@@ -70,7 +79,20 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     // Always restrict tenant cards to the currently selected station.
     let stationResidents = allResidents;
-    if (selectedComplexId) {
+    if (this.stationType === 'gated' && selectedGatedCommunityId) {
+      stationResidents = stationResidents.filter(
+        (resident) => String(resident?.gatedCommunityId || '').trim() === selectedGatedCommunityId,
+      );
+      // Apply type filter: all, houses-only, or a specific complex id
+      if (this.gatedTypeFilter === 'houses') {
+        stationResidents = stationResidents.filter((r) => !r.complexId);
+      } else if (this.gatedTypeFilter !== 'all') {
+        // gatedTypeFilter holds a specific complexId
+        stationResidents = stationResidents.filter(
+          (r) => String(r.complexId || '').trim() === this.gatedTypeFilter,
+        );
+      }
+    } else if (selectedComplexId) {
       stationResidents = stationResidents.filter(
         (resident) => String(resident?.complexId || '').trim() === selectedComplexId,
       );
