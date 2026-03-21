@@ -777,7 +777,17 @@
             </div>
           </div>
 
-          <div class="vehicle-form">
+          <div *ngIf="tenantForm.vehicles.length > 0 && tenantAnotherVehicle === null && editingVehicleIndex === null" class="form-row" style="margin-top: 0.75rem;">
+            <div class="form-group">
+              <label>Would you like to add another vehicle?</label>
+              <div class="toggle-btn-group">
+                <button type="button" class="toggle-btn" (click)="tenantAnotherVehicle = true">Yes</button>
+                <button type="button" class="toggle-btn" (click)="tenantAnotherVehicle = false">No</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="vehicle-form" *ngIf="tenantForm.vehicles.length === 0 || tenantAnotherVehicle === true || editingVehicleIndex !== null">
             <h4>{{ editingVehicleIndex !== null ? 'Edit Vehicle' : (tenantForm.vehicles.length > 0 ? 'Add Another Vehicle' : 'Add Vehicle') }}</h4>
             <div class="form-row">
               <div class="form-group">
@@ -831,8 +841,8 @@
               </div>
             </div>
 
-            <button type="button" class="btn-secondary" (click)="addVehicle()">
-              {{ editingVehicleIndex !== null ? 'Save Changes' : (tenantForm.vehicles.length > 0 ? '+ Add Another Vehicle' : '+ Add Vehicle') }}
+            <button type="button" class="btn-add" (click)="addVehicle()">
+              {{ editingVehicleIndex !== null ? '💾 Save Changes' : (tenantForm.vehicles.length > 0 ? '+ Add Another Vehicle' : '+ Add Vehicle') }}
             </button>
           </div>
         </ng-container>
