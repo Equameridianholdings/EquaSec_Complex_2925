@@ -203,6 +203,7 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected tenantSuccess = '';
   protected tenantSubmitting = false;
   protected tenantHasCar: boolean | null = null;
+  protected tenantAnotherVehicle: boolean | null = null;
   protected canRegisterTenant = false;
   protected isSosEnabledForCompany = false;
   protected showStationPrompt = false;
@@ -1457,6 +1458,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     };
 
     this.tenantHasCar = residentVehicles.length > 0 ? true : false;
+    this.tenantAnotherVehicle = residentVehicles.length > 0 ? false : null;
     this.isUpdateMode = true;
     this.isTenantModalOpen = true;
     this.tenantError = '';
@@ -1594,6 +1596,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (!f.phone?.trim() || !/^0\d{9}$/.test(f.phone.trim())) return false;
     if (this.tenantHasCar === null) return false;
     if (this.tenantHasCar === true && f.vehicles.length === 0) return false;
+    if (this.tenantHasCar === true && f.vehicles.length > 0 && this.tenantAnotherVehicle !== false) return false;
     if (f.residenceType === 'complex') {
       return !!f.complexId && !!f.address;
     }
@@ -1859,6 +1862,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     }
 
     this.currentVehicle = { make: '', model: '', reg: '', color: '' };
+    this.tenantAnotherVehicle = null;
     this.tenantError = '';
     this.submitting.update(() => false);
   }
@@ -1867,6 +1871,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     const v = this.tenantForm.vehicles[index];
     this.currentVehicle = { make: v.make, model: v.model, reg: v.reg, color: v.color };
     this.editingVehicleIndex = index;
+    this.tenantAnotherVehicle = true;
   }
 
   protected removeVehicle(index: number): void {
@@ -2725,6 +2730,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     };
 
     this.tenantHasCar = null;
+    this.tenantAnotherVehicle = null;
     this.tenantError = '';
     this.tenantSuccess = '';
   }
