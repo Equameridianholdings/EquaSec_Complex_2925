@@ -39,6 +39,7 @@ import {
 })
 export class BookVisitor implements OnInit {
   submitting = signal(false);
+  showRegHint = signal(false);
   private _snackBar = inject(MatSnackBar);
   horizontalPosition: MatSnackBarHorizontalPosition = 'center';
   verticalPosition: MatSnackBarVerticalPosition = 'top';
