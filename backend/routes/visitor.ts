@@ -1,3 +1,5 @@
+import complexSchema from "#db/complexSchema.js";
+import gatedCommunitySchema from "#db/gatedCommunity.js";
 import logSchema from "#db/logsSchema.js";
 import unitSchema from "#db/unitSchema.js";
 import userSchema from "#db/userSchema.js";
@@ -221,20 +223,46 @@ visitorRouter.get("/security/", async (req, res) => {
       return;
     }
 
+    // Derive complex IDs that belong to the guard's assigned gated communities.
+    // Visitor codes for a complex inside a gated community store destination.complex._id
+    // but not destination.gatedCommunity._id, so we must include those complex IDs too.
+    const communityDerivedComplexIds: string[] = [];
+    if (security.assignedCommunities && security.assignedCommunities.length > 0) {
+      const communities = await gatedCommunitySchema
+        .find({ _id: { $in: security.assignedCommunities } })
+        .select({ name: 1 })
+        .lean()
+        .exec();
+      const communityNames = communities.map((c: any) => c.name as string).filter(Boolean);
+      if (communityNames.length > 0) {
+        const linkedComplexes = await complexSchema
+          .find({
+            $or: communityNames.map((n) => ({
+              gatedCommunityName: {
+                $regex: `^${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+                $options: "i",
+              },
+            })),
+          })
+          .select({ _id: 1 })
+          .lean()
+          .exec();
+        for (const c of linkedComplexes) {
+          communityDerivedComplexIds.push(String(c._id));
+        }
+      }
+    }
+
+    const allComplexIds = [
+      ...(security.assignedComplexes ?? []),
+      ...communityDerivedComplexIds,
+    ];
+
     const guardVisitorQuery = {
+      validity: true,
       $or: [
-        {
-          "destination.complex._id": {
-            $in: security.assignedComplexes,
-          },
-          validity: true,
-        },
-        {
-          "destination.gatedCommunity._id": {
-            $in: security.assignedCommunities,
-          },
-          validity: true,
-        },
+        { "destination.complex._id": { $in: allComplexIds } },
+        { "destination.gatedCommunity._id": { $in: security.assignedCommunities ?? [] } },
       ],
     };
     const filteredVisitors = await visitorShema.find<visitorDTO>(guardVisitorQuery).select({}).exec();

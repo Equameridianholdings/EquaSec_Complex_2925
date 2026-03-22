@@ -15,6 +15,7 @@ export class VisitorCard implements OnInit {
   @Input() visitor!: visitorDTO;
   hours!: number;
   submitting = signal(false);
+  showConfirmModal = signal(false);
   private _snackBar = inject(MatSnackBar);
   horizontalPosition: MatSnackBarHorizontalPosition = 'center';
   verticalPosition: MatSnackBarVerticalPosition = 'top';
@@ -38,6 +39,17 @@ export class VisitorCard implements OnInit {
   }
 
   protected onGrantAccess(code: visitorDTO): void {
+    if (!code) return;
+    this.showConfirmModal.set(true);
+  }
+
+  protected cancelGrant(): void {
+    this.showConfirmModal.set(false);
+  }
+
+  protected confirmGrant(): void {
+    this.showConfirmModal.set(false);
+    const code = this.visitor;
     if (!code) {
       this.showToast('Access granted');
       return;

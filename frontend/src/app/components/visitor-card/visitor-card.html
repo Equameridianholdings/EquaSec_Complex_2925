@@ -33,3 +33,22 @@
     <button class="btn-main" type="button" (click)="onGrantAccess(visitor)" [disabled]="granted()">Grant Access</button>
   </div>
 </div>
+
+@if (showConfirmModal()) {
+  <div class="modal-backdrop" (click)="cancelGrant()">
+    <div class="modal" style="max-width:420px;width:100%" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Confirm Access</h2>
+        <button class="btn-icon" type="button" (click)="cancelGrant()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Grant access to <strong>{{ visitor.name }} {{ visitor.surname }}</strong>?</p>
+        <p>Code: <strong>{{ visitor.code }}</strong></p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="cancelGrant()">Cancel</button>
+        <button type="button" class="btn-main" (click)="confirmGrant()">Confirm</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1759,39 +1759,98 @@ userRouter.get("/", AuthMiddleware, async (req, res) => {
 userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
   try {
     const email = res.get("email");
-    const users = await userSchema.find({}).select({}).exec();
-    const security = users.find((x) => x.emailAddress === email) as unknown as UserDTO;
 
-    const unitsQuery = {
-      $or: [
-        {
-          "complex._id": {
-            $in: security.assignedComplexes,
-          },
-        },
-        {
-          "gatedCommunity._id": {
-            $in: security.assignedCommunities,
-          },
-        },
-      ],
-    };
-    const units = await unitSchema.find(unitsQuery).select({}).exec();
+    if (!email) {
+      return res.status(401).json({ message: "Access Denied!" });
+    }
 
-    let residents: unknown[] = [];
-    units.forEach((unit) => {
-      if (unit.users.length > 0) {
-        unit.users.forEach((id: string) => {
-          residents = [...residents, users.find((x) => x._id.toString() === id)];
-        });
+    const security = await userSchema
+      .findOne({ emailAddress: email })
+      .select({ assignedComplexes: 1, assignedCommunities: 1 })
+      .lean();
+
+    if (!security) {
+      return res.status(401).json({ message: "Access Denied!" });
+    }
+
+    const securityRecord = security as unknown as { assignedComplexes?: unknown; assignedCommunities?: unknown };
+    const assignedComplexIds: string[] = Array.isArray(securityRecord.assignedComplexes)
+      ? securityRecord.assignedComplexes.map(String).filter(Boolean)
+      : [];
+    const assignedCommunityIds: string[] = Array.isArray(securityRecord.assignedCommunities)
+      ? securityRecord.assignedCommunities.map(String).filter(Boolean)
+      : [];
+
+    // Complex units in a gated community only store complex._id (no gatedCommunity._id).
+    // Derive the complex IDs for every complex that belongs to an assigned community
+    // so that those units are included in the query too.
+    let derivedComplexIds: string[] = [];
+    if (assignedCommunityIds.length > 0) {
+      const communityIdVariants = assignedCommunityIds.flatMap((id) => {
+        const variants: (string | ObjectId)[] = [id];
+        if (ObjectId.isValid(id)) variants.push(new ObjectId(id));
+        return variants;
+      });
+      const assignedGCs = await gatedCommunitySchema
+        .find({ _id: { $in: communityIdVariants } })
+        .select({ name: 1 })
+        .lean();
+      const gcNames = (assignedGCs as unknown as Array<{ name?: unknown }>)
+        .map((gc) => String(gc.name ?? "").trim())
+        .filter(Boolean);
+      if (gcNames.length > 0) {
+        const communityComplexDocs = await complexSchema
+          .find({ gatedCommunityName: { $in: gcNames } })
+          .select({ _id: 1 })
+          .lean();
+        derivedComplexIds = (communityComplexDocs as unknown as Array<{ _id?: unknown }>)
+          .map((c) => String(c._id ?? ""))
+          .filter(Boolean);
       }
+    }
+
+    const allComplexIds = [...new Set([...assignedComplexIds, ...derivedComplexIds])];
+
+    const complexIdVariants = allComplexIds.flatMap((id) => {
+      const variants: (string | ObjectId)[] = [id];
+      if (ObjectId.isValid(id)) variants.push(new ObjectId(id));
+      return variants;
+    });
+    const communityIdVariants = assignedCommunityIds.flatMap((id) => {
+      const variants: (string | ObjectId)[] = [id];
+      if (ObjectId.isValid(id)) variants.push(new ObjectId(id));
+      return variants;
     });
 
-    if (users.length > 0) {
-      return res.status(200).json({ message: "Residents found", payload: residents });
-    } else {
-      return res.status(404).json({ message: "Residents not found!" });
+    const unitQueryConditions: object[] = [];
+    if (complexIdVariants.length > 0) {
+      unitQueryConditions.push({ "complex._id": { $in: complexIdVariants } });
     }
+    if (communityIdVariants.length > 0) {
+      unitQueryConditions.push({ "gatedCommunity._id": { $in: communityIdVariants } });
+    }
+
+    if (unitQueryConditions.length === 0) {
+      return res.status(200).json({ message: "Residents found", payload: [] });
+    }
+
+    const units = await unitSchema.find({ $or: unitQueryConditions }).select({}).exec();
+
+    const allUsers = await userSchema.find({}).select({}).lean();
+    const usersById = new Map((allUsers as unknown as Array<{ _id?: unknown }>).map((u) => [String(u._id ?? ""), u]));
+
+    const tenantUserIds = new Set<string>();
+    for (const unit of units) {
+      for (const id of (unit.users as unknown as string[])) {
+        tenantUserIds.add(String(id));
+      }
+    }
+
+    const residents = [...tenantUserIds]
+      .map((id) => usersById.get(id))
+      .filter(Boolean);
+
+    return res.status(200).json({ message: "Residents found", payload: residents });
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
