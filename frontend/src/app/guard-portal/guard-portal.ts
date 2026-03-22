@@ -63,7 +63,15 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.router.navigate(['/login']);
   }
   // Dynamic filtered lists for residents and vehicles by unit search
-  protected gatedTypeFilter = 'all';
+  private gatedTypeFilterSignal = signal('all');
+
+  protected get gatedTypeFilter(): string {
+    return this.gatedTypeFilterSignal();
+  }
+
+  protected set gatedTypeFilter(value: string) {
+    this.gatedTypeFilterSignal.set(value);
+  }
 
   protected get currentGatedCommunityComplexes(): Array<{ id: string; name: string }> {
     const gc = this.gatedCommunities.find(
@@ -80,9 +88,23 @@ export class GuardPortal implements OnInit, OnDestroy {
     // Always restrict tenant cards to the currently selected station.
     let stationResidents = allResidents;
     if (this.stationType === 'gated' && selectedGatedCommunityId) {
-      stationResidents = stationResidents.filter(
-        (resident) => String(resident?.gatedCommunityId || '').trim() === selectedGatedCommunityId,
+      // Include residents directly under the gated community (house units) AND
+      // residents in complexes that belong to this gated community (complex units
+      // have no gatedCommunityId on the unit doc, so we match via complexId).
+      const selectedCommunity = this.gatedCommunities.find(
+        (g) => g.id === selectedGatedCommunityId,
       );
+      const communityComplexIds = new Set(
+        (selectedCommunity?.complexesInCommunity ?? []).map((c) => String(c.id)),
+      );
+      stationResidents = stationResidents.filter((resident) => {
+        const residentGCId = String(resident?.gatedCommunityId || '').trim();
+        const residentComplexId = String(resident?.complexId || '').trim();
+        return (
+          residentGCId === selectedGatedCommunityId ||
+          (residentComplexId.length > 0 && communityComplexIds.has(residentComplexId))
+        );
+      });
       // Apply type filter: all, houses-only, or a specific complex id
       if (this.gatedTypeFilter === 'houses') {
         stationResidents = stationResidents.filter((r) => !r.complexId);
@@ -297,20 +319,22 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   // Helper: filter registered vehicles by reg search
   protected get filteredRegisteredVehiclesByReg() {
-    let regQuery = (this.filtersForm.searchReg || '')
+    const regQuery = (this.filtersForm.searchReg || '')
       .toString()
       .trim()
       .toLowerCase()
       .replace(/\s+/g, '');
-    let vehicles = this.vehicles;
-    let filtered = vehicles;
-    if (regQuery) {
-      filtered = vehicles.filter((v) => {
-        let regValue = (v.regNumber || '').toString().trim().toLowerCase().replace(/\s+/g, '');
-        return regValue.includes(regQuery);
-      });
+    // Use filteredVehicles as base so gatedTypeFilter is already applied
+    const vehicles = this.filteredVehicles;
+    if (!regQuery) {
+      return vehicles.map((v) => ({ ...v, isVisitor: false }));
     }
-    return filtered.map((v) => ({ ...v, isVisitor: false }));
+    return vehicles
+      .filter((v) => {
+        const regValue = (v.regNumber || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+        return regValue.includes(regQuery);
+      })
+      .map((v) => ({ ...v, isVisitor: false }));
   }
 
   // Helper: filter visitor vehicles (from active codes) by reg search
@@ -320,8 +344,18 @@ export class GuardPortal implements OnInit, OnDestroy {
       .trim()
       .toLowerCase()
       .replace(/\s+/g, '');
+    const filter = this.gatedTypeFilter;
+    const stationType = this.stationType;
     return (Array.isArray(this.visitorList()) ? this.visitorList() : [])
       .filter((code) => code.driving && code.vehicle)
+      .filter((code) => {
+        if (stationType === 'gated' && filter !== 'all') {
+          const destComplexId = String((code.destination?.complex as any)?._id ?? '').trim();
+          if (filter === 'houses') return !destComplexId;
+          return destComplexId === filter;
+        }
+        return true;
+      })
       .filter((code) => {
         const reg =
           (code.vehicle as any)?.registrationNumber ||
@@ -414,7 +448,9 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected get residenceSearchLabel(): string {
     if (this.stationType === 'gated' && !this.filtersForm.selectedComplex) {
-      return 'House No';
+      const filter = this.gatedTypeFilter;
+      const complexSelected = filter && filter !== 'all' && filter !== 'houses';
+      if (!complexSelected) return 'House No';
     }
 
     return 'Unit';
@@ -422,7 +458,9 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected get residenceSearchPlaceholder(): string {
     if (this.stationType === 'gated' && !this.filtersForm.selectedComplex) {
-      return 'e.g. 24';
+      const filter = this.gatedTypeFilter;
+      const complexSelected = filter && filter !== 'all' && filter !== 'houses';
+      if (!complexSelected) return 'e.g. 24';
     }
 
     return 'e.g. 402';
@@ -437,9 +475,14 @@ export class GuardPortal implements OnInit, OnDestroy {
     return raw.replace(/^(unit|house\s*no\.?|house\s*number|house)\s*/i, '').trim();
   }
 
-  protected formatResidenceBadge(value: string | undefined | null): string {
+  protected formatResidenceBadge(
+    value: string | undefined | null,
+    complexId?: string | undefined | null,
+  ): string {
     const cleanedValue = this.stripResidencePrefix(value);
-    const label = this.residenceSearchLabel;
+    // If the resident/vehicle belongs to a complex, always use "Unit" regardless
+    // of the currently selected station filter.
+    const label = complexId ? 'Unit' : this.residenceSearchLabel;
 
     if (!cleanedValue) {
       return label;
@@ -958,7 +1001,7 @@ export class GuardPortal implements OnInit, OnDestroy {
               const userId = String(user?._id ?? user?.id ?? '').trim();
               const linkedTenantLocation = userId ? tenantLocationByUserId.get(userId) : null;
 
-              return {
+              const mapped = {
                 id: userId,
                 name: `${user.name ?? ''} ${user.surname ?? ''}`.trim(),
                 unit:
@@ -981,6 +1024,7 @@ export class GuardPortal implements OnInit, OnDestroy {
                     user.communityId ?? user.gatedCommunity?._id ?? user.gatedCommunity?.id,
                   ),
               };
+              return mapped;
             })
             .filter((resident) => {
               if (!hasAssignments) {
@@ -991,9 +1035,9 @@ export class GuardPortal implements OnInit, OnDestroy {
               const inCommunity =
                 resident.gatedCommunityId &&
                 allowedGatedCommunityIds.has(String(resident.gatedCommunityId));
-              return Boolean(inComplex || inCommunity);
+              const kept = Boolean(inComplex || inCommunity);
+              return kept;
             });
-
           const tenantVehiclesFromUsers = userList
             .filter((user) => this.hasTenantRole(user?.type))
             .flatMap((user) => {
@@ -1173,26 +1217,20 @@ export class GuardPortal implements OnInit, OnDestroy {
               ),
             );
           } else {
+            const communityComplexIds = new Set(
+              this.currentGatedCommunityComplexes.map((c) => String(c.id)),
+            );
             this.visitorList.update(() =>
-              this.visitorList().filter(
-                (visitors) =>
-                  visitors.destination.gatedCommunity?.name === this.selectedStationName,
-              ),
+              this.visitorList().filter((v) => {
+                if (v.destination.gatedCommunity?.name === this.selectedStationName) return true;
+                const destComplexId = String((v.destination?.complex as any)?._id ?? '').trim();
+                return destComplexId ? communityComplexIds.has(destComplexId) : false;
+              }),
             );
           }
 
           this.stationContextReady = true;
           this.ensureStationSelectionRequiredState();
-          console.log('[GuardPortal][data] station and view state', {
-            stationType: this.stationType,
-            selectedComplex: this.filtersForm.selectedComplex,
-            selectedGatedCommunity: this.filtersForm.selectedGatedCommunity,
-            selectedStationName: this.selectedStationName,
-            showStationPrompt: this.showStationPrompt,
-            showVehicles: this.showVehicles,
-            showResidents: this.showResidents,
-            showCodes: this.showCodes,
-          });
           this.cdr.markForCheck();
         },
       );
@@ -1442,14 +1480,25 @@ export class GuardPortal implements OnInit, OnDestroy {
     const isCommunity = !!resident.gatedCommunityId;
     const residenceType: 'complex' | 'community' = isCommunity ? 'community' : 'complex';
 
-    // Resolve the unit value to match the format used in availableUnits (e.g. "Unit 7")
+    // Resolve the unit/house value to match the format used in the dropdown options
+    // (e.g. "Unit 7" for complex units, "House 18" for gated-community houses).
     const complexIdForLookup = isComplex ? (resident.complexId ?? '') : (resident.complexId ?? '');
     const complexForUnits = this.stationScopedComplexes.find((c) => c.id === complexIdForLookup);
     const rawUnitValue = resident.unit || resident.houseNumber || '';
     let resolvedAddress = rawUnitValue;
     if (complexForUnits?.units?.length) {
+      // Complex unit — look for "Unit N" prefix
       const exactMatch = complexForUnits.units.find((u) => u === rawUnitValue);
       const prefixedMatch = complexForUnits.units.find((u) => u === `Unit ${rawUnitValue}`);
+      resolvedAddress = exactMatch ?? prefixedMatch ?? rawUnitValue;
+    } else if (isCommunity && !resident.complexId) {
+      // House inside gated community — houses list uses "House N" prefix
+      const community = this.gatedCommunities.find(
+        (c) => c.id === resident.gatedCommunityId,
+      );
+      const houses: string[] = community?.houses ?? [];
+      const exactMatch = houses.find((h) => h === rawUnitValue);
+      const prefixedMatch = houses.find((h) => h === `House ${rawUnitValue}`);
       resolvedAddress = exactMatch ?? prefixedMatch ?? rawUnitValue;
     }
 
@@ -1737,8 +1786,6 @@ export class GuardPortal implements OnInit, OnDestroy {
       vehicles: this.tenantForm.vehicles,
     };
 
-    console.log(this.tenantForm);
-
     const normalizedTenantEmail = tenantData.email.trim().toLowerCase();
 
     // Duplicate email check only when registering (not updating)
@@ -1800,7 +1847,7 @@ export class GuardPortal implements OnInit, OnDestroy {
             this.tenantSubmitting = false;
             this.submitting.update(() => false);
             this.closeTenantModal();
-            this.loadGuardPortalData();
+            window.location.reload();
           }, 1500);
         },
         error: (error: HttpErrorResponse) => {
@@ -1832,7 +1879,7 @@ export class GuardPortal implements OnInit, OnDestroy {
             this.tenantSubmitting = false;
             this.submitting.update(() => false);
             this.closeTenantModal();
-            this.loadGuardPortalData();
+            window.location.reload();
           }, 1500);
         },
         error: (error: HttpErrorResponse) => {
@@ -2022,7 +2069,6 @@ export class GuardPortal implements OnInit, OnDestroy {
     );
     this.availableUnitsCache = complex?.units ?? [];
     this.availableUnitsKey = key;
-    console.log(this.availableUnitsCache);
     return this.availableUnitsCache;
   }
 
@@ -2291,11 +2337,15 @@ export class GuardPortal implements OnInit, OnDestroy {
             ),
           );
         } else {
+          const communityComplexIds = new Set(
+            this.currentGatedCommunityComplexes.map((c) => String(c.id)),
+          );
           this.visitorList.update(() =>
-            this.visitorList().filter(
-              (visitors) =>
-                visitors.destination.gatedCommunity?.name === this.activeShiftStationName,
-            ),
+            this.visitorList().filter((v) => {
+              if (v.destination.gatedCommunity?.name === this.activeShiftStationName) return true;
+              const destComplexId = String((v.destination?.complex as any)?._id ?? '').trim();
+              return destComplexId ? communityComplexIds.has(destComplexId) : false;
+            }),
           );
         }
       },
@@ -2305,7 +2355,6 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected changeStation(): void {
     this.stationLocked = false;
     this.showStationPrompt = true;
-    console.log('DEBUG: changeStation called, showStationPrompt =', this.showStationPrompt);
     this.activeShiftStationName = '';
     this.stationType = '';
     this.filtersForm.selectedGatedCommunity = '';
@@ -2323,7 +2372,17 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   filteredVisitors = computed(() => {
     const code = this.searchTerm();
-    return this.visitorList().filter((x) => x.code?.toString().includes(code));
+    const filter = this.gatedTypeFilterSignal();
+    const stationType = this.stationType;
+    return this.visitorList().filter((x) => {
+      if (!x.code?.toString().includes(code)) return false;
+      if (stationType === 'gated' && filter !== 'all') {
+        const destComplexId = String((x.destination?.complex as any)?._id ?? '').trim();
+        if (filter === 'houses') return !destComplexId;
+        return destComplexId === filter;
+      }
+      return true;
+    });
   });
   // Prototype
   filterCodes(event: any) {
@@ -2550,6 +2609,31 @@ export class GuardPortal implements OnInit, OnDestroy {
   }
 
   protected get filteredUnitOptions(): string[] {
+    const gatedFilter = this.gatedTypeFilter;
+    const gatedComplexSelected =
+      gatedFilter && gatedFilter !== 'all' && gatedFilter !== 'houses';
+
+    // When a specific complex is picked via the "Filter by" dropdown,
+    // show only unit numbers that have a tenant registered (derived from residents).
+    if (gatedComplexSelected) {
+      const complexResidents = (Array.isArray(this.residents) ? this.residents : []).filter(
+        (r) => String(r.complexId || '').trim() === gatedFilter,
+      );
+      const complexVehicles = (Array.isArray(this.vehicles) ? this.vehicles : []).filter(
+        (v) => String(v.complexId || '').trim() === gatedFilter,
+      );
+      const occupiedUnits = new Set<string>([
+        ...complexResidents.map((r) => this.resolveResidenceNumber(r.unit, r.houseNumber)),
+        ...complexVehicles.map((v) => this.resolveResidenceNumber(v.unit, v.houseNumber)),
+      ]);
+      const numbers = Array.from(occupiedUnits)
+        .map((u) => u.replace(/^Unit\s+/i, '').trim())
+        .filter(Boolean)
+        .sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
+      const query = this.filtersForm.searchUnit.trim().toLowerCase();
+      return query ? numbers.filter((u) => u.toLowerCase().includes(query)) : numbers;
+    }
+
     let residents = Array.isArray(this.residents) ? this.residents : [];
     let vehicles = Array.isArray(this.vehicles) ? this.vehicles : [];
     const complexFilter = this.filtersForm.searchComplexFilter || this.filtersForm.selectedComplex;
@@ -2588,8 +2672,13 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (complexFilter) {
       vehicles = vehicles.filter((v) => v.complexId === complexFilter);
     } else if (this.filtersForm.selectedGatedCommunity) {
+      const communityComplexIds = new Set(
+        this.currentGatedCommunityComplexes.map((c) => String(c.id)),
+      );
       vehicles = vehicles.filter(
-        (v) => v.gatedCommunityId === this.filtersForm.selectedGatedCommunity,
+        (v) =>
+          v.gatedCommunityId === this.filtersForm.selectedGatedCommunity ||
+          (v.complexId && communityComplexIds.has(String(v.complexId))),
       );
     }
 
@@ -2644,6 +2733,21 @@ export class GuardPortal implements OnInit, OnDestroy {
     // Filter by complex or gated community
     if (complexFilter) {
       vehicles = vehicles.filter((v) => v.complexId === complexFilter);
+    } else if (this.stationType === 'gated' && this.filtersForm.selectedGatedCommunity) {
+      const selectedGCId = this.filtersForm.selectedGatedCommunity;
+      const communityComplexIds = new Set(this.currentGatedCommunityComplexes.map((c) => String(c.id)));
+      // Include house vehicles (gatedCommunityId match) AND complex-unit vehicles within this community
+      vehicles = vehicles.filter((v) => {
+        const vGCId = String(v.gatedCommunityId || '').trim();
+        const vComplexId = String(v.complexId || '').trim();
+        return vGCId === selectedGCId || (vComplexId.length > 0 && communityComplexIds.has(vComplexId));
+      });
+      // Apply gatedTypeFilter
+      if (this.gatedTypeFilter === 'houses') {
+        vehicles = vehicles.filter((v) => !v.complexId);
+      } else if (this.gatedTypeFilter !== 'all') {
+        vehicles = vehicles.filter((v) => String(v.complexId || '').trim() === this.gatedTypeFilter);
+      }
     } else if (this.filtersForm.selectedGatedCommunity) {
       vehicles = vehicles.filter(
         (v) => v.gatedCommunityId === this.filtersForm.selectedGatedCommunity,

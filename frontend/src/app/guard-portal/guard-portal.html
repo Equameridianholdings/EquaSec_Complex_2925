@@ -81,7 +81,7 @@
           (focus)="clearOtherSearches('code')"
         />
       </div>
-      <div class="search-field">
+      <div class="search-field" *ngIf="!(stationType === 'gated' && gatedTypeFilter === 'all')">
         <label for="searchUnit">{{ residenceSearchLabel }}</label>
         <input
           id="searchUnit"
@@ -212,7 +212,7 @@
         *ngFor="let resident of filteredResidents"
         [class.compact]="searchUnit"
       >
-        <span class="resident-badge-corner">{{ formatResidenceBadge(resident.unit) }}</span>
+        <span class="resident-badge-corner">{{ formatResidenceBadge(resident.unit, resident.complexId) }}</span>
         <div class="resident-main">
           <div
             class="resident-avatar resident-avatar-clickable"
@@ -306,7 +306,7 @@
         <label for="stationComplex">Select complex</label>
         <select id="stationComplex" [(ngModel)]="selectedComplex">
           <option value="" disabled>Select complex</option>
-          <option *ngFor="let complex of assignedComplexes" [value]="complex.id">
+          <option *ngFor="let complex of standaloneComplexes" [value]="complex.id">
             {{ complex.name }}
           </option>
         </select>
@@ -377,7 +377,7 @@
             class="info-card vehicle-card"
             *ngFor="let vehicle of filteredRegisteredVehiclesByReg"
           >
-            <span class="resident-badge-corner">{{ formatResidenceBadge(vehicle.unit) }}</span>
+            <span class="resident-badge-corner">{{ formatResidenceBadge(vehicle.unit, vehicle.complexId) }}</span>
             <div class="info-header">
               <h3>{{ vehicle.make }} {{ vehicle.model }}</h3>
             </div>
@@ -399,7 +399,7 @@
         <h3>Vehicles</h3>
         <div class="info-grid" *ngIf="filteredVehiclesByUnit.length > 0; else noVehicles">
           <article class="info-card vehicle-card" *ngFor="let vehicle of filteredVehiclesByUnit">
-            <span class="resident-badge-corner">{{ formatResidenceBadge(vehicle.unit) }}</span>
+            <span class="resident-badge-corner">{{ formatResidenceBadge(vehicle.unit, vehicle.complexId) }}</span>
             <div class="info-header">
               <h3>{{ vehicle.make }} {{ vehicle.model }}</h3>
             </div>
@@ -913,7 +913,7 @@
             type="button"
             class="btn-main"
             (click)="openConfirmTenantModal()"
-            [disabled]="tenantSubmitting"
+            [disabled]="tenantSubmitting || (!isUpdateMode && !isTenantFormReady)"
           >
             {{ isUpdateMode ? 'Update Tenant' : 'Register Tenant' }}
           </button>

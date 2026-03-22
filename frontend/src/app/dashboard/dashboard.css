@@ -775,7 +775,14 @@
 }
 
 .modal-backdrop {
-  padding: 15px;
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 58, 95, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 2000;
 }
 
 .modal {
@@ -1225,6 +1232,17 @@
 
 .modal-actions .btn-main {
   min-width: 160px;
+  justify-content: center;
+  text-align: center;
+}
+
+.modal-actions .btn-secondary {
+  min-width: 160px;
+  padding: 12px 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .modal-actions .btn-cancel {

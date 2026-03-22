@@ -56,6 +56,7 @@ export class SecurityManager implements OnInit {
     contractStartDate: string;
     contractEndDate: string;
     units?: string[];
+    gatedCommunityName?: string;
   }> = [];
   protected gatedCommunities: Array<{
     id: string;
@@ -558,6 +559,7 @@ export class SecurityManager implements OnInit {
               contractStartDate: contractDates?.startDate as string,
               contractEndDate: contractDates?.endDate as string,
               units: this.generateUnits(complex.numberOfUnits ?? 0),
+              gatedCommunityName: (complex.gatedCommunityName as string) ?? '',
             };
           });
 
@@ -1711,10 +1713,40 @@ export class SecurityManager implements OnInit {
 
   protected toggleCommunityAssignment(communityId: string): void {
     const index = this.assignmentForm.assignedCommunities.indexOf(communityId);
-    if (index > -1) {
+    const isRemoving = index > -1;
+
+    if (isRemoving) {
       this.assignmentForm.assignedCommunities.splice(index, 1);
     } else {
       this.assignmentForm.assignedCommunities.push(communityId);
+    }
+
+    // Auto-sync complexes that belong to this community.
+    const community = this.gatedCommunities.find((gc) => gc.id === communityId);
+    if (!community) {
+      return;
+    }
+    const normalizedCommunityName = this.normalizeName(community.name);
+    const communityComplexIds = this.assignedComplexes
+      .filter(
+        (c) =>
+          c.gatedCommunityName &&
+          this.normalizeName(c.gatedCommunityName) === normalizedCommunityName,
+      )
+      .map((c) => c.id);
+
+    if (isRemoving) {
+      // Remove all complexes that belong to this community.
+      this.assignmentForm.assignedComplexes = this.assignmentForm.assignedComplexes.filter(
+        (id) => !communityComplexIds.includes(id),
+      );
+    } else {
+      // Add all complexes that belong to this community (avoid duplicates).
+      for (const complexId of communityComplexIds) {
+        if (!this.assignmentForm.assignedComplexes.includes(complexId)) {
+          this.assignmentForm.assignedComplexes.push(complexId);
+        }
+      }
     }
   }
 
