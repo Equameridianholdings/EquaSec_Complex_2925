@@ -249,6 +249,25 @@ select.form-control option {
 	text-decoration: underline;
 }
 
+.forgot-pin-link {
+	color: #2563eb;
+	font-weight: 700;
+	text-decoration: underline;
+	cursor: pointer;
+	transition: color 0.2s;
+}
+.forgot-pin-link:hover {
+	color: #1e3a5f;
+	text-decoration: underline;
+}
+
+.powered-by {
+	margin-top: 4px;
+	font-size: 11px;
+	color: #9ca3af;
+	letter-spacing: 0.3px;
+}
+
 .page-footer {
 	display: flex;
 	justify-content: center;
