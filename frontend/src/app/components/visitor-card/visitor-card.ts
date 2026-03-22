@@ -72,6 +72,9 @@ export class VisitorCard implements OnInit {
           next: (res) => {
             this.showToast(res.message);
             this.granted.update(() => true);
+            setTimeout(() => {
+              window.location.reload();
+            }, 1200);
           },
           error: () => {
             this.showToast('Access not granted');
