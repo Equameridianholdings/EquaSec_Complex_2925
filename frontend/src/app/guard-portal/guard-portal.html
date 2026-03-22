@@ -441,6 +441,14 @@
     <span class="sos-sub">Hold 5s</span>
   </button>
 
+  <div class="sos-modal" *ngIf="showSosSuccess" role="alertdialog" aria-modal="true" aria-labelledby="sos-modal-title">
+    <div class="sos-modal-card">
+      <div class="sos-icon">🚨</div>
+      <h3 id="sos-modal-title">SOS Alert Sent!</h3>
+      <p>Emergency services and your security company have been notified. Help is on the way.</p>
+    </div>
+  </div>
+
   <ng-template #noRegs>
     <div class="empty-message">No vehicles found.</div>
   </ng-template>
