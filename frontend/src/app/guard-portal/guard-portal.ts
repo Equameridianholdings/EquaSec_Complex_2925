@@ -495,6 +495,11 @@ export class GuardPortal implements OnInit, OnDestroy {
     return this.stripResidencePrefix(value);
   }
 
+  protected getComplexName(complexId: string | undefined | null): string {
+    if (!complexId) return '';
+    return this.assignedComplexes.find((c) => c.id === complexId)?.name ?? '';
+  }
+
   ngOnInit(): void {
     this.loadActiveShiftFromGuardHistory();
     this.hydrateGuardFromStorage();
@@ -1475,10 +1480,26 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     this.resetTenantForm();
 
-    // Determine residence type from the resident's linked ids
-    const isComplex = !!resident.complexId && !resident.gatedCommunityId;
-    const isCommunity = !!resident.gatedCommunityId;
+    // Determine residence type from the resident's linked ids.
+    // Residents in a complex that belongs to a gated community have complexId set
+    // but gatedCommunityId empty — treat them as community residents.
+    const hasGatedCommunityId = !!resident.gatedCommunityId;
+    const hasComplexOnly = !!resident.complexId && !hasGatedCommunityId;
+    const isGatedComplexResident =
+      hasComplexOnly &&
+      this.stationType === 'gated' &&
+      !!this.filtersForm.selectedGatedCommunity;
+
+    const isComplex = !!resident.complexId && !hasGatedCommunityId && !isGatedComplexResident;
+    const isCommunity = hasGatedCommunityId || isGatedComplexResident;
     const residenceType: 'complex' | 'community' = isCommunity ? 'community' : 'complex';
+
+    // For gated-complex residents the community id comes from the current station selection.
+    const effectiveCommunityId = hasGatedCommunityId
+      ? (resident.gatedCommunityId ?? '')
+      : isGatedComplexResident
+        ? this.filtersForm.selectedGatedCommunity
+        : '';
 
     // Resolve the unit/house value to match the format used in the dropdown options
     // (e.g. "Unit 7" for complex units, "House 18" for gated-community houses).
@@ -1521,7 +1542,7 @@ export class GuardPortal implements OnInit, OnDestroy {
       idNumber: resident.idNumber ?? '',
       residenceType,
       complexId: isComplex ? (resident.complexId ?? '') : '',
-      communityId: isCommunity ? (resident.gatedCommunityId ?? '') : '',
+      communityId: isCommunity ? effectiveCommunityId : '',
       communityResidenceType: isCommunity && resident.complexId ? 'complex' : 'house',
       communityComplexId: isCommunity ? (resident.complexId ?? '') : '',
       address: resolvedAddress,
@@ -1529,7 +1550,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     };
 
     this.tenantHasCar = residentVehicles.length > 0 ? true : false;
-    this.tenantAnotherVehicle = residentVehicles.length > 0 ? false : null;
+    this.tenantAnotherVehicle = null;
     this.isUpdateMode = true;
     this.isTenantModalOpen = true;
     this.tenantError = '';
