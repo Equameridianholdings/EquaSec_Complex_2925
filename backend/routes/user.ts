@@ -1841,7 +1841,9 @@ userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
 
     const tenantUserIds = new Set<string>();
     for (const unit of units) {
-      for (const id of (unit.users as unknown as string[])) {
+      const users = unit.users as unknown as unknown[] | null | undefined;
+      if (!Array.isArray(users)) continue;
+      for (const id of users) {
         tenantUserIds.add(String(id));
       }
     }
@@ -1851,7 +1853,8 @@ userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
       .filter(Boolean);
 
     return res.status(200).json({ message: "Residents found", payload: residents });
-  } catch {
+  } catch (error) {
+    console.error("[GET /user/tenants]", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });

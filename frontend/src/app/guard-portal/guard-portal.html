@@ -230,6 +230,7 @@
             <div class="info-header">
               <h3>{{ resident.name }}</h3>
             </div>
+            <p *ngIf="stationType === 'gated' && resident.complexId"><strong>Complex: {{ getComplexName(resident.complexId) }}</strong></p>
             <p><strong>Cell:</strong> {{ resident.cellphone }}</p>
             <p><strong>Email:</strong> {{ resident.emailAddress }}</p>
             <div class="tenant-card-actions">
@@ -381,6 +382,7 @@
             <div class="info-header">
               <h3>{{ vehicle.make }} {{ vehicle.model }}</h3>
             </div>
+            <p *ngIf="stationType === 'gated' && vehicle.complexId"><strong>Complex: {{ getComplexName(vehicle.complexId) }}</strong></p>
             <p><strong>Owner:</strong> {{ vehicle.owner }}</p>
             <p><strong>Registration:</strong> {{ vehicle.regNumber || '-' }}</p>
             <p><strong>Colour:</strong> {{ vehicle.color || '-' }}</p>
@@ -403,6 +405,7 @@
             <div class="info-header">
               <h3>{{ vehicle.make }} {{ vehicle.model }}</h3>
             </div>
+            <p *ngIf="stationType === 'gated' && vehicle.complexId"><strong>Complex: {{ getComplexName(vehicle.complexId) }}</strong></p>
             <p><strong>Owner:</strong> {{ vehicle.owner }}</p>
             <p><strong>Registration:</strong> {{ vehicle.regNumber }}</p>
             <p><strong>Colour:</strong> {{ vehicle.color }}</p>
@@ -737,10 +740,12 @@
         </div>
 
         <div class="section-divider"></div>
-        @if (!isUpdateMode) {
+        @if (!isUpdateMode || (isUpdateMode && tenantForm.vehicles.length === 0)) {
           <div class="form-row">
             <div class="form-group">
-              <label>Does the tenant have a vehicle to register?</label>
+              <label>
+                {{ isUpdateMode ? 'No vehicles on record — would you like to add one?' : 'Does the tenant have a vehicle to register?' }}
+              </label>
               <div class="toggle-btn-group">
                 <button
                   type="button"
@@ -890,10 +895,10 @@
             <div class="form-group">
               <label>Would you like to add another vehicle?</label>
               <div class="toggle-btn-group">
-                <button type="button" class="toggle-btn" (click)="tenantAnotherVehicle = true">
+                <button type="button" class="toggle-btn" [class.active]="tenantAnotherVehicle === true" (click)="tenantAnotherVehicle = true">
                   Yes
                 </button>
-                <button type="button" class="toggle-btn" (click)="tenantAnotherVehicle = false">
+                <button type="button" class="toggle-btn" [class.active]="tenantAnotherVehicle === false" (click)="tenantAnotherVehicle = false">
                   No
                 </button>
               </div>
@@ -913,7 +918,7 @@
             type="button"
             class="btn-main"
             (click)="openConfirmTenantModal()"
-            [disabled]="tenantSubmitting || (!isUpdateMode && !isTenantFormReady)"
+            [disabled]="tenantSubmitting || !isTenantFormReady"
           >
             {{ isUpdateMode ? 'Update Tenant' : 'Register Tenant' }}
           </button>
