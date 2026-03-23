@@ -1766,14 +1766,14 @@ userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
 
     const security = await userSchema
       .findOne({ emailAddress: email })
-      .select({ assignedComplexes: 1, assignedCommunities: 1 })
+      .select({ assignedCommunities: 1, assignedComplexes: 1 })
       .lean();
 
     if (!security) {
       return res.status(401).json({ message: "Access Denied!" });
     }
 
-    const securityRecord = security as unknown as { assignedComplexes?: unknown; assignedCommunities?: unknown };
+    const securityRecord = security as unknown as { assignedCommunities?: unknown; assignedComplexes?: unknown; };
     const assignedComplexIds: string[] = Array.isArray(securityRecord.assignedComplexes)
       ? securityRecord.assignedComplexes.map(String).filter(Boolean)
       : [];
@@ -1787,7 +1787,7 @@ userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
     let derivedComplexIds: string[] = [];
     if (assignedCommunityIds.length > 0) {
       const communityIdVariants = assignedCommunityIds.flatMap((id) => {
-        const variants: (string | ObjectId)[] = [id];
+        const variants: (ObjectId | string)[] = [id];
         if (ObjectId.isValid(id)) variants.push(new ObjectId(id));
         return variants;
       });
@@ -1795,7 +1795,7 @@ userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
         .find({ _id: { $in: communityIdVariants } })
         .select({ name: 1 })
         .lean();
-      const gcNames = (assignedGCs as unknown as Array<{ name?: unknown }>)
+      const gcNames = (assignedGCs as unknown as { name?: unknown }[])
         .map((gc) => String(gc.name ?? "").trim())
         .filter(Boolean);
       if (gcNames.length > 0) {
@@ -1803,7 +1803,7 @@ userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
           .find({ gatedCommunityName: { $in: gcNames } })
           .select({ _id: 1 })
           .lean();
-        derivedComplexIds = (communityComplexDocs as unknown as Array<{ _id?: unknown }>)
+        derivedComplexIds = (communityComplexDocs as unknown as { _id?: unknown }[])
           .map((c) => String(c._id ?? ""))
           .filter(Boolean);
       }
@@ -1812,12 +1812,12 @@ userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
     const allComplexIds = [...new Set([...assignedComplexIds, ...derivedComplexIds])];
 
     const complexIdVariants = allComplexIds.flatMap((id) => {
-      const variants: (string | ObjectId)[] = [id];
+      const variants: (ObjectId | string)[] = [id];
       if (ObjectId.isValid(id)) variants.push(new ObjectId(id));
       return variants;
     });
     const communityIdVariants = assignedCommunityIds.flatMap((id) => {
-      const variants: (string | ObjectId)[] = [id];
+      const variants: (ObjectId | string)[] = [id];
       if (ObjectId.isValid(id)) variants.push(new ObjectId(id));
       return variants;
     });
@@ -1837,7 +1837,7 @@ userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
     const units = await unitSchema.find({ $or: unitQueryConditions }).select({}).exec();
 
     const allUsers = await userSchema.find({}).select({}).lean();
-    const usersById = new Map((allUsers as unknown as Array<{ _id?: unknown }>).map((u) => [String(u._id ?? ""), u]));
+    const usersById = new Map((allUsers as unknown as { _id?: unknown }[]).map((u) => [String(u._id ?? ""), u]));
 
     const tenantUserIds = new Set<string>();
     for (const unit of units) {

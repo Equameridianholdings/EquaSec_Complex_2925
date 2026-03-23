@@ -1,3 +1,4 @@
+import { Int32 } from "mongodb";
 import mongoose from "mongoose";
 
 const user = new mongoose.Schema({
@@ -26,6 +27,7 @@ const user = new mongoose.Schema({
     unitNumber: { required: false, type: String },
     verificationCode: { required: false, type: String },
     verificationCodeCreatedAt: { required: false, type: Date },
+    visitorsTokens: { default: 5, required: false, type: Int32 },
 })
 
 user.index(

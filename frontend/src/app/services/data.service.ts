@@ -6,18 +6,24 @@ import { Observable } from 'rxjs';
   providedIn: 'root',
 })
 export class DataService {
-  private apiUrl = process.env["NG_APP_API_URI"];
+  private apiUrl = process.env['NG_APP_API_URI'];
 
   constructor(private http: HttpClient) {}
 
-  get<T>(endpoint: string, options?: { headers?: Record<string, string>; params?: Record<string, string | number | boolean> }): Observable<T> {
+  get<T>(
+    endpoint: string,
+    options?: {
+      headers?: Record<string, string>;
+      params?: Record<string, string | number | boolean>;
+    },
+  ): Observable<T> {
     return this.http.get<T>(`${this.apiUrl}/${endpoint}`, options);
   }
 
   post<T>(endpoint: string, data: any): Observable<T> {
     return this.http.post<T>(`${this.apiUrl}/${endpoint}`, data, {
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     });
   }
@@ -25,7 +31,7 @@ export class DataService {
   uniquePost<T>(endpoint: string, data: any): Observable<T> {
     return this.http.post<T>(endpoint, data, {
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     });
   }
@@ -33,7 +39,7 @@ export class DataService {
   put<T>(endpoint: string, data: any): Observable<T> {
     return this.http.patch<T>(`${this.apiUrl}/${endpoint}`, data, {
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     });
   }

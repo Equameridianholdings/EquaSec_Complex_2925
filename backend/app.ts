@@ -22,21 +22,12 @@ export interface ResponseBody {
 
 const app = express();
 
-// Define your list of allowed origins
-const allowedOrigins = ["http://localhost:4200", "http://localhost:8100", "https://equasec.co.za","https://equa-sec-complex-2925-ldhl.vercel.app", "https://18e1-105-245-118-182.ngrok-free.app"]; // Replace with your frontend URLs
-
 // Configure CORS options
 const corsOptions: CorsOptions = {
   credentials: true, // Allow cookies and authentication headers
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], // Specify allowed methods
+  methods: ["GET", "POST", "PATCH", "DELETE"], // Specify allowed methods
   optionsSuccessStatus: 204, // Use 204 for successful OPTIONS requests
-  origin: (origin, callback) => {
-    if (allowedOrigins.includes(origin as unknown as string) || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"), false);
-    }
-  },
+  origin: "*",
 };
 
 app.use(express.json({ limit: '10mb'}));
