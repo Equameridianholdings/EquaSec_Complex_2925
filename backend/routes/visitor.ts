@@ -4,6 +4,7 @@ import logSchema from "#db/logsSchema.js";
 import unitSchema from "#db/unitSchema.js";
 import userSchema from "#db/userSchema.js";
 import visitorShema from "#db/visitorSchema.js";
+import { gatedCommunityDTO } from "#interfaces/gatedCommunityDTO.js";
 import { unitDTO } from "#interfaces/unitDTO.js";
 import { UserDTO } from "#interfaces/userDTO.js";
 import { visitorBodyValidation, visitorDTO } from "#interfaces/visitorDTO.js";
@@ -229,18 +230,18 @@ visitorRouter.get("/security/", async (req, res) => {
     const communityDerivedComplexIds: string[] = [];
     if (security.assignedCommunities && security.assignedCommunities.length > 0) {
       const communities = await gatedCommunitySchema
-        .find({ _id: { $in: security.assignedCommunities } })
+        .find<gatedCommunityDTO>({ _id: { $in: security.assignedCommunities } })
         .select({ name: 1 })
         .lean()
         .exec();
-      const communityNames = communities.map((c: any) => c.name as string).filter(Boolean);
+      const communityNames = communities.map((c) => c.name).filter(Boolean);
       if (communityNames.length > 0) {
         const linkedComplexes = await complexSchema
           .find({
             $or: communityNames.map((n) => ({
               gatedCommunityName: {
-                $regex: `^${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
                 $options: "i",
+                $regex: `^${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
               },
             })),
           })
@@ -259,11 +260,11 @@ visitorRouter.get("/security/", async (req, res) => {
     ];
 
     const guardVisitorQuery = {
-      validity: true,
       $or: [
         { "destination.complex._id": { $in: allComplexIds } },
         { "destination.gatedCommunity._id": { $in: security.assignedCommunities ?? [] } },
       ],
+      validity: true,
     };
     const filteredVisitors = await visitorShema.find<visitorDTO>(guardVisitorQuery).select({}).exec();
 
@@ -388,6 +389,9 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
     const body = req.body as visitorDTO;
     const email = res.get("email");
     const getUser = (await userSchema.findOne({ emailAddress: email }).exec()) as unknown as UserDTO;
+
+    if (getUser.visitorsTokens <= 0) return res.status(403).json({ message: "Can not book visitor! Free trail expired or you have not renewed subscription!" });
+
     const _id = getUser._id as unknown as ObjectId;
 
     const userUnits = await unitSchema.findOne<unitDTO>({ users: _id.toString() }).exec();
@@ -436,7 +440,8 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
 
     const newVisitor = new visitorShema(visitor);
     await newVisitor.save();
-    
+
+    await userSchema.findOneAndUpdate({ emailAddress: getUser.emailAddress}, {$set: { visitorsTokens: getUser.visitorsTokens - 1 }}).exec();    
     res.status(201).json({ message: "Visitor successfully added!", payload: newVisitor });
     return;
   } catch (err: unknown) {

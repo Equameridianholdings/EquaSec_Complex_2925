@@ -31,6 +31,7 @@ export interface UserDTO {
     unitNumber?: string;
     verificationCode?: string;
     verificationCodeCreatedAt?: Date;
+    visitorsTokens: number;
 }
 
 export const userBodyValidation: Schema = {

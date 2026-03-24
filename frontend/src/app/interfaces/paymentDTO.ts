@@ -1,8 +1,7 @@
 export interface ITNPayload {
-  amount_fee: string;
-  amount_gross: string;
-  amount_net: string;
-  billing_date?: string;
+  amount_fee: number;
+  amount_gross: number;
+  amount_net: number;
   custom_int1: string;
   custom_int2: string;
   custom_int3: string;
@@ -23,7 +22,6 @@ export interface ITNPayload {
   payment_status: string;
   pf_payment_id: string;
   signature: string;
-  token?: string;
 }
 
 export interface paymentDTO {
@@ -44,7 +42,6 @@ export interface paymentsSchemaDto {
   amount_fee: number;
   amount_gross: number;
   amount_net: number;
-  billing_date?: Date;
   date: Date;
   email_address: string;
   item_name: string;
@@ -54,5 +51,4 @@ export interface paymentsSchemaDto {
   payment_status: string;
   pf_payment_id: string;
   signature: string;
-  token?: string;
 }

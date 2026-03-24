@@ -2,6 +2,11 @@
   <app-loader />
 }
 <div class="dashboard-container">
+  @if (currentUser().visitorsTokens <= 5) {
+    <div class="bg-red-300 border-8 rounded-2xl border-red-600 p-5 w-full text-center text-red-600 text-lg font-bold">
+      Trial Version Active! You can book in up to {{currentUser().visitorsTokens}} visitors. Subscribe to book in more visitors or contact your security to book in a visitor.
+    </div>
+  }
   <div class="welcome-section">
     <div class="welcome-main">
       <div class="welcome-text">
@@ -72,7 +77,7 @@
       </span>
       <span class="tile-label">Change PIN</span>
     </button>
-    <button type="button" class="tile-card secondary" (click)="openPaymentModal()">
+    <button type="button" class="tile-card secondary" (click)="openPaymentModal()" [disabled]="true">
       <span class="tile-icon">
         <svg
           width="24"

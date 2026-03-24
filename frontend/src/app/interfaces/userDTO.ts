@@ -19,6 +19,7 @@ export interface UserDTO {
   surname: string;
   type: string[];
   unit?: string;
+  visitorsTokens: number;
 }
 
 export interface loginDTO {

@@ -1,8 +1,14 @@
 @if (submitting()) {
   <app-loader />
 }
-<div>
-  <button type="button">Setup Recurring Payment (BETA)</button>
+<div class="container">
+  <div class="p-5 w-full flex flex-col rounded-2xl bg-blue-200 border-4 border-blue-600">
+    <p>Next Payment Due: {{ invoice().dueDate | date: 'short' }}</p>
+    <p>Total Due: {{ invoice().amount | currency: 'R' }}</p>
+  </div>
+  <button type="button" (click)="processSubscriptionPayment('Subsciption-Payment')">
+    Setup Recurring Payment (BETA)
+  </button>
   <button type="button" (click)="processSinglePayment('Single-Payment')">
     Make a Single Payment
   </button>

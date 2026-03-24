@@ -1,26 +1,21 @@
 import complexSchema from "#db/complexSchema.js";
 import gatedCommunitySchema from "#db/gatedCommunity.js";
+import invoiceSchema from "#db/invoiceSchema.js";
+import paymentSchema from "#db/paymentSchema.js";
 import unitSchema from "#db/unitSchema.js";
 import userSchema from "#db/userSchema.js";
-import { ITNPayload, paymentDTO } from "#interfaces/paymentDTO.js";
+import { complexDTO } from "#interfaces/complexDTO.js";
+import { invoiceDTO } from "#interfaces/invoiceDTO.js";
+import { ITNPayload, paymentDTO, paymentsSchemaDto } from "#interfaces/paymentDTO.js";
+import { subscriptionDTO } from "#interfaces/subscriptionDTO.js";
 import { unitDTO } from "#interfaces/unitDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
+import payFastMiddleware from "#middleware/payfast.middleware.js";
 import { createHash } from "crypto";
 import { lookup, LookupAddress } from "dns";
 import { Request, Response, Router } from "express";
+
 const paymentRouter = Router();
-
-paymentRouter.use(AuthMiddleware);
-
-const pfValidSignature = (pfData: ITNPayload, pfParamString: string, pfPassphrase: string) => {
-  // Calculate security signature
-  if (pfPassphrase !== "") {
-    pfParamString += `&passphrase=${encodeURIComponent(pfPassphrase.trim()).replace(/%20/g, "+")}`;
-  }
-
-  const signature = createHash("md5").update(pfParamString).digest("hex");
-  return pfData.signature === signature;
-};
 
 async function ipLookup(domain: string) {
   return new Promise((resolve, reject) => {
@@ -57,34 +52,16 @@ const pfValidIP = async (req: Request) => {
   if (uniqueIps.includes(pfIp)) {
     return true;
   }
+
   return false;
 };
 
-const pfValidPaymentData = (cartTotal: string, pfData: ITNPayload) => {
-  return Math.abs(parseFloat(cartTotal) - parseFloat(pfData.amount_gross.toString())) <= 0.01;
-};
-
-const pfValidServerConfirmation = async (pfHost: string, pfParamString: string) => {
-  const result = await fetch(`https://${pfHost}/eng/query/validate`, {
-    body: JSON.stringify(pfParamString),
-    method: "POST",
-  })
-    .then(async (res) => {
-      return await res.json();
-    })
-    .catch((error: unknown) => {
-      console.error(error);
-    });
-
-  return result === "VALID";
-};
-
-paymentRouter.post("/:passphrase", async (req: Request, res: Response) => {
+paymentRouter.post("/:passphrase", AuthMiddleware, async (req: Request, res: Response) => {
   const email = res.get("email");
   const { passphrase } = req.params;
   const passPhrase = passphrase as string;
-
   const body = req.body as paymentDTO;
+
   try {
     const user = await userSchema.findOne({ emailAddress: email }).exec();
     const unit = await unitSchema.findOne<unitDTO>({ users: user?._id.toString() }).exec();
@@ -122,32 +99,149 @@ paymentRouter.post("/:passphrase", async (req: Request, res: Response) => {
   return res.status(200).json({ message: "Successfully generated signature", payload: uri });
 });
 
-paymentRouter.post("/", async (req: Request, res: Response) => {
-  const pfData = JSON.parse(JSON.stringify(req.body as unknown)) as ITNPayload;
-  console.log(pfData);
-  
-  let pfParamString = "";
-  for (const [key, value] of Object.entries(pfData)) {
-    if (key !== "signature") {
-      pfParamString += `${key}=${encodeURIComponent((value as unknown as string).trim()).replace(/%20/g, "+")}&`;
+paymentRouter.post("/subscribe/:passphrase", AuthMiddleware, async (req: Request, res: Response) => {
+  const email = res.get("email");
+  const { passphrase } = req.params;
+  const passPhrase = passphrase as string;
+  const body = req.body as subscriptionDTO;
+
+  try {
+    const user = await userSchema.findOne({ emailAddress: email }).exec();
+    const unit = await unitSchema.findOne<unitDTO>({ users: user?._id.toString() }).exec();
+    const complexes = await complexSchema.find({}).select({}).exec();
+    const gatedCommunities = await gatedCommunitySchema.find({}).select({}).exec();
+
+    if (unit !== null) {
+      let charge;
+
+      if (unit.complex) {
+        charge = complexes.find((x) => x._id.toString() === unit.complex?._id)?.price;
+      } else {
+        charge = gatedCommunities.find((x) => x._id.toString() === unit.gatedCommunity?._id)?.price;
+      }
+
+      body.amount = charge as unknown as string;
+      body.recurring_amount = charge as unknown as string;
+    }
+  } catch (error: unknown) {
+    res.status(500).json({ message: `Internal Server Error; ${error as string}` });
+    return;
+  }
+
+  let pfOutput = "";
+  for (const [key, value] of Object.entries(body)) {
+    if (value) {
+      const val = value as string;
+      pfOutput += `${key}=${encodeURIComponent(val).replace(/%20/g, "+")}&`;
     }
   }
 
-  // Remove last ampersand
-  pfParamString = pfParamString.slice(0, -1);
-  const PASSPHRASE = process.env.PASSPHRASE;
+  let getString = pfOutput.slice(0, -1);
+  if (passPhrase) {
+    getString += `&passphrase=${encodeURIComponent(passPhrase.trim()).replace(/%20/g, "+")}`;
+  }
 
-  const check1 = pfValidSignature(pfData, pfParamString, PASSPHRASE as unknown as string);
-  const check2 = pfValidIP(req);
-  const check3 = pfValidPaymentData("99", pfData);
-  const check4 = pfValidServerConfirmation("www.payfast.co.za", pfParamString);
+  const hash = createHash("md5").update(getString).digest("hex");
+  const uri = getString + `&signature=${hash.trim()}`;
+  
+  return res.status(200).json({ message: "Successfully generated signature", payload: uri });
+});
 
-  if (check1 && await check2 && check3 && await check4) {
+paymentRouter.post("/", payFastMiddleware, async (req: Request, res: Response) => {
+  const pfData = req.body as Partial<ITNPayload>;
+
+  const check = pfValidIP(req);
+
+  if (await check) {
     // All checks have passed, the payment is successful
+    const newPayment: Partial<paymentsSchemaDto> = {
+      amount_fee: Number.parseFloat(pfData.amount_fee as unknown as string),
+      amount_gross: Number.parseFloat(pfData.amount_gross as unknown as string),
+      amount_net: Number.parseFloat(pfData.amount_net as unknown as string),
+      date: new Date(),
+      email_address: pfData.email_address,
+      item_name: pfData.item_name,
+      name_first: pfData.name_first,
+      name_last: pfData.name_last,
+      payment_id: pfData.m_payment_id,
+      payment_status: pfData.payment_status,
+      pf_payment_id: pfData.pf_payment_id,
+      signature: pfData.signature,
+    };
+
+    if (pfData.token) newPayment.token = pfData.token;
+    if (pfData.billing_date) {
+      newPayment.billing_date = new Date(pfData.billing_date);
+    }
+
+    const payment = new paymentSchema(newPayment);
+    await payment.save();
+
+    const user = await userSchema.findOne({ emailAddress: pfData.email_address }).exec();
+
+    const invoices = await invoiceSchema
+      .find<invoiceDTO>({
+        dueDate: {
+          $gte: new Date(),
+        },
+        invoiceStatus: "Due",
+        "unit.users": user?._id.toString(),
+      })
+      .select({})
+      .exec();
+
+    const filteredInvoice = invoices.reduce((prev, curr) => {
+      const prevDiff = Math.abs(prev.dueDate.getTime() - new Date().getTime());
+      const currDiff = Math.abs(curr.dueDate.getTime() - new Date().getTime());
+
+      // Return the current object if its difference is smaller than the previous smallest
+      return currDiff < prevDiff ? curr : prev;
+    });
+
+    const invoice = await invoiceSchema
+      .findByIdAndUpdate(
+        filteredInvoice._id,
+        {
+          $set: {
+            invoiceStatus: "Paid",
+          },
+        },
+        {
+          returnDocument: "after",
+        },
+      )
+      .exec();
+
+    const unit = await unitSchema.findOne<unitDTO>({ users: user?._id.toString() }).exec();
+    const users = await userSchema.find({}).select({}).exec();
+
+    if (unit) {
+      for (const usr of users) {
+        if ((unit.users as string[]).includes(usr._id.toString()))
+          await userSchema.findByIdAndUpdate(usr._id, { $set: { visitorsTokens: 2147483647 } }).exec();
+      }
+    }
+
+    const complex = await complexSchema.findById<complexDTO>(unit?.complex?._id).exec();
+
+    const date = new Date();
+    date.setMonth(invoice ? invoice.dueDate.getMonth() + 1 : date.getMonth() + 1);
+
+    const _invoice: invoiceDTO = {
+      amount: complex?.price as unknown as number,
+      dueDate: date,
+      invoiceStatus: "Due",
+      issueDate: new Date(),
+      unit: unit as unknown as unitDTO,
+    };
+
+    const newInvoice = new invoiceSchema(_invoice);
+    await newInvoice.save();
+
     return res.status(200);
   } else {
     // Some checks have failed, check payment manually and log for investigation
-    return res.status(400);
+    console.log("Failed Checks");
   }
 });
 

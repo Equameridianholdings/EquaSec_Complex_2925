@@ -11,7 +11,7 @@ export interface unitDTO {
   house?: boolean;
   number: number;
   numberOfParkingBays: number;
-  users: UserDTO[];
+  users: string[] | UserDTO[];
 }
 
 export const unitBodyValidation = checkSchema({

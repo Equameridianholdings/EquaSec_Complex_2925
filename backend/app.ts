@@ -3,6 +3,7 @@ import emergencyContactRouter from "#routes/emergenyContact.js";
 import gatedCommunityRouter from "#routes/gatedCommunity.js";
 import guardHistoryRouter from "#routes/guardHistory.js";
 import incidentRouter from "#routes/incident.js";
+import invoiceRouter from "#routes/invoice.js";
 import logsRouter from "#routes/logs.js";
 import paymentRouter from "#routes/payment.js";
 import securityCompanyRouter from "#routes/securityCompany.js";
@@ -56,5 +57,6 @@ app.use("/vehicle", vehicleRouter);
 app.use("/gatedCommunity", gatedCommunityRouter);
 app.use("/guardHistory", guardHistoryRouter);
 app.use("/payment", paymentRouter);
+app.use("/invoice", invoiceRouter);
 
 export default app;

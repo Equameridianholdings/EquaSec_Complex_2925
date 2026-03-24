@@ -1,14 +1,22 @@
 import { MatDialog } from '@angular/material/dialog';
-import { Component, inject, OnDestroy, signal } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { BookVisitor } from './visitors/book-visitor/book-visitor';
 import { UpdateProfile } from '../update-profile/update-profile';
 import { ChangePin } from '../update-profile/change-pin/change-pin';
 import { StorageService } from '../services/storage.service';
-import { MatSnackBar, MatSnackBarHorizontalPosition, MatSnackBarVerticalPosition } from '@angular/material/snack-bar';
-import { Loader } from "../components/loader/loader";
+import {
+  MatSnackBar,
+  MatSnackBarHorizontalPosition,
+  MatSnackBarVerticalPosition,
+} from '@angular/material/snack-bar';
+import { Loader } from '../components/loader/loader';
 import { Paygate } from '../components/paygate/paygate';
+import { DataService } from '../services/data.service';
+import { UserDTO } from '../interfaces/userDTO';
+import { ResponseBody } from '../interfaces/ResponseBody';
+import { error } from 'console';
 
 @Component({
   selector: 'app-dashboard',
@@ -17,12 +25,24 @@ import { Paygate } from '../components/paygate/paygate';
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
-export class Dashboard implements OnDestroy {
+export class Dashboard implements OnInit, OnDestroy {
   submitting = signal(false);
   private _snackBar = inject(MatSnackBar);
   horizontalPosition: MatSnackBarHorizontalPosition = 'center';
   verticalPosition: MatSnackBarVerticalPosition = 'top';
   menuOpen = false;
+  currentUser = signal<UserDTO>({
+    cellNumber: '',
+    confirmPassword: '',
+    emailAddress: '',
+    movedOut: false,
+    name: '',
+    password: '',
+    profilePhoto: '',
+    surname: '',
+    type: [],
+    visitorsTokens: 0,
+  });
 
   tabs = [
     { label: 'Visitors', path: '/dashboard/visitors', exact: true },
@@ -34,18 +54,29 @@ export class Dashboard implements OnDestroy {
   protected showSosSuccess = false;
   private sosHoldTimer: number | null = null;
   private sosAutoCloseTimer: number | null = null;
-
-  constructor(private readonly router: Router) {}
-
   dialog = inject(MatDialog);
   storage = inject(StorageService);
+  dataService = inject(DataService);
+
+  constructor(private readonly router: Router) {}
+  ngOnInit(): void {
+    this.dataService.get<ResponseBody>('user/current/').subscribe({
+      next: (res) => (this.currentUser.update(() => res.payload as UserDTO)),
+      error: (err) => {
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+      },
+    });
+  }
 
   openBookingModal() {
     this.dialog.open(BookVisitor, {
       data: {
         data: {},
-        endpoint: "visitor/"
-      }
+        endpoint: 'visitor/',
+      },
     });
   }
 
@@ -58,7 +89,11 @@ export class Dashboard implements OnDestroy {
   }
 
   openPaymentModal() {
-    this.dialog.open(Paygate)
+    this.dialog.open(Paygate, {
+      data: {
+        currentUser: this.currentUser(),
+      }
+    });
   }
 
   protected startSosHold(event: Event): void {

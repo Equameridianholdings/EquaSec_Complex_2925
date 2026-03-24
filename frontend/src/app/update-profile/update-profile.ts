@@ -37,6 +37,7 @@ export class UpdateProfile implements OnInit {
     profilePhoto: '',
     surname: '',
     type: [],
+    visitorsTokens: 0
   });
   updatedUser: any = {};
 
