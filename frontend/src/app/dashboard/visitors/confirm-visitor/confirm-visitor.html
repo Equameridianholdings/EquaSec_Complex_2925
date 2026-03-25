@@ -22,7 +22,7 @@
         @if (visitorIdNumber) {
           <p><strong>ID Number:</strong> {{ visitorIdNumber }}</p>
         }
-        <p><strong>Transport:</strong> {{ !visitor.data.driving ? 'Walking' : 'Vehicle' }}</p>
+        <p><strong>Transport:</strong> {{ !visitor.data.driving ? 'Pedestrian' : 'Vehicle' }}</p>
         @if (visitor.data.driving) {
           <ng-container>
             <p><strong>Make:</strong> {{ visitor.data.vehicle?.make }}</p>
