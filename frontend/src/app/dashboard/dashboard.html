@@ -2,11 +2,7 @@
   <app-loader />
 }
 <div class="dashboard-container">
-  @if (currentUser().visitorsTokens <= 5) {
-    <div class="bg-red-300 border-8 rounded-2xl border-red-600 p-5 w-full text-center text-red-600 text-lg font-bold">
-      Trial Version Active! You can book in up to {{currentUser().visitorsTokens}} visitors. Subscribe to book in more visitors or contact your security to book in a visitor.
-    </div>
-  }
+  
   <div class="welcome-section">
     <div class="welcome-main">
       <div class="welcome-text">
@@ -14,7 +10,9 @@
         <h1>Welcome to the <strong>Tenant Portal</strong>.</h1>
       </div>
     </div>
-    <p class="status-badge" [class.active]="true">Account Active</p>
+    <p class="status-badge" [class.active]="true">
+      {{ currentUser().visitorsTokens <= 5 ? 'Free Trial' : 'Account Active' }}
+    </p>
   </div>
 
   <div class="billing-card alert">
