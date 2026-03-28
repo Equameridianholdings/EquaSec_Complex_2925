@@ -10,8 +10,8 @@ import { Visitors } from './dashboard/visitors/visitors';
 import { AllUnits } from './dashboard/all-units/all-units';
 import { Vehicles } from './dashboard/vehicles/vehicles';
 import { Notfound } from './notfound/notfound';
-import { clientGuard } from './client-guard';
 import { ForgetPassword } from './forget-password/forget-password';
+import { clientGuard } from './services/client-guard.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -43,10 +43,11 @@ export const routes: Routes = [
       },
     ],
     canActivate: [clientGuard],
+    data: { roles: ['tenant'] }
   },
-  { path: 'guard-portal', component: GuardPortal, canActivate: [clientGuard] },
-  { path: 'admin-portal', component: AdminPortal, canActivate: [clientGuard] },
-  { path: 'security-manager', component: SecurityManager, canActivate: [clientGuard] },
+  { path: 'guard-portal', component: GuardPortal, canActivate: [clientGuard], data: { roles: ['admin', 'security', 'manager'] } },
+  { path: 'admin-portal', component: AdminPortal, canActivate: [clientGuard], data: { roles: ['admin'] } },
+  { path: 'security-manager', component: SecurityManager, canActivate: [clientGuard], data: { roles: ['admin', 'manager'] }},
   { path: 'forgot-password/:email/:token', component: ForgetPassword },
   { path: '**', component: Notfound },
 ];
