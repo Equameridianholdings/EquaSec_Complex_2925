@@ -1,14 +1,38 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { AuthService } from './auth.service';
+import { Router } from '@angular/router';
+import {
+  MatSnackBar,
+  MatSnackBarHorizontalPosition,
+  MatSnackBarVerticalPosition,
+} from '@angular/material/snack-bar';
 
 @Injectable({
   providedIn: 'root',
 })
 export class DataService {
   private apiUrl = process.env['NG_APP_API_URI'];
-
+  // authService = inject(AuthService);
+  router = inject(Router);
+  // private _snackBar = inject(MatSnackBar);
+  // horizontalPosition: MatSnackBarHorizontalPosition = 'center';
+  // verticalPosition: MatSnackBarVerticalPosition = 'top';
   constructor(private http: HttpClient) {}
+
+  // isValid() {
+  //   if (this.authService.isTokenExpired()) {
+  //     this._snackBar.open('Session Ended!', 'close', {
+  //       horizontalPosition: this.horizontalPosition,
+  //       verticalPosition: this.verticalPosition,
+  //     });
+  //     this.router.navigate(['./login']);
+  //     return false;
+  //   }
+
+  //   return true;
+  // }
 
   get<T>(
     endpoint: string,

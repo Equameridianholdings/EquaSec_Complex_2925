@@ -7,7 +7,7 @@ import userSchema from "#db/userSchema.js";
 import { complexDTO } from "#interfaces/complexDTO.js";
 import { invoiceDTO } from "#interfaces/invoiceDTO.js";
 import { ITNPayload, paymentDTO, paymentsSchemaDto } from "#interfaces/paymentDTO.js";
-import { subscriptionDTO } from "#interfaces/subscriptionDTO.js";
+import { cancelReturnDTO, subscriptionDTO } from "#interfaces/subscriptionDTO.js";
 import { unitDTO } from "#interfaces/unitDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import payFastMiddleware from "#middleware/payfast.middleware.js";
@@ -16,6 +16,8 @@ import { lookup, LookupAddress } from "dns";
 import { Request, Response, Router } from "express";
 
 const paymentRouter = Router();
+const PAYFAST_API = process.env.PAYFAST_API;
+const MERCHANT_ID = process.env.MERCHANT_ID as unknown;
 
 async function ipLookup(domain: string) {
   return new Promise((resolve, reject) => {
@@ -143,7 +145,7 @@ paymentRouter.post("/subscribe/:passphrase", AuthMiddleware, async (req: Request
 
   const hash = createHash("md5").update(getString).digest("hex");
   const uri = getString + `&signature=${hash.trim()}`;
-  
+
   return res.status(200).json({ message: "Successfully generated signature", payload: uri });
 });
 
@@ -169,7 +171,12 @@ paymentRouter.post("/", payFastMiddleware, async (req: Request, res: Response) =
       signature: pfData.signature,
     };
 
-    if (pfData.token) newPayment.token = pfData.token;
+    let isSubscribed = false;
+    if (pfData.token) {
+      newPayment.token = pfData.token;
+      isSubscribed = true;
+    }
+
     if (pfData.billing_date) {
       newPayment.billing_date = new Date(pfData.billing_date);
     }
@@ -231,6 +238,7 @@ paymentRouter.post("/", payFastMiddleware, async (req: Request, res: Response) =
       amount: complex?.price as unknown as number,
       dueDate: date,
       invoiceStatus: "Due",
+      isSubscribed: isSubscribed,
       issueDate: new Date(),
       unit: unit as unknown as unitDTO,
     };
@@ -242,6 +250,69 @@ paymentRouter.post("/", payFastMiddleware, async (req: Request, res: Response) =
   } else {
     // Some checks have failed, check payment manually and log for investigation
     console.log("Failed Checks");
+  }
+});
+
+paymentRouter.get("/cancel", AuthMiddleware, async (req: Request, res: Response) => {
+  const email = res.get("email") as unknown;
+
+  try {
+    const today = new Date();
+
+    const recentPayment = await paymentSchema
+      .findOne<paymentsSchemaDto>({
+        date: { $lte: today },
+        email_address: email as string,
+        token: { $ne: null },
+      })
+      .sort({ dateField: -1 }) // 3. Sort descending (closest to top)
+      .exec();
+
+    if (!recentPayment) return res.status(400).json({ message: "You are not subscribed!" });
+
+    const cancellationPayload = {
+      merchant_id: MERCHANT_ID,
+      signature: recentPayment.signature,
+      timestamp: today,
+      token: recentPayment.token,
+      version: "v1",
+    };
+
+    const request = await fetch(`${PAYFAST_API as unknown as string}/subscriptions/${recentPayment.token as unknown as string}/cancel`, {
+      body: JSON.stringify(cancellationPayload),
+      method: "PUT",
+    });
+
+    const response = (await request.json()) as cancelReturnDTO;
+
+    if (response.status === "success") return res.status(200).json({ message: "Subscription cancelled successfully" });
+
+    return res.status(400).json({ message: "Subscription failed to cancel. Contact equasec for assistance." });
+  } catch (error: unknown) {
+    res.status(500).json({ message: `Internal Server Error ${error as string}` });
+  }
+});
+
+paymentRouter.get("/card", AuthMiddleware, async (req: Request, res: Response) => {
+  const email = res.get("email") as unknown;
+
+  try {
+    const today = new Date();
+
+    const recentPayment = await paymentSchema
+      .findOne<paymentsSchemaDto>({
+        date: { $lte: today },
+        email_address: email as string,
+        token: { $ne: null },
+      })
+      .sort({ dateField: -1 }) // 3. Sort descending (closest to top)
+      .exec();
+
+    if (!recentPayment) return res.status(400).json({ message: "You are not subscribed!" });
+
+    return res.status(200).json({ message: "Subscription retrieved", payload: recentPayment.token });
+  } catch (error: unknown) {
+    res.status(500).json({ message: `Internal Server Error ${error as string}` });
   }
 });
 

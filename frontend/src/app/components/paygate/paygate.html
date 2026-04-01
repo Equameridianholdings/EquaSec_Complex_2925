@@ -2,14 +2,57 @@
   <app-loader />
 }
 <div class="container">
-  <div class="p-5 w-full flex flex-col rounded-2xl bg-blue-200 border-4 border-blue-600">
-    <p>Next Payment Due: {{ invoice().dueDate | date: 'short' }}</p>
-    <p>Total Due: {{ invoice().amount | currency: 'R' }}</p>
+  @if (invoice().isSubscribed) {
+    <div class="flex flex-row w-full items-center justify-between space-x-1">
+      <div
+        class="p-3 w-full flex flex-col rounded-2xl bg-blue-200 border-4 border-blue-600 text-left"
+      >
+        <p>Next Running Payment: {{ invoice().dueDate | date: 'short' }}</p>
+        <p>Total: {{ invoice().amount | currency: 'R' }}</p>
+      </div>
+      <div>
+        <button
+          type="button"
+          (click)="updateCard()"
+          class="w-full my-1"
+        >
+          Update Card
+        </button>
+        <button type="button" (click)="cancelSubscription()" class="w-full my-1">
+          Cancel Subscription
+        </button>
+      </div>
+    </div>
+  } @else {
+    <div class="p-5 w-full flex flex-col rounded-2xl bg-blue-200 border-4 border-blue-600">
+      <p>Next Payment Due: {{ invoice().dueDate | date: 'short' }}</p>
+      <p>Total Due: {{ invoice().amount | currency: 'R' }}</p>
+    </div>
+  }
+  <div class="flex flex-col justify-between space-y-2 mb-5">
+    <div class="text-xl text-blue-500 font-extrabold flex space-x-2 my-4 mx-auto">
+      Pay using <img src="Payfast logo.svg" alt="Description of image" class="w-auto h-10 ml-3" />
+    </div>
+    @if (!invoice().isSubscribed) {
+      <button
+        type="button"
+        (click)="processSubscriptionPayment('Subsciption-Payment')"
+        class="w-full my-1"
+      >
+        Setup Recurring Payment
+      </button>
+    }
+    <button type="button" (click)="processSinglePayment('Single-Payment')" class="w-full my-1">
+      Make a Single Payment
+    </button>
   </div>
-  <button type="button" (click)="processSubscriptionPayment('Subsciption-Payment')">
-    Setup Recurring Payment (BETA)
-  </button>
-  <button type="button" (click)="processSinglePayment('Single-Payment')">
-    Make a Single Payment
-  </button>
+  <div class="flex flex-row justify-between space-x-1 w-full opacity-35">
+    <img src="instantEFT_hi-Res_logo_png.png" alt="secure eft payments" class="w-auto h-10" />
+    <img src="Master Card.png" alt="protected by mastercard" class="w-auto h-10" />
+    <img
+      src="PayGate-3D-Secure-Logo-Verified-by-Visa.png"
+      alt="protected by visa"
+      class="w-auto h-10"
+    />
+  </div>
 </div>

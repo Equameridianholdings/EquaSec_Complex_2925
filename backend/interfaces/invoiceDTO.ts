@@ -7,6 +7,7 @@ export interface invoiceDTO {
   amount: number;
   dueDate: Date;
   invoiceStatus: string;
+  isSubscribed: boolean;
   issueDate: Date;
   unit: unitDTO;
 }

@@ -2,13 +2,11 @@ import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { Location } from '@angular/common';
-import { StorageService } from './storage.service';
 
 export const clientGuard: CanActivateFn = (route: ActivatedRouteSnapshot, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
   const location = inject(Location);
-  const storage = inject(StorageService);
 
   const expectedRoles = route.data['roles'] as string[];
 

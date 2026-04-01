@@ -1,4 +1,10 @@
 /* eslint-disable perfectionist/sort-interfaces */
+export interface cancelReturnDTO {
+  code: number;
+  status: string;
+  data: { response: boolean }
+}
+
 export interface subscriptionDTO {
   merchant_id: string;
   merchant_key: string;

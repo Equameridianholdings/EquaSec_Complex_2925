@@ -33,6 +33,7 @@ invoiceRouter.get("/subscribed", async (req: Request, res: Response) => {
         amount: complex?.price as unknown as number,
         dueDate: new Date(),
         invoiceStatus: "Due",
+        isSubscribed: false,
         issueDate: new Date(),
         unit: unit as unknown as unitDTO,
       };

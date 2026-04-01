@@ -36,6 +36,7 @@ export class Paygate implements OnInit {
     invoiceStatus: '',
     issueDate: new Date(),
     unit: undefined,
+    isSubscribed: false,
   });
   payGateData = inject(MAT_DIALOG_DATA);
   dataService = inject(DataService);
@@ -106,6 +107,40 @@ export class Paygate implements OnInit {
     this.dataService.post<ResponseBody>(`payment/subscribe/${this.PASSPHRASE}`, myData).subscribe({
       next: (res) => {
         window.open(`${this.PAYFAST_URI}/?${res.payload}`, '_blank');
+      },
+    });
+  }
+
+  updateCard() {
+    this.dataService.get<ResponseBody>('payment/card').subscribe({
+      next: (res) => {
+        window.open(
+          `https://www.payfast.co.za/eng/recurring/update/${res.payload}?return=${this.RETURN_URI}`,
+          '_blank',
+        );
+      },
+      error: (err) => {
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+      },
+    });
+  }
+
+  cancelSubscription() {
+    this.dataService.get<ResponseBody>('payment/cancel').subscribe({
+      next: (res) => {
+        this._snackBar.open(res.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+      },
+      error: (err) => {
+        this._snackBar.open(err.error.message, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
       },
     });
   }
