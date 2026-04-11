@@ -19,6 +19,7 @@ const user = new mongoose.Schema({
     name: {required: true, type: String},
     password: { required: true, type: String, unique: true},
     profilePhoto: {type: String},
+    refreshToken: {required: false, type: String},
     residenceType: { required: false, type: String },
     salt: { required: true, type: String, unique: true},
     securityCompany: { type: Object },
@@ -27,7 +28,7 @@ const user = new mongoose.Schema({
     unitNumber: { required: false, type: String },
     verificationCode: { required: false, type: String },
     verificationCodeCreatedAt: { required: false, type: Date },
-    visitorsTokens: { default: 5, required: false, type: Int32 },
+    visitorsTokens: { default: 5, required: false, type: Int32 }
 })
 
 user.index(

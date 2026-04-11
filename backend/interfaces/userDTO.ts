@@ -23,6 +23,7 @@ export interface UserDTO {
     name: string;
     password: string;
     profilePhoto: string;
+    refreshToken?: string;
     residenceType?: "community" | "complex";
     salt?: string;
     securityCompany?: null | { _id: ObjectId; name: string };

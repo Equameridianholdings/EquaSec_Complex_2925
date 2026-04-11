@@ -13,4 +13,5 @@ export const testUser: UserDTO = {
   salt: "",
   surname: "TestSurname",
   type: ["tenant"],
+  visitorsTokens: 0
 };

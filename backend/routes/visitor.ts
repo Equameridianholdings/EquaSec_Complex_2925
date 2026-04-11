@@ -254,16 +254,10 @@ visitorRouter.get("/security/", async (req, res) => {
       }
     }
 
-    const allComplexIds = [
-      ...(security.assignedComplexes ?? []),
-      ...communityDerivedComplexIds,
-    ];
+    const allComplexIds = [...(security.assignedComplexes ?? []), ...communityDerivedComplexIds];
 
     const guardVisitorQuery = {
-      $or: [
-        { "destination.complex._id": { $in: allComplexIds } },
-        { "destination.gatedCommunity._id": { $in: security.assignedCommunities ?? [] } },
-      ],
+      $or: [{ "destination.complex._id": { $in: allComplexIds } }, { "destination.gatedCommunity._id": { $in: security.assignedCommunities ?? [] } }],
       validity: true,
     };
     const filteredVisitors = await visitorShema.find<visitorDTO>(guardVisitorQuery).select({}).exec();
@@ -327,8 +321,8 @@ visitorRouter.post("/security/", visitorBodyValidation, validateSchema, async (r
   try {
     const email = res.get("email");
     const body = req.body as visitorDTO;
-    
-    const getUser = (await userSchema.findOne({ emailAddress: body.destination?.users[0].emailAddress }).exec()) as unknown as UserDTO;
+
+    const getUser = (await userSchema.findOne({ emailAddress: (body.destination?.users[0] as UserDTO).emailAddress }).exec()) as unknown as UserDTO;
     const security = (await userSchema.findOne({ emailAddress: email }).exec()) as unknown as UserDTO;
     const _id = getUser._id as unknown as ObjectId;
 
@@ -390,7 +384,8 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
     const email = res.get("email");
     const getUser = (await userSchema.findOne({ emailAddress: email }).exec()) as unknown as UserDTO;
 
-    if (getUser.visitorsTokens <= 0) return res.status(403).json({ message: "Can not book visitor! Free trail expired or you have not renewed subscription!" });
+    if (getUser.visitorsTokens <= 0)
+      return res.status(403).json({ message: "Can not book visitor! Free trail expired or you have not renewed subscription!" });
 
     const _id = getUser._id as unknown as ObjectId;
 
@@ -441,7 +436,7 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
     const newVisitor = new visitorShema(visitor);
     await newVisitor.save();
 
-    await userSchema.findOneAndUpdate({ emailAddress: getUser.emailAddress}, {$set: { visitorsTokens: getUser.visitorsTokens - 1 }}).exec();    
+    await userSchema.findOneAndUpdate({ emailAddress: getUser.emailAddress }, { $set: { visitorsTokens: getUser.visitorsTokens - 1 } }).exec();
     res.status(201).json({ message: "Visitor successfully added!", payload: newVisitor });
     return;
   } catch (err: unknown) {

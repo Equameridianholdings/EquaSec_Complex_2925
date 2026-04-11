@@ -20,6 +20,7 @@ export interface UserDTO {
   type: string[];
   unit?: string;
   visitorsTokens: number;
+  refreshToken?: string;
 }
 
 export interface loginDTO {
