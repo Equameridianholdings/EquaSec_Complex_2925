@@ -203,6 +203,8 @@
                 #vehicleRegInput
                 (focus)="showRegHint.set(true)"
                 (blur)="showRegHint.set(false)"
+                style="text-transform:uppercase;"
+                (input)="newVehicle.registerationNumber = (newVehicle.registerationNumber || '').toUpperCase()"
               />
               @if (showRegHint()) {
                 <small style="color: #6b7280; margin-top: 0.25rem; display: block;">
