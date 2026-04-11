@@ -201,43 +201,11 @@
     <section class="panel-section">
       <div class="panel-header">
         <h2>Tenant Management</h2>
-        <button class="btn-add" (click)="openTenantModal()">+ Register Tenant</button>
       </div>
 
       <!-- Search and Filter -->
       <div class="search-filter">
         <input type="text" class="search-input" placeholder="🔍 Search by name, address, or phone..." [(ngModel)]="tenantSearchTerm">
-        
-        <select class="filter-select" [(ngModel)]="tenantFilterResidenceType" (change)="onFilterResidenceTypeChange()">
-          <option value="all">All Residence Types</option>
-          <option value="complex">Complex</option>
-          <option value="community">Gated Community</option>
-        </select>
-
-        <!-- Show complex dropdown if Complex selected -->
-        <select *ngIf="tenantFilterResidenceType === 'complex'" class="filter-select" [(ngModel)]="tenantFilterComplexId">
-          <option value="">All Complexes</option>
-          <option *ngFor="let complex of assignedComplexes" [value]="complex.id">{{ complex.name }}</option>
-        </select>
-
-        <!-- Show community dropdowns if Gated Community selected -->
-        <ng-container *ngIf="tenantFilterResidenceType === 'community'">
-          <select class="filter-select" [(ngModel)]="tenantFilterCommunityId" (change)="onFilterCommunityChange()">
-            <option value="">All Gated Communities</option>
-            <option *ngFor="let community of gatedCommunities" [value]="community.id">{{ community.name }}</option>
-          </select>
-
-          <select *ngIf="tenantFilterCommunityId" class="filter-select" [(ngModel)]="tenantFilterCommunityResidenceType" (change)="onFilterCommunityResidenceTypeChange()">
-            <option value="all">All Types</option>
-            <option value="house">Standalone House</option>
-            <option value="complex">Complex/Building</option>
-          </select>
-
-          <select *ngIf="tenantFilterCommunityId && tenantFilterCommunityResidenceType === 'complex'" class="filter-select" [(ngModel)]="tenantFilterCommunityComplexId">
-            <option value="">All Complexes</option>
-            <option *ngFor="let complex of filterAvailableCommunityComplexes" [value]="complex.id">{{ complex.name }}</option>
-          </select>
-        </ng-container>
       </div>
 
       <!-- Tenants Cards Grid -->
@@ -270,7 +238,14 @@
             <div class="card-info-row">
               <span class="info-label">Vehicles:</span>
               <div *ngIf="tenant.vehicles.length > 0" class="plates-list">
-                <span *ngFor="let vehicle of tenant.vehicles" class="plate-badge">{{ vehicle.reg }}</span>
+                <span *ngFor="let vehicle of tenant.vehicles" class="plate-badge vehicle-detail-badge">
+                  <span class="vehicle-reg"><strong>Plate:</strong> {{ vehicle.reg }}</span>
+                  <span class="vehicle-details-inline">
+                    <span *ngIf="vehicle.make">{{ vehicle.make }}</span>
+                    <span *ngIf="vehicle.model"> {{ vehicle.model }}</span>
+                    <span *ngIf="vehicle.color"> ({{ vehicle.color }})</span>
+                  </span>
+                </span>
               </div>
               <span *ngIf="tenant.vehicles.length === 0" class="status-badge no-vehicle">No vehicle</span>
             </div>
@@ -351,10 +326,12 @@
                 <td class="col-visitor-phone">{{ visitor.phone }}</td>
                 <td class="col-vehicle">
                   <span *ngIf="visitor.vehicle; else walkInVehicle" class="vehicle-info">
-                    {{ visitor.vehicle.make }} {{ visitor.vehicle.model }}
-                    <br>
                     <span class="vehicle-reg-plate">{{ visitor.vehicle.reg }}</span>
-                    <span *ngIf="visitor.vehicle.color" class="vehicle-color">{{ visitor.vehicle.color }}</span>
+                    <div class="vehicle-details-stack">
+                      <span *ngIf="visitor.vehicle.make">{{ visitor.vehicle.make }}</span>
+                      <span *ngIf="visitor.vehicle.model"> {{ visitor.vehicle.model }}</span>
+                      <span *ngIf="visitor.vehicle.color"> ({{ visitor.vehicle.color }})</span>
+                    </div>
                   </span>
                   <ng-template #walkInVehicle>
                     <span class="walk-in-badge">Walk-in</span>
