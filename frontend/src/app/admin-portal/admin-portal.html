@@ -27,16 +27,15 @@
       <div class="stat-label">Security Companies</div>
     </div>
     <div class="stat-box">
-      <div class="stat-number">{{ activeContractsCount }}</div>
-      <div class="stat-label">Active Contracts</div>
-    </div>
-    <div class="stat-box">
       <button class="btn-primary" (click)="openOnboardingModal()">➕ Add Complex</button>
     </div>
     <div class="stat-box">
       <button class="btn-primary" (click)="openGatedCommunityModal()">
         ➕ Add Gated Community
       </button>
+    </div>
+    <div class="stat-box">
+      <button class="btn-primary" (click)="openComposeEmailModal()">✉️ Compose Email</button>
     </div>
   </section>
 
@@ -1953,6 +1952,123 @@
             (click)="closeAddSecurityModal()"
           >
             Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+
+@if (showComposeEmailModal) {
+  <div class="modal-overlay" (click)="closeComposeEmailModal()">
+    <div class="modal-card" style="max-width: 760px" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Compose Email</h2>
+        <button class="close-btn" (click)="closeComposeEmailModal()">✕</button>
+      </div>
+
+      <form class="modal-form">
+        <div class="form-group">
+          <label for="emailRecipientSearch">Search recipients</label>
+          <input
+            id="emailRecipientSearch"
+            name="emailRecipientSearch"
+            class="form-control"
+            [(ngModel)]="emailRecipientSearch"
+            placeholder="Search by name, email or type"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Recipients selected: {{ selectedEmailCount }}</label>
+          <div
+            style="max-height: 280px; overflow-y: auto; border: 1px solid #dbe4ee; border-radius: 12px; padding: 12px; background: #f8fafc;"
+          >
+            <div *ngIf="emailUsersByType.length === 0" style="color: #64748b;">
+              No users available for email selection.
+            </div>
+
+            <div *ngFor="let group of emailUsersByType" style="margin-bottom: 14px; border: 1px solid #dbe4ee; border-radius: 10px; background: #fff;">
+              <div style="padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                <label class="checkbox-row" style="font-weight: 700; display: flex; gap: 8px; align-items: center; margin: 0;">
+                  <input
+                    type="checkbox"
+                    [checked]="areAllTypeRecipientsSelected(group.label)"
+                    (change)="toggleTypeSelection(group.label, $any($event.target).checked)"
+                  />
+                  <span>{{ group.label }} ({{ group.users.length }})</span>
+                </label>
+
+                <button
+                  type="button"
+                  class="btn-secondary"
+                  style="padding: 4px 10px; font-size: 16px; line-height: 1; min-width: 36px;"
+                  (click)="toggleEmailTypeCollapse(group.label)"
+                  [attr.aria-label]="isEmailTypeCollapsed(group.label) ? 'Expand user list' : 'Collapse user list'"
+                  [title]="isEmailTypeCollapsed(group.label) ? 'Expand' : 'Collapse'"
+                >
+                  {{ isEmailTypeCollapsed(group.label) ? '▾' : '▴' }}
+                </button>
+              </div>
+
+              <div *ngIf="!isEmailTypeCollapsed(group.label)" style="margin-left: 20px; margin-right: 12px; margin-bottom: 12px; display: grid; gap: 6px;">
+                <label
+                  *ngFor="let user of group.users"
+                  class="checkbox-row"
+                  style="display: flex; gap: 8px; align-items: flex-start; font-weight: 400;"
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="isRecipientSelected(user.emailAddress)"
+                    (change)="toggleRecipientSelection(user.emailAddress, $any($event.target).checked)"
+                  />
+                  <span>
+                    {{ user.name }} {{ user.surname }}
+                    <small style="display: block; color: #64748b;">{{ user.emailAddress }}</small>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="emailSubject">Subject</label>
+          <input
+            id="emailSubject"
+            name="emailSubject"
+            class="form-control"
+            [(ngModel)]="emailSubject"
+            placeholder="Enter email subject"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="emailMessage">Message</label>
+          <textarea
+            id="emailMessage"
+            name="emailMessage"
+            class="form-control"
+            [(ngModel)]="emailMessage"
+            rows="8"
+            placeholder="Write your message here"
+          ></textarea>
+        </div>
+
+        <small class="error-text" *ngIf="emailComposeError">{{ emailComposeError }}</small>
+        <small class="success-text" *ngIf="emailComposeSuccess">{{ emailComposeSuccess }}</small>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" (click)="closeComposeEmailModal()">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn-primary"
+            [disabled]="sendingComposedEmail || !selectedEmailCount || !emailSubject.trim() || !emailMessage.trim()"
+            (click)="submitComposedEmail()"
+          >
+            {{ sendingComposedEmail ? 'Sending...' : 'Send Email' }}
           </button>
         </div>
       </form>

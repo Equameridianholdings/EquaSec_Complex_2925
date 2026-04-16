@@ -11,7 +11,7 @@ import RoleMiddleware from "#middleware/role.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 // import { encrypt } from "#utils/encryption.js";
 import GenerateJWT from "#utils/generateJWT.js";
-import { SendEmailOptions, sendForgotPasswordEmail, sendSecurityCompanyCode } from "#utils/sendEmail.js";
+import { SendEmailOptions, sendCustomEmail, sendForgotPasswordEmail, sendSecurityCompanyCode } from "#utils/sendEmail.js";
 import VerifyToken from "#utils/verifyToken.js";
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
@@ -1756,6 +1756,73 @@ userRouter.get("/", AuthMiddleware, async (req, res) => {
 });
 
 //gets tenants by area of security occupation
+userRouter.post("/compose-email", AuthMiddleware, async (req, res) => {
+  try {
+    const requesterEmail = String(res.get("email") ?? "")
+      .trim()
+      .toLowerCase();
+
+    if (!requesterEmail) {
+      return res.status(401).json({ message: "Access Denied!" });
+    }
+
+    const requester = await userSchema.findOne({ emailAddress: requesterEmail }).select({ type: 1 }).lean();
+    const requesterTypes = Array.isArray(requester?.type)
+      ? requester.type.map((role) => String(role).trim().toLowerCase())
+      : [];
+
+    if (!requesterTypes.includes("admin")) {
+      return res.status(403).json({ message: "Only admins can send composed emails." });
+    }
+
+    const body = req.body as { message?: unknown; recipients?: unknown; subject?: unknown };
+    const subject = String(body.subject ?? "").trim();
+    const message = String(body.message ?? "").trim();
+    const requestedRecipients = Array.isArray(body.recipients)
+      ? body.recipients
+          .map((recipient) => String(recipient ?? "").trim().toLowerCase())
+          .filter((recipient) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient))
+      : [];
+
+    if (!subject || !message || requestedRecipients.length === 0) {
+      return res.status(400).json({
+        message: "Recipients, subject, and message are required.",
+      });
+    }
+
+    const matchedUsers = await userSchema
+      .find({ emailAddress: { $in: requestedRecipients } })
+      .select({ emailAddress: 1 })
+      .lean();
+
+    const validRecipients = Array.from(
+      new Set(
+        matchedUsers
+          .map((user) => String(user.emailAddress ?? "").trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    );
+
+    if (validRecipients.length === 0) {
+      return res.status(400).json({ message: "Please select valid user email addresses." });
+    }
+
+    await sendCustomEmail({
+      message,
+      recipients: validRecipients,
+      subject,
+    });
+
+    return res.status(200).json({
+      message: `Email sent successfully to ${validRecipients.length} recipient(s).`,
+      payload: { count: validRecipients.length },
+    });
+  } catch (error) {
+    console.error("[user][compose-email] failed", error);
+    return res.status(500).json({ message: "Unable to send the composed email." });
+  }
+});
+
 userRouter.get("/tenants", AuthMiddleware, async (req, res) => {
   try {
     const email = res.get("email");

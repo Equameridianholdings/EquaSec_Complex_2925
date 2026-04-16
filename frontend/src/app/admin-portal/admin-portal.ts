@@ -397,6 +397,212 @@ export class AdminPortal implements OnInit, AfterViewInit {
     this.removeSecurityError = '';
   }
 
+  protected openComposeEmailModal(): void {
+    this.showComposeEmailModal = true;
+    this.emailComposeError = '';
+    this.emailComposeSuccess = '';
+
+    if (!this.allUsersForEmail.length) {
+      this.loadEmailRecipients();
+    }
+  }
+
+  protected closeComposeEmailModal(): void {
+    this.showComposeEmailModal = false;
+    this.selectedEmailRecipients = [];
+    this.emailSubject = '';
+    this.emailMessage = '';
+    this.emailRecipientSearch = '';
+    this.emailComposeError = '';
+    this.emailComposeSuccess = '';
+  }
+
+  private loadEmailRecipients(): void {
+    this.loading.update(() => true);
+    this.dataService.get<ResponseBody>('user').subscribe({
+      next: (response) => {
+        const payload = Array.isArray(response?.payload) ? response.payload : [];
+        this.allUsersForEmail = payload
+          .filter((user: any) => String(user?.emailAddress ?? '').trim().length > 0)
+          .map((user: any) => ({
+            _id: String(user?._id ?? ''),
+            emailAddress: String(user?.emailAddress ?? '').trim().toLowerCase(),
+            name: String(user?.name ?? '').trim(),
+            surname: String(user?.surname ?? '').trim(),
+            type: Array.isArray(user?.type) ? user.type : [user?.type].filter(Boolean),
+          }));
+        this.collapsedEmailTypes = this.allUsersForEmail.reduce(
+          (state: Record<string, boolean>, user: any) => {
+            const label = this.getEmailTypeLabel(user);
+            if (!(label in state)) {
+              state[label] = true;
+            }
+            return state;
+          },
+          {},
+        );
+        this.loading.update(() => false);
+      },
+      error: (err) => {
+        this.allUsersForEmail = [];
+        this.emailComposeError = err?.error?.message ?? 'Unable to load user email addresses.';
+        this._snackBar.open(this.emailComposeError, 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.loading.update(() => false);
+      },
+    });
+  }
+
+  protected get filteredEmailUsers(): Array<any> {
+    const query = this.emailRecipientSearch.trim().toLowerCase();
+    if (!query) {
+      return this.allUsersForEmail;
+    }
+
+    return this.allUsersForEmail.filter((user) => {
+      const fullName = `${user.name} ${user.surname}`.trim().toLowerCase();
+      return (
+        fullName.includes(query) ||
+        String(user.emailAddress ?? '').toLowerCase().includes(query) ||
+        this.getEmailTypeLabel(user).toLowerCase().includes(query)
+      );
+    });
+  }
+
+  protected get emailUsersByType(): Array<{ label: string; users: any[] }> {
+    const grouped = new Map<string, any[]>();
+
+    this.filteredEmailUsers.forEach((user) => {
+      const label = this.getEmailTypeLabel(user);
+      const existing = grouped.get(label) ?? [];
+      existing.push(user);
+      grouped.set(label, existing);
+    });
+
+    return Array.from(grouped.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([label, users]) => ({
+        label,
+        users: users.sort((a, b) =>
+          `${a.name} ${a.surname}`.trim().localeCompare(`${b.name} ${b.surname}`.trim()),
+        ),
+      }));
+  }
+
+  protected get selectedEmailCount(): number {
+    return this.selectedEmailRecipients.length;
+  }
+
+  protected isRecipientSelected(email: string): boolean {
+    return this.selectedEmailRecipients.includes(String(email ?? '').trim().toLowerCase());
+  }
+
+  protected toggleRecipientSelection(email: string, checked: boolean): void {
+    const normalizedEmail = String(email ?? '').trim().toLowerCase();
+    const selected = new Set(this.selectedEmailRecipients);
+
+    if (checked) {
+      selected.add(normalizedEmail);
+    } else {
+      selected.delete(normalizedEmail);
+    }
+
+    this.selectedEmailRecipients = Array.from(selected);
+  }
+
+  protected areAllTypeRecipientsSelected(label: string): boolean {
+    const group = this.emailUsersByType.find((entry) => entry.label === label)?.users ?? [];
+    return group.length > 0 && group.every((user) => this.isRecipientSelected(user.emailAddress));
+  }
+
+  protected isEmailTypeCollapsed(label: string): boolean {
+    return this.collapsedEmailTypes[label] ?? true;
+  }
+
+  protected toggleEmailTypeCollapse(label: string): void {
+    this.collapsedEmailTypes[label] = !this.isEmailTypeCollapsed(label);
+  }
+
+  protected toggleTypeSelection(label: string, checked: boolean): void {
+    const group = this.emailUsersByType.find((entry) => entry.label === label)?.users ?? [];
+    const selected = new Set(this.selectedEmailRecipients);
+
+    group.forEach((user) => {
+      const email = String(user.emailAddress ?? '').trim().toLowerCase();
+      if (!email) {
+        return;
+      }
+
+      if (checked) {
+        selected.add(email);
+      } else {
+        selected.delete(email);
+      }
+    });
+
+    this.selectedEmailRecipients = Array.from(selected);
+  }
+
+  protected submitComposedEmail(): void {
+    this.emailComposeError = '';
+    this.emailComposeSuccess = '';
+    this.sendingComposedEmail = true;
+
+    if (!this.selectedEmailRecipients.length) {
+      this.sendingComposedEmail = false;
+      this.emailComposeError = 'Please select at least one recipient.';
+      return;
+    }
+
+    if (!this.emailSubject.trim() || !this.emailMessage.trim()) {
+      this.emailComposeError = 'Subject and message are required.';
+      this.sendingComposedEmail = false;
+      return;
+    }
+
+    this.loading.update(() => true);
+    this.dataService
+      .post<ResponseBody>('user/compose-email', {
+        message: this.emailMessage.trim(),
+        recipients: this.selectedEmailRecipients,
+        subject: this.emailSubject.trim(),
+      })
+      .subscribe({
+        next: (response) => {
+          this.emailComposeSuccess = response?.message ?? 'Email sent successfully.';
+          this.triggerToast(this.emailComposeSuccess);
+          this.sendingComposedEmail = false;
+          this.loading.update(() => false);
+          setTimeout(() => this.closeComposeEmailModal(), 1000);
+        },
+        error: (err) => {
+          this.emailComposeError = err?.error?.message ?? 'Unable to send the composed email.';
+          this._snackBar.open(this.emailComposeError, 'close', {
+            horizontalPosition: this.horizontalPosition,
+            verticalPosition: this.verticalPosition,
+          });
+          this.sendingComposedEmail = false;
+          this.loading.update(() => false);
+        },
+      });
+  }
+
+  private getEmailTypeLabel(user: any): string {
+    const types = Array.isArray(user?.type) ? user.type : [user?.type].filter(Boolean);
+    if (!types.length) {
+      return 'Other';
+    }
+
+    return types
+      .map((type: unknown) => {
+        const value = String(type ?? '').trim().toLowerCase();
+        return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Other';
+      })
+      .join(' / ');
+  }
+
   // Form state for add/remove
   protected newSecurityCompany: SecurityCompanyFormDTO = {
     companyName: '',
@@ -1197,6 +1403,16 @@ export class AdminPortal implements OnInit, AfterViewInit {
   protected filteredVisitorHistory: Array<any> = [];
 
   protected registeredSecurityCompanies: Array<any> = [];
+  protected showComposeEmailModal = false;
+  protected allUsersForEmail: Array<any> = [];
+  protected selectedEmailRecipients: string[] = [];
+  protected emailSubject = '';
+  protected emailMessage = '';
+  protected emailRecipientSearch = '';
+  protected emailComposeError = '';
+  protected emailComposeSuccess = '';
+  protected sendingComposedEmail = false;
+  protected collapsedEmailTypes: Record<string, boolean> = {};
 
   protected contractHistory: Array<any> = [];
 

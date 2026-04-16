@@ -20,6 +20,12 @@ interface SendCodeOptions {
   to: string;
 }
 
+interface SendCustomEmailOptions {
+  message: string;
+  recipients: string[];
+  subject: string;
+}
+
 interface SmtpConfig {
   from: string;
   host: string;
@@ -92,6 +98,75 @@ export async function sendForgotPasswordEmail(options: SendEmailOptions): Promis
   if (Array.isArray(result.rejected) && result.rejected.length > 0) {
     throw new Error(`SMTP rejected recipients: ${result.rejected.map(String).join(", ")}`);
   }
+
+  return true;
+}
+
+export async function sendCustomEmail(options: SendCustomEmailOptions): Promise<boolean> {
+  const smtp = getSmtpConfig();
+  const transporter = nodemailer.createTransport({
+    auth: {
+      pass: smtp.pass,
+      user: smtp.user,
+    },
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+  });
+
+  await transporter.verify();
+
+  const footerLogoAttachment = getFooterLogoAttachment();
+  const recipients = Array.from(
+    new Set(
+      (options.recipients ?? [])
+        .map((recipient) => String(recipient ?? '').trim().toLowerCase())
+        .filter((recipient) => recipient.length > 0),
+    ),
+  );
+
+  if (recipients.length === 0) {
+    throw new Error('At least one recipient is required.');
+  }
+
+  const safeMessage = escapeEmailHtml(String(options.message ?? '').trim()).replace(/\n/g, '<br />');
+  const subject = String(options.subject ?? '').trim();
+  const text = `${String(options.message ?? '').trim()}\n\nKind regards,\nThe EquaSec Team`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; padding: 24px;">
+      <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px;">
+        <h2 style="margin: 0 0 12px; color: #1e3a5f;">${escapeEmailHtml(subject)}</h2>
+        <p style="margin: 0 0 16px;">Please see the message below from the EquaSec admin team.</p>
+        <div style="margin: 16px 0; padding: 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; white-space: normal;">
+          ${safeMessage}
+        </div>
+        <p style="margin: 0;">Kind regards,<br />The EquaSec Team</p>
+
+        ${footerLogoAttachment ? `
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
+            <img
+              src="cid:${EMAIL_FOOTER_IMAGE_CID}"
+              alt="Equameridian Holdings"
+              style="max-width: 220px; width: 100%; height: auto; display: inline-block;"
+            />
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  await Promise.all(
+    recipients.map((recipient) =>
+      transporter.sendMail({
+        attachments: footerLogoAttachment ? [footerLogoAttachment] : [],
+        from: `EquaSec <${smtp.from}>`,
+        html,
+        subject,
+        text,
+        to: recipient,
+      }),
+    ),
+  );
 
   return true;
 }
@@ -212,6 +287,15 @@ export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise
   }
 
   return true;
+}
+
+function escapeEmailHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function getFooterLogoAttachment() {
