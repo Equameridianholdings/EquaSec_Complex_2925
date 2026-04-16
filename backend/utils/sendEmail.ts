@@ -8,6 +8,7 @@ const CLIENT_URI = process.env.CLIENT_URI;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const EMAIL_FOOTER_IMAGE_CID = "equameridian-footer-logo";
+const EMAIL_FOOTER_WEBSITE = "https://www.equameridianholdings.com/";
 export interface SendEmailOptions {
   hash: string;
   to: string;
@@ -144,11 +145,22 @@ export async function sendCustomEmail(options: SendCustomEmailOptions): Promise<
 
         ${footerLogoAttachment ? `
           <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
-            <img
-              src="cid:${EMAIL_FOOTER_IMAGE_CID}"
-              alt="Equameridian Holdings"
-              style="max-width: 220px; width: 100%; height: auto; display: inline-block;"
-            />
+            <a
+              href="${EMAIL_FOOTER_WEBSITE}"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Visit Equameridian Holdings"
+              style="display: inline-block; text-decoration: none; cursor: pointer;"
+            >
+              <img
+                src="cid:${EMAIL_FOOTER_IMAGE_CID}"
+                alt="Equameridian Holdings"
+                style="max-width: 220px; width: 100%; height: auto; display: inline-block; cursor: pointer;"
+              />
+            </a>
+            <div style="margin-top: 8px; font-size: 13px; color: #2563eb;">
+              Click the logo to visit our website
+            </div>
           </div>
         ` : ''}
       </div>
@@ -222,11 +234,8 @@ export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise
 
   const footerLogoAttachment = getFooterLogoAttachment();
   const subject = "Welcome to EquaSec - Your Account Details";
-  const companyLine = options.companyName ? `Company: ${options.companyName}\n` : "";
-  const introduction = options.companyName
-    ? `An EquaSec account has been created for you under ${options.companyName}.`
-    : "An EquaSec account has been created for you.";
-  const text = `Welcome to EquaSec.\n\n${introduction}\n\nPlease use the details below to sign in:\nUsername: ${options.to}\nTemporary Password: ${options.code}\n${companyLine}\nLogin Portal: https://equasec.co.za/login\nProduct Guide & Training Videos: https://info.equasec.co.za/\n\nFor security, please sign in and update your password as soon as possible.\n\nIf you were not expecting this email, please ignore it.\n\nKind regards,\nThe EquaSec Team`;
+  const introduction = "An EquaSec account has been created for you.";
+  const text = `Welcome to EquaSec.\n\n${introduction}\n\nPlease use the details below to sign in:\nUsername: ${options.to}\nTemporary Password: ${options.code}\n\nLogin Portal: https://equasec.co.za/login\nProduct Guide & Training Videos: https://info.equasec.co.za/\n\nFor security, please sign in and update your password as soon as possible.\n\nIf you were not expecting this email, please ignore it.\n\nKind regards,\nThe EquaSec Team`;
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; padding: 24px;">
       <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px;">
@@ -237,7 +246,6 @@ export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise
         <div style="margin: 16px 0; padding: 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
           <div><strong>Username:</strong> ${options.to}</div>
           <div><strong>Temporary Password:</strong> ${options.code}</div>
-          ${options.companyName ? `<div><strong>Security Company:</strong> ${options.companyName}</div>` : ""}
         </div>
 
         <p style="margin: 0 0 10px;">
@@ -255,11 +263,22 @@ export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise
 
         ${footerLogoAttachment ? `
           <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
-            <img
-              src="cid:${EMAIL_FOOTER_IMAGE_CID}"
-              alt="Equameridian Holdings"
-              style="max-width: 220px; width: 100%; height: auto; display: inline-block;"
-            />
+            <a
+              href="${EMAIL_FOOTER_WEBSITE}"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Visit Equameridian Holdings"
+              style="display: inline-block; text-decoration: none; cursor: pointer;"
+            >
+              <img
+                src="cid:${EMAIL_FOOTER_IMAGE_CID}"
+                alt="Equameridian Holdings"
+                style="max-width: 220px; width: 100%; height: auto; display: inline-block; cursor: pointer;"
+              />
+            </a>
+            <div style="margin-top: 8px; font-size: 13px; color: #2563eb;">
+              Click the logo to visit our website
+            </div>
           </div>
         ` : ""}
       </div>
