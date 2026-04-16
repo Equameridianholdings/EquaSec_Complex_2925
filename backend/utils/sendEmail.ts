@@ -1,7 +1,13 @@
 import { UserDTO } from "#interfaces/userDTO.js";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
 
 const CLIENT_URI = process.env.CLIENT_URI;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const EMAIL_FOOTER_IMAGE_CID = "equameridian-footer-logo";
 export interface SendEmailOptions {
   hash: string;
   to: string;
@@ -139,27 +145,54 @@ export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise
     throw error;
   }
 
-  const subject = "Your EquaSec login code";
+  const footerLogoAttachment = getFooterLogoAttachment();
+  const subject = "Welcome to EquaSec - Your Account Details";
   const companyLine = options.companyName ? `Company: ${options.companyName}\n` : "";
-  const text = `Welcome to EquaSec.\n\nUsername: ${options.to}\nPassword: ${options.code}\n${companyLine}\nUse this code to log in. If you did not request this, ignore this email.`;
+  const introduction = options.companyName
+    ? `An EquaSec account has been created for you under ${options.companyName}.`
+    : "An EquaSec account has been created for you.";
+  const text = `Welcome to EquaSec.\n\n${introduction}\n\nPlease use the details below to sign in:\nUsername: ${options.to}\nTemporary Password: ${options.code}\n${companyLine}\nLogin Portal: https://equasec.co.za/login\nProduct Guide & Training Videos: https://info.equasec.co.za/\n\nFor security, please sign in and update your password as soon as possible.\n\nIf you were not expecting this email, please ignore it.\n\nKind regards,\nThe EquaSec Team`;
   const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #1e293b;">
-      <h2 style="margin: 0 0 12px; color: #1e3a5f;">EquaSec Login Details</h2>
-      <p>Use the following credentials to log in:</p>
-      <div style="margin: 12px 0;">
-        <div><strong>Username:</strong> ${options.to}</div>
-        <div><strong>Password:</strong> ${options.code}</div>
-      </div>
-      ${options.companyName ? `<p>Security Company: ${options.companyName}</p>` : ""}
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; padding: 24px;">
+      <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px;">
+        <h2 style="margin: 0 0 12px; color: #1e3a5f;">Welcome to EquaSec</h2>
+        <p style="margin: 0 0 12px;">${introduction}</p>
+        <p style="margin: 0 0 16px;">Please use the account details below to sign in to the platform.</p>
 
-      <p>Please use the provided login details to sign in: 
-   <a href="https://equasec.co.za/login">https://equasec.co.za/login</a>
-</p>
-      <p>If you did not request this, you can ignore this email.</p>
+        <div style="margin: 16px 0; padding: 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+          <div><strong>Username:</strong> ${options.to}</div>
+          <div><strong>Temporary Password:</strong> ${options.code}</div>
+          ${options.companyName ? `<div><strong>Security Company:</strong> ${options.companyName}</div>` : ""}
+        </div>
+
+        <p style="margin: 0 0 10px;">
+          <strong>Login Portal:</strong>
+          <a href="https://equasec.co.za/login">https://equasec.co.za/login</a>
+        </p>
+        <p style="margin: 0 0 16px;">
+          <strong>Product Guide & Training Videos:</strong>
+          <a href="https://info.equasec.co.za/">https://info.equasec.co.za/</a>
+        </p>
+
+        <p style="margin: 0 0 12px;">For security, please sign in and update your password as soon as possible.</p>
+        <p style="margin: 0 0 12px;">If you were not expecting this email, please ignore it.</p>
+        <p style="margin: 0;">Kind regards,<br />The EquaSec Team</p>
+
+        ${footerLogoAttachment ? `
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
+            <img
+              src="cid:${EMAIL_FOOTER_IMAGE_CID}"
+              alt="Equameridian Holdings"
+              style="max-width: 220px; width: 100%; height: auto; display: inline-block;"
+            />
+          </div>
+        ` : ""}
+      </div>
     </div>
   `;
 
   const result = await transporter.sendMail({
+    attachments: footerLogoAttachment ? [footerLogoAttachment] : [],
     from: `EquaSec <${smtp.from}>`,
     html,
     subject,
@@ -179,6 +212,26 @@ export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise
   }
 
   return true;
+}
+
+function getFooterLogoAttachment() {
+  const candidatePaths = [
+    path.resolve(process.cwd(), "frontend/public/Equameridian Holdings .jpeg"),
+    path.resolve(process.cwd(), "../frontend/public/Equameridian Holdings .jpeg"),
+    path.resolve(__dirname, "../../frontend/public/Equameridian Holdings .jpeg"),
+  ];
+
+  const resolvedPath = candidatePaths.find((candidate) => fs.existsSync(candidate));
+
+  if (!resolvedPath) {
+    return undefined;
+  }
+
+  return {
+    cid: EMAIL_FOOTER_IMAGE_CID,
+    filename: "Equameridian Holdings.jpeg",
+    path: resolvedPath,
+  };
 }
 
 function getSmtpConfig(): SmtpConfig {

@@ -198,11 +198,13 @@
                 type="text"
                 class="form-control"
                 placeholder="e.g. ABC 123 GP"
-                [(ngModel)]="newVehicle.registerationNumber"
+                [ngModel]="newVehicle.registerationNumber"
+                (ngModelChange)="newVehicle.registerationNumber = ($event ?? '').toUpperCase()"
                 required
                 #vehicleRegInput
                 (focus)="showRegHint.set(true)"
                 (blur)="showRegHint.set(false)"
+                style="text-transform: uppercase"
               />
               @if (showRegHint()) {
                 <small style="color: #6b7280; margin-top: 0.25rem; display: block;">
