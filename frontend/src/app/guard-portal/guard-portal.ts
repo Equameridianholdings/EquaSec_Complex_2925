@@ -80,6 +80,32 @@ export class GuardPortal implements OnInit, OnDestroy {
     return gc?.complexesInCommunity ?? [];
   }
 
+  private getResidenceSortValue(item: any): string {
+    return String(item?.unit ?? item?.houseNumber ?? '').trim();
+  }
+
+  private sortByResidenceAscending<T>(items: T[]): T[] {
+    return [...items].sort((a: any, b: any) => {
+      const left = this.getResidenceSortValue(a);
+      const right = this.getResidenceSortValue(b);
+      const byUnit = left.localeCompare(right, undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+
+      if (byUnit !== 0) {
+        return byUnit;
+      }
+
+      const leftLabel = String(a?.name ?? a?.regNumber ?? '').trim();
+      const rightLabel = String(b?.name ?? b?.regNumber ?? '').trim();
+      return leftLabel.localeCompare(rightLabel, undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    });
+  }
+
   protected get filteredResidents(): any[] {
     const allResidents = Array.isArray(this.residents) ? this.residents : [];
     const selectedComplexId = String(this.filtersForm.selectedComplex || '').trim();
@@ -126,12 +152,14 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     const unitQuery = (this.filtersForm.searchUnit || '').trim().toLowerCase();
     if (!unitQuery) {
-      return [...stationResidents];
+      return this.sortByResidenceAscending(stationResidents);
     }
-    return stationResidents.filter((resident) => {
-      const unit = (resident.unit || resident.houseNumber || '').toString().toLowerCase();
-      return unit === unitQuery;
-    });
+    return this.sortByResidenceAscending(
+      stationResidents.filter((resident) => {
+        const unit = (resident.unit || resident.houseNumber || '').toString().toLowerCase();
+        return unit === unitQuery;
+      }),
+    );
   }
 
   // No need to assign filtered lists, just trigger change detection
@@ -2798,7 +2826,7 @@ export class GuardPortal implements OnInit, OnDestroy {
     if (regQuery) {
       all = all.filter((vehicle) => (vehicle.regNumber || '').toLowerCase().includes(regQuery));
     }
-    return all;
+    return this.sortByResidenceAscending(all);
   }
 
   protected getResidentInitials(name: string): string {
