@@ -11,7 +11,7 @@ import RoleMiddleware from "#middleware/role.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 // import { encrypt } from "#utils/encryption.js";
 import GenerateJWT from "#utils/generateJWT.js";
-import { SendEmailOptions, sendCustomEmail, sendForgotPasswordEmail, sendSecurityCompanyCode } from "#utils/sendEmail.js";
+import { sendCustomEmail, SendEmailOptions, sendForgotPasswordEmail, sendSecurityCompanyCode } from "#utils/sendEmail.js";
 import VerifyToken from "#utils/verifyToken.js";
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
@@ -1814,7 +1814,7 @@ userRouter.post("/compose-email", AuthMiddleware, async (req, res) => {
     });
 
     return res.status(200).json({
-      message: `Email sent successfully to ${validRecipients.length} recipient(s).`,
+      message: `Email sent successfully to ${String(validRecipients.length)} recipient(s).`,
       payload: { count: validRecipients.length },
     });
   } catch (error) {
