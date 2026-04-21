@@ -77,6 +77,20 @@
 .visitors-table th:nth-child(6) { min-width: 110px; }
 .visitors-table th:nth-child(7) { min-width: 140px; }
 
+/* Incidents table column widths */
+.incidents-table th:nth-child(1) { min-width: 130px; }
+.incidents-table th:nth-child(2) { min-width: 130px; }
+.incidents-table th:nth-child(3) { min-width: 140px; }
+.incidents-table th:nth-child(4) { min-width: 260px; }
+
+.col-incident-description {
+	max-width: 340px;
+	white-space: pre-wrap;
+	word-break: break-word;
+	line-height: 1.5;
+	color: #334155;
+}
+
 @media (max-width: 900px) {
 	.visitors-table th {
 		padding-left: 10px;
@@ -260,6 +274,98 @@
 .btn-logout:hover {
 	background: rgba(255, 255, 255, 0.25);
 	border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Notification Bell */
+.notification-bell {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	cursor: default;
+}
+
+.notification-bell.has-alerts {
+	animation: bell-pulse 2s infinite;
+}
+
+@keyframes bell-pulse {
+	0%, 100% { filter: drop-shadow(0 0 0 rgba(220, 38, 38, 0.4)); }
+	50% { filter: drop-shadow(0 0 4px rgba(220, 38, 38, 0.8)); }
+}
+
+.bell-icon {
+	font-size: 16px;
+	line-height: 1;
+}
+
+.bell-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	background: #dc2626;
+	color: #ffffff;
+	border-radius: 9px;
+	font-size: 10px;
+	font-weight: 800;
+	line-height: 1;
+}
+
+.sos-optin-top-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 0;
+}
+
+.sos-optin-control.has-alerts {
+	border-color: rgba(220, 38, 38, 0.6);
+	background: rgba(220, 38, 38, 0.15);
+}
+
+/* SOS Panel highlight when there are active alerts */
+.sos-panel {
+	border: 1.5px solid var(--manager-border);
+	transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.sos-panel:has(.sos-count-badge) {
+	border-color: rgba(220, 38, 38, 0.4);
+	box-shadow: 0 10px 30px rgba(220, 38, 38, 0.08);
+}
+
+.sos-count-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 6px 14px;
+	background: rgba(220, 38, 38, 0.1);
+	color: #dc2626;
+	border: 1px solid rgba(220, 38, 38, 0.3);
+	border-radius: 20px;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.2px;
+	text-transform: uppercase;
+	animation: pulse-badge 2s infinite;
+}
+
+@keyframes pulse-badge {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.65; }
+}
+
+/* Incident recent row highlight */
+.incidents-table .incident-recent-row {
+	background: rgba(234, 88, 12, 0.08);
+	border-left: 4px solid #ea580c;
+}
+
+.incidents-table .incident-recent-row:hover {
+	background: rgba(234, 88, 12, 0.14);
 }
 
 /* Summary Stats */

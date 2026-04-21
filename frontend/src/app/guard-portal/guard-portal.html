@@ -4,28 +4,40 @@
 
 <div class="guard-portal">
   <header class="guard-header">
-    <div class="header-main">
-      <div class="guard-avatar-container">
-        <div class="guard-avatar">
-          <img *ngIf="guardPhotoUrl" [src]="guardPhotoUrl" alt="{{ guardName }}" />
-          <span *ngIf="!guardPhotoUrl">{{ guardInitials }}</span>
+    <div class="header-card">
+      <div class="header-identity">
+        <div class="guard-avatar-container">
+          <div class="guard-avatar">
+            <img *ngIf="guardPhotoUrl" [src]="guardPhotoUrl" alt="{{ guardName }}" />
+            <span *ngIf="!guardPhotoUrl">{{ guardInitials }}</span>
+          </div>
+        </div>
+        <div class="header-info">
+          <span class="header-label">Guard Portal</span>
+          <h1 class="header-guard-name">{{ guardName }}</h1>
+          <p class="complex-name">
+            <span class="station-dot"></span>
+            {{ selectedStationName }}
+          </p>
         </div>
       </div>
-      <div>
-        <h1>Guard Portal</h1>
-        <p class="guard-name">{{ guardName }}</p>
-        <p class="complex-name">Station: {{ selectedStationName }}</p>
+      <div class="header-right">
         <div class="shift-start-badge" aria-live="polite">
           <span class="shift-start-icon">⏱</span>
           <span>Shift start (SA): {{ shiftStartSaLabel }}</span>
         </div>
-        <button type="button" class="station-change" (click)="changeStation()">
-          {{ stationActionLabel }}
-        </button>
-        <button type="button" class="station-change" (click)="updateProfile()">
-          Update Profile
-        </button>
-        <button type="button" class="station-change" (click)="logout()">Logout</button>
+        <div class="header-actions">
+          <button type="button" class="btn-header-action" (click)="changeStation()">
+            {{ stationActionLabel }}
+          </button>
+          <button type="button" class="btn-header-action" (click)="updateProfile()">
+            Update Profile
+          </button>
+          <button type="button" class="btn-header-incident" (click)="openIncidentModal()">
+            ⚠ Log Incident
+          </button>
+          <button type="button" class="btn-header-logout" (click)="logout()">Logout</button>
+        </div>
       </div>
     </div>
   </header>
@@ -1023,6 +1035,40 @@
           [disabled]="deletingTenant"
         >
           {{ deletingTenant ? 'Removing...' : 'Confirm Remove' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="isIncidentModalOpen" (click)="closeIncidentModal()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="incident-modal-title" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="incident-modal-title">Log Incident</h2>
+        <button class="btn-icon" type="button" (click)="closeIncidentModal()" [disabled]="incidentSubmitting">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="incident-meta">
+          <strong>Guard:</strong> {{ guardName }}<br />
+          <strong>Station:</strong> {{ selectedStationName }}
+        </p>
+        <div class="form-group">
+          <label for="incident-description">Incident Description *</label>
+          <textarea
+            id="incident-description"
+            class="form-control incident-textarea"
+            placeholder="Describe the incident..."
+            [(ngModel)]="incidentDescription"
+            name="incidentDescription"
+            rows="5"
+            [disabled]="incidentSubmitting"
+          ></textarea>
+        </div>
+        <p class="error-text" *ngIf="incidentError">{{ incidentError }}</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="closeIncidentModal()" [disabled]="incidentSubmitting">Cancel</button>
+        <button type="button" class="btn-main" (click)="submitIncident()" [disabled]="incidentSubmitting || !incidentDescription.trim()">
+          {{ incidentSubmitting ? 'Saving...' : 'Save Incident' }}
         </button>
       </div>
     </div>

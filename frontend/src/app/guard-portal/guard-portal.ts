@@ -263,6 +263,10 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected isUpdateMode = false;
   protected editingVehicleIndex: number | null = null;
   protected isDeleteTenantModalOpen = false;
+  protected isIncidentModalOpen = false;
+  protected incidentDescription = '';
+  protected incidentSubmitting = false;
+  protected incidentError = '';
   protected selectedTenantToDelete: null | {
     email: string;
     id: string;
@@ -3147,6 +3151,75 @@ export class GuardPortal implements OnInit, OnDestroy {
       gatedCommunityId: selectedCommunityId || '',
       gatedCommunityName: selectedCommunity?.name ?? '',
     };
+  }
+
+  protected openIncidentModal(): void {
+    if (!this.isStationSelected) {
+      this._snackBar.open('Please select your station before logging an incident.', 'close', {
+        horizontalPosition: this.horizontalPosition,
+        verticalPosition: this.verticalPosition,
+      });
+      return;
+    }
+    this.incidentDescription = '';
+    this.incidentError = '';
+    this.incidentSubmitting = false;
+    this.isIncidentModalOpen = true;
+  }
+
+  protected closeIncidentModal(): void {
+    if (this.incidentSubmitting) {
+      return;
+    }
+    this.isIncidentModalOpen = false;
+    this.incidentDescription = '';
+    this.incidentError = '';
+  }
+
+  protected submitIncident(): void {
+    if (this.incidentSubmitting) {
+      return;
+    }
+
+    const trimmedDescription = (this.incidentDescription || '').trim();
+    if (!trimmedDescription) {
+      this.incidentError = 'Please describe the incident before submitting.';
+      return;
+    }
+
+    this.incidentSubmitting = true;
+    this.incidentError = '';
+
+    const guard = this.getCurrentUserFromStorage();
+    const station = this.buildSosStationDetails();
+
+    const payload = {
+      description: trimmedDescription,
+      reportedAt: new Date().toISOString(),
+      guard: {
+        _id: guard?._id ?? this.effectiveGuardId,
+        name: `${guard?.name ?? ''} ${guard?.surname ?? ''}`.trim() || this.guardName,
+        emailAddress: guard?.emailAddress ?? '',
+      },
+      station,
+    };
+
+    this.dataService.post<any>('incident/guard-report', payload).subscribe({
+      next: () => {
+        this._snackBar.open('Incident logged successfully.', 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.incidentSubmitting = false;
+        this.isIncidentModalOpen = false;
+        this.incidentDescription = '';
+        setTimeout(() => window.location.reload(), 1500);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.incidentError = error?.error?.message ?? 'Failed to log incident. Please try again.';
+        this.incidentSubmitting = false;
+      },
+    });
   }
 
   ngOnDestroy(): void {

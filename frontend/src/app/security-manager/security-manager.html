@@ -11,8 +11,19 @@
         <p class="subtext">{{ securityManagerEmail }}</p>
       </div>
       <div class="header-actions">
-        <div class="sos-optin-control">
-          <p class="sos-optin-label">Company SOS Alerts</p>
+        <div class="sos-optin-control" [class.has-alerts]="activeSosAlertCount > 0">
+          <div class="sos-optin-top-row">
+            <p class="sos-optin-label">Company SOS Alerts</p>
+            <div
+              class="notification-bell"
+              [class.has-alerts]="activeSosAlertCount > 0"
+              [title]="activeSosAlertCount > 0 ? activeSosAlertCount + ' active SOS alert(s) in the last 15 min' : 'No active SOS alerts'"
+              aria-label="SOS notifications"
+            >
+              <span class="bell-icon">🔔</span>
+              <span class="bell-badge" *ngIf="activeSosAlertCount > 0">{{ activeSosAlertCount }}</span>
+            </div>
+          </div>
           <p class="sos-optin-status" [class.enabled]="companySosOptedIn" [class.disabled]="!companySosOptedIn">
             {{ companySosOptedIn ? 'Enabled' : 'Disabled' }}
           </p>
@@ -34,6 +45,63 @@
 
   <!-- Main Grid -->
   <div>
+    <!-- SOS Alerts Section -->
+    <section class="panel-section sos-panel">
+      <div class="panel-header">
+        <div>
+          <h2>🚨 SOS Alerts</h2>
+          <span class="helper">Read-only emergency events (latest first)</span>
+        </div>
+        <span class="sos-count-badge" *ngIf="activeSosAlertCount > 0">{{ activeSosAlertCount }} active now</span>
+      </div>
+
+      <div class="search-filter visitor-filter">
+        <input type="text" class="search-input" placeholder="Search guard, source, or address..." [(ngModel)]="sosSearchTerm">
+        <select class="filter-select" [(ngModel)]="sosFilterSourceType">
+          <option value="all">All Sources</option>
+          <option value="complex">Complex</option>
+          <option value="gated">Gated Community</option>
+        </select>
+      </div>
+
+      <div class="visitors-table-container" *ngIf="filteredSosAlerts.length > 0; else noSosAlerts">
+        <div class="responsive-table-wrapper">
+          <table class="visitors-table sos-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Guard On Duty</th>
+                <th>Source</th>
+                <th>Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let alert of filteredSosAlerts" class="visitor-table-row" [class.sos-recent-row]="isSosRecent(alert.date)">
+                <td class="col-date">
+                  <span class="date-line">{{ alert.date | date: 'MMM dd, yyyy' }}</span>
+                  <span class="time-line">{{ alert.date | date: 'HH:mm:ss' }}</span>
+                </td>
+                <td class="col-visitor-name">
+                  <strong>{{ alert.guardName }}</strong>
+                  <div class="visitor-location-secondary" *ngIf="alert.guardPhone">{{ alert.guardPhone }}</div>
+                </td>
+                <td class="col-tenant-name">
+                  {{ getSosSourceDisplay(alert) }}
+                  <div class="visitor-location-secondary">{{ alert.stationType === 'gated' ? 'Gated Community' : (alert.stationType === 'complex' ? 'Complex' : 'Unknown') }}</div>
+                </td>
+                <td class="col-unit-location">{{ getSosAddressDisplay(alert) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <ng-template #noSosAlerts>
+        <div class="empty-state">
+          <p>No SOS alerts found for the selected filter.</p>
+        </div>
+      </ng-template>
+    </section>
+
     <!-- Assigned Complexes Section -->
     <section class="panel-section">
       <div class="panel-header">
@@ -197,93 +265,6 @@
       </ng-template>
     </section>
 
-    <!-- Tenant Management Section -->
-    <section class="panel-section">
-      <div class="panel-header">
-        <h2>Tenant Management</h2>
-        <button class="btn-add" (click)="openTenantModal()">+ Register Tenant</button>
-      </div>
-
-      <!-- Search and Filter -->
-      <div class="search-filter">
-        <input type="text" class="search-input" placeholder="🔍 Search by name, address, or phone..." [(ngModel)]="tenantSearchTerm">
-        
-        <select class="filter-select" [(ngModel)]="tenantFilterResidenceType" (change)="onFilterResidenceTypeChange()">
-          <option value="all">All Residence Types</option>
-          <option value="complex">Complex</option>
-          <option value="community">Gated Community</option>
-        </select>
-
-        <!-- Show complex dropdown if Complex selected -->
-        <select *ngIf="tenantFilterResidenceType === 'complex'" class="filter-select" [(ngModel)]="tenantFilterComplexId">
-          <option value="">All Complexes</option>
-          <option *ngFor="let complex of assignedComplexes" [value]="complex.id">{{ complex.name }}</option>
-        </select>
-
-        <!-- Show community dropdowns if Gated Community selected -->
-        <ng-container *ngIf="tenantFilterResidenceType === 'community'">
-          <select class="filter-select" [(ngModel)]="tenantFilterCommunityId" (change)="onFilterCommunityChange()">
-            <option value="">All Gated Communities</option>
-            <option *ngFor="let community of gatedCommunities" [value]="community.id">{{ community.name }}</option>
-          </select>
-
-          <select *ngIf="tenantFilterCommunityId" class="filter-select" [(ngModel)]="tenantFilterCommunityResidenceType" (change)="onFilterCommunityResidenceTypeChange()">
-            <option value="all">All Types</option>
-            <option value="house">Standalone House</option>
-            <option value="complex">Complex/Building</option>
-          </select>
-
-          <select *ngIf="tenantFilterCommunityId && tenantFilterCommunityResidenceType === 'complex'" class="filter-select" [(ngModel)]="tenantFilterCommunityComplexId">
-            <option value="">All Complexes</option>
-            <option *ngFor="let complex of filterAvailableCommunityComplexes" [value]="complex.id">{{ complex.name }}</option>
-          </select>
-        </ng-container>
-      </div>
-
-      <!-- Tenants Cards Grid -->
-      <div class="data-cards-grid" *ngIf="filteredTenants.length > 0; else noTenants">
-        <div class="data-card" *ngFor="let tenant of filteredTenants">
-          <div class="card-header">
-            <div class="card-title-section">
-              <h3 class="card-title">{{ tenant.name }} {{ tenant.surname }}</h3>
-            </div>
-            <div class="card-actions">
-              <button class="btn-icon" (click)="editTenant(tenant)" title="Edit">✏️</button>
-              <button class="btn-icon delete" (click)="openDeleteTenantModal(tenant)" title="Delete">🗑️</button>
-            </div>
-          </div>
-          <div class="card-content">
-            <div class="card-info-row">
-              <span class="info-label">Phone:</span>
-              <span class="info-value">{{ tenant.phone }}</span>
-            </div>
-            <div class="card-info-row">
-              <span class="info-label">Location:</span>
-              <div class="location-path">
-                <span *ngFor="let part of tenant.locationPath; let i = index" class="location-part">
-                  <span class="location-text" [class.location-primary]="i === 0">{{ part }}</span>
-                  <span *ngIf="i < tenant.locationPath.length - 1" class="location-arrow">→</span>
-                </span>
-              </div>
-              <div class="visitor-location-secondary">{{ getTenantLocationTypeLabel(tenant) }}</div>
-            </div>
-            <div class="card-info-row">
-              <span class="info-label">Vehicles:</span>
-              <div *ngIf="tenant.vehicles.length > 0" class="plates-list">
-                <span *ngFor="let vehicle of tenant.vehicles" class="plate-badge">{{ vehicle.reg }}</span>
-              </div>
-              <span *ngIf="tenant.vehicles.length === 0" class="status-badge no-vehicle">No vehicle</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <ng-template #noTenants>
-        <div class="empty-state">
-          <p>No tenants found. Click "Register Tenant" to get started.</p>
-        </div>
-      </ng-template>
-    </section>
-
     <!-- Visitors Section -->
     <section class="panel-section">
       <div class="panel-header">
@@ -386,58 +367,73 @@
       </ng-template>
     </section>
 
-    <!-- SOS Alerts Section -->
+    <!-- Incidents Section -->
     <section class="panel-section">
       <div class="panel-header">
         <div>
-          <h2>SOS Alerts</h2>
-          <span class="helper">Read-only emergency events (latest first)</span>
+          <h2>Incident Reports</h2>
+          <span class="helper">Guard-reported incidents (latest first)</span>
         </div>
       </div>
 
       <div class="search-filter visitor-filter">
-        <input type="text" class="search-input" placeholder="Search guard, source, or address..." [(ngModel)]="sosSearchTerm">
-        <select class="filter-select" [(ngModel)]="sosFilterSourceType">
-          <option value="all">All Sources</option>
+        <input type="date" class="filter-select" [(ngModel)]="incidentFilterStartDate" aria-label="Start date">
+        <input type="date" class="filter-select" [(ngModel)]="incidentFilterEndDate" aria-label="End date">
+
+        <select class="filter-select" [(ngModel)]="incidentFilterResidenceType" (change)="onIncidentFilterResidenceTypeChange()">
+          <option value="all">All Locations</option>
           <option value="complex">Complex</option>
           <option value="gated">Gated Community</option>
         </select>
+
+        <select *ngIf="incidentFilterResidenceType === 'complex'" class="filter-select" [(ngModel)]="incidentFilterComplexId">
+          <option value="">All Complexes</option>
+          <option *ngFor="let complex of assignedComplexes" [value]="complex.id">{{ complex.name }}</option>
+        </select>
+
+        <select *ngIf="incidentFilterResidenceType === 'gated'" class="filter-select" [(ngModel)]="incidentFilterCommunityId">
+          <option value="">All Gated Communities</option>
+          <option *ngFor="let community of gatedCommunities" [value]="community.id">{{ community.name }}</option>
+        </select>
       </div>
 
-      <div class="visitors-table-container" *ngIf="filteredSosAlerts.length > 0; else noSosAlerts">
+      <div class="visitors-table-container" *ngIf="filteredIncidents.length > 0; else noIncidents">
         <div class="responsive-table-wrapper">
-          <table class="visitors-table sos-table">
+          <table class="visitors-table incidents-table">
             <thead>
               <tr>
-                <th>Time</th>
-                <th>Guard On Duty</th>
-                <th>Source</th>
-                <th>Address</th>
+                <th>Date & Time</th>
+                <th>Guard</th>
+                <th>Location</th>
+                <th>Description</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let alert of filteredSosAlerts" class="visitor-table-row" [class.sos-recent-row]="isSosRecent(alert.date)">
+              <tr *ngFor="let incident of filteredIncidents" class="visitor-table-row" [class.incident-recent-row]="isIncidentRecent(incident.reportedAt)">
                 <td class="col-date">
-                  <span class="date-line">{{ alert.date | date: 'MMM dd, yyyy' }}</span>
-                  <span class="time-line">{{ alert.date | date: 'HH:mm:ss' }}</span>
+                  <span class="date-line">{{ incident.reportedAt | date: 'MMM dd, yyyy' }}</span>
+                  <span class="time-line">{{ incident.reportedAt | date: 'HH:mm' }}</span>
                 </td>
                 <td class="col-visitor-name">
-                  <strong>{{ alert.guardName }}</strong>
-                  <div class="visitor-location-secondary" *ngIf="alert.guardPhone">{{ alert.guardPhone }}</div>
+                  <strong>{{ incident.guardName }}</strong>
                 </td>
                 <td class="col-tenant-name">
-                  {{ getSosSourceDisplay(alert) }}
-                  <div class="visitor-location-secondary">{{ alert.stationType === 'gated' ? 'Gated Community' : (alert.stationType === 'complex' ? 'Complex' : 'Unknown') }}</div>
+                  <span *ngIf="incident.stationType === 'complex'">{{ incident.complexName || 'Unknown Complex' }}</span>
+                  <span *ngIf="incident.stationType === 'gated'">{{ incident.gatedCommunityName || 'Unknown Community' }}</span>
+                  <span *ngIf="incident.stationType === 'unknown'">Unknown</span>
+                  <div class="visitor-location-secondary">
+                    {{ incident.stationType === 'gated' ? 'Gated Community' : (incident.stationType === 'complex' ? 'Complex' : '') }}
+                  </div>
                 </td>
-                <td class="col-unit-location">{{ getSosAddressDisplay(alert) }}</td>
+                <td class="col-incident-description">{{ incident.description }}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
-      <ng-template #noSosAlerts>
+      <ng-template #noIncidents>
         <div class="empty-state">
-          <p>No SOS alerts found for the selected filter.</p>
+          <p>No incidents found for the selected filters.</p>
         </div>
       </ng-template>
     </section>

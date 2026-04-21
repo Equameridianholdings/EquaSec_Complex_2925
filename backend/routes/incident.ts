@@ -48,6 +48,34 @@ incidentRouter.get("/:id", async (req, res) => {
   }
 });
 
+incidentRouter.post("/guard-report", async (req: Request, res: Response) => {
+  const { description, reportedAt, guard, station } = req.body;
+
+  if (!description || typeof description !== "string" || !description.trim()) {
+    res.status(400).json({ message: "Description is required" });
+    return;
+  }
+
+  try {
+    const newIncident = new incidentSchema({
+      description: description.trim(),
+      sos: {
+        date: reportedAt ? new Date(reportedAt) : new Date(),
+        guard: guard ?? {},
+        station: station ?? {},
+      },
+    });
+
+    await newIncident.save();
+
+    res.status(201).json({ message: "Incident successfully reported!", payload: newIncident });
+    return;
+  } catch {
+    res.status(500).json({ message: "Internal Server Error" });
+    return;
+  }
+});
+
 incidentRouter.post("/", incidentBodyValidation, validateSchema, async (req: Request, res: Response) => {
   const incident = req.body as incidentDTO;
 
