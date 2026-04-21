@@ -58,13 +58,22 @@
           </select>
         </div>
         <div class="camera-section" style="margin-top:16px">
-          @if (!capturedPhoto()) {
+          @if (!cameraActive() && !capturedPhoto()) {
+            <button
+              type="button"
+              class="btn-main"
+              [disabled]="!selectedIdType()"
+              (click)="openCamera()"
+            >
+              📷 Take Photo
+            </button>
+          }
+          @if (cameraActive() && !capturedPhoto()) {
             <video #cameraPreview autoplay playsinline class="camera-preview"></video>
             <canvas #photoCanvas style="display:none"></canvas>
-            @if (cameraActive()) {
-              <button type="button" class="btn-main" (click)="capturePhoto()">📸 Capture Photo</button>
-            }
-          } @else {
+            <button type="button" class="btn-main" (click)="capturePhoto()">📸 Capture</button>
+          }
+          @if (capturedPhoto()) {
             <img [src]="capturedPhoto()" alt="Captured visitor photo" class="captured-photo" />
             <button type="button" class="btn-secondary" (click)="retakePhoto()">↩ Retake</button>
           }
