@@ -302,28 +302,40 @@ export class GuardIncidents implements OnInit {
         3: { cellWidth: 'auto' },
         4: { cellWidth: 38 },
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: 14, right: 14, bottom: 14 },
+      didDrawPage: () => {
+        const pageH = doc.internal.pageSize.getHeight();
+        const notice =
+          'CONFIDENTIAL — This report contains sensitive personal data. It must only be shared with authorised personnel. ' +
+          'Unauthorised distribution or mishandling may result in legal consequences.';
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(180, 0, 0);
+        doc.text(notice, 14, pageH - 5, { maxWidth: pageW - 28 });
+        doc.setFont('helvetica', 'normal');
+        // Thin rule above the notice
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.2);
+        doc.line(14, pageH - 9, pageW - 14, pageH - 9);
+        doc.setDrawColor(0);
+      },
     });
 
     return doc;
   }
 
-  async downloadPdf(): Promise<void> {
-    if (this.filteredIncidents.length === 0) return;
-    const logo = await this.loadLogoBase64();
-    const doc = this.buildPdfDoc(logo);
-    const safeName = this.guardName.replace(/\s+/g, '_');
-    doc.save(`EquaSec_IncidentBook_${safeName}.pdf`);
-  }
-
   // ── Email PDF ─────────────────────────────────────────
   isEmailModalOpen = false;
+  recipientName = '';
+  recipientSurname = '';
   recipientEmail = '';
   emailError = '';
   emailSending = signal(false);
   emailSuccess = false;
 
   openEmailModal(): void {
+    this.recipientName = '';
+    this.recipientSurname = '';
     this.recipientEmail = '';
     this.emailError = '';
     this.emailSuccess = false;
@@ -335,8 +347,19 @@ export class GuardIncidents implements OnInit {
     this.isEmailModalOpen = false;
   }
 
-  sendPdfByEmail(): void {
+  submitForAuth(): void {
+    const name = this.recipientName.trim();
+    const surname = this.recipientSurname.trim();
     const email = this.recipientEmail.trim();
+
+    if (!name) {
+      this.emailError = 'Please enter the recipient\'s name.';
+      return;
+    }
+    if (!surname) {
+      this.emailError = 'Please enter the recipient\'s surname.';
+      return;
+    }
     if (!email) {
       this.emailError = 'Please enter a recipient email address.';
       return;
@@ -356,8 +379,6 @@ export class GuardIncidents implements OnInit {
 
     this.loadLogoBase64().then((logo) => {
       const doc = this.buildPdfDoc(logo);
-
-      // Convert to base64 via arraybuffer (reliable for any PDF size)
       const arrayBuffer = doc.output('arraybuffer');
       const bytes = new Uint8Array(arrayBuffer);
       let binary = '';
@@ -368,22 +389,24 @@ export class GuardIncidents implements OnInit {
       const pdfBase64 = btoa(binary);
 
       const payload = {
-        recipientEmail: email,
         guardName: this.guardName,
         pdfBase64,
+        recipientEmail: email,
+        recipientName: name,
+        recipientSurname: surname,
       };
 
-      this.dataService.post<any>('incident/email-report', payload).subscribe({
+      this.dataService.post<{ message: string }>('incident/request-report-auth', payload).subscribe({
         next: () => {
           this.emailSending.set(false);
           this.emailSuccess = true;
           setTimeout(() => {
             this.isEmailModalOpen = false;
             this.emailSuccess = false;
-          }, 2500);
+          }, 3500);
         },
-        error: (err: any) => {
-          this.emailError = err?.error?.message ?? 'Failed to send report. Please try again.';
+        error: (err: { error?: { message?: string } }) => {
+          this.emailError = err?.error?.message ?? 'Failed to submit request. Please try again.';
           this.emailSending.set(false);
         },
       });
