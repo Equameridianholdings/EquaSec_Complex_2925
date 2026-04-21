@@ -63,7 +63,7 @@ export class VisitorCard implements OnInit, OnDestroy {
 
   protected async startCamera(): Promise<void> {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       this.cameraStream = stream;
       const video = this.cameraPreviewRef?.nativeElement;
       if (video) {
