@@ -5,6 +5,7 @@
     "rootDir": "./",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "moduleResolution": "nodenext",
   },
   "include": ["**/*.ts", "*/**/*.ts", "__tests__/unit/.encryption"],
   "exclude": ["dist"]

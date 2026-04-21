@@ -504,6 +504,72 @@
         </div>
       </ng-template>
     </section>
+
+    <!-- Pending Report Authorisations Section -->
+    <section class="panel-section">
+      <div class="panel-header">
+        <div>
+          <h2>Pending Report Requests</h2>
+          <span class="helper">Requests awaiting review before the report is sent</span>
+        </div>
+        <button class="btn-refresh" type="button" (click)="loadPendingAuthorisations()" [disabled]="pendingAuthLoading">
+          {{ pendingAuthLoading ? 'Loading...' : 'Refresh' }}
+        </button>
+      </div>
+
+      <div class="auth-error" *ngIf="pendingAuthError" role="alert">{{ pendingAuthError }}</div>
+
+      <div class="visitors-table-container" *ngIf="pendingAuthorisations.length > 0; else noPendingAuths">
+        <table class="visitors-table">
+          <thead>
+            <tr>
+              <th>Submitted By</th>
+              <th>Recipient</th>
+              <th>Date Submitted</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let auth of pendingAuthorisations" class="visitor-table-row">
+              <td>
+                <strong>{{ auth.guardName }}</strong>
+                <div class="visitor-location-secondary">{{ auth.guardEmail }}</div>
+              </td>
+              <td>
+                <strong>{{ auth.recipientName }} {{ auth.recipientSurname }}</strong>
+                <div class="visitor-location-secondary">{{ auth.recipientEmail }}</div>
+              </td>
+              <td>{{ auth.createdAt | date: 'dd MMM yyyy, HH:mm' }}</td>
+              <td>
+                <div class="auth-action-cell">
+                  <button
+                    class="btn-authorise"
+                    type="button"
+                    (click)="authoriseReport(auth._id)"
+                    [disabled]="pendingAuthAuthorising.has(auth._id) || pendingAuthRejecting.has(auth._id)"
+                  >
+                    {{ pendingAuthAuthorising.has(auth._id) ? 'Sending...' : 'Approve & Send' }}
+                  </button>
+                  <button
+                    class="btn-reject-auth"
+                    type="button"
+                    (click)="rejectReport(auth._id)"
+                    [disabled]="pendingAuthAuthorising.has(auth._id) || pendingAuthRejecting.has(auth._id)"
+                  >
+                    {{ pendingAuthRejecting.has(auth._id) ? 'Rejecting...' : 'Reject' }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noPendingAuths>
+        <div class="empty-state" *ngIf="!pendingAuthLoading">
+          <p>No pending authorisation requests.</p>
+        </div>
+      </ng-template>
+    </section>
   </div>
 
   <!-- Add/Edit Employee Modal -->

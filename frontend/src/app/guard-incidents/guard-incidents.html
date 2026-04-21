@@ -83,19 +83,11 @@
       <div class="results-actions">
         <button
           type="button"
-          class="btn-download-pdf"
-          (click)="downloadPdf()"
-          [disabled]="filteredIncidents.length === 0"
-        >
-          Download PDF
-        </button>
-        <button
-          type="button"
           class="btn-email-pdf"
           (click)="openEmailModal()"
           [disabled]="filteredIncidents.length === 0"
         >
-          &#9993; Email PDF
+          &#9993; Send Report
         </button>
       </div>
     </div>
@@ -111,10 +103,6 @@
             <span class="date-icon">📅</span>
             <span>{{ formatDate(incident.sos.date) }}</span>
           </div>
-        </div>
-
-        <div class="incident-body">
-          <p class="incident-description">{{ incident.description }}</p>
         </div>
 
         <div class="incident-meta-row">
@@ -152,40 +140,66 @@
 <div class="modal-backdrop" *ngIf="isEmailModalOpen" (click)="closeEmailModal()">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="email-modal-title" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h2 id="email-modal-title">Email Incident Book</h2>
+      <h2 id="email-modal-title">Send Report</h2>
       <button class="btn-modal-close" type="button" (click)="closeEmailModal()" [disabled]="emailSending()">&#10005;</button>
     </div>
 
     <div class="modal-body" *ngIf="!emailSuccess">
       <p class="modal-info">
-        The <strong>{{ filteredIncidents.length }}</strong> incident{{ filteredIncidents.length !== 1 ? 's' : '' }} currently on screen will be generated as a PDF and sent to the address below.
+        The <strong>{{ filteredIncidents.length }}</strong> incident{{ filteredIncidents.length !== 1 ? 's' : '' }} currently on screen will be generated as a PDF and submitted for review before it is sent.
       </p>
       <div class="modal-confidentiality-notice" role="note">
         <strong>&#9888; Confidential:</strong> This report contains sensitive personal data. Only send it to authorised personnel who are permitted to access this information.
       </div>
+
+      <div class="modal-field-row">
+        <div class="modal-field">
+          <label for="recipientName">Recipient Name *</label>
+          <input
+            id="recipientName"
+            type="text"
+            class="modal-input"
+            placeholder="First name"
+            [(ngModel)]="recipientName"
+            [disabled]="emailSending()"
+          />
+        </div>
+        <div class="modal-field">
+          <label for="recipientSurname">Recipient Surname *</label>
+          <input
+            id="recipientSurname"
+            type="text"
+            class="modal-input"
+            placeholder="Last name"
+            [(ngModel)]="recipientSurname"
+            [disabled]="emailSending()"
+          />
+        </div>
+      </div>
+
       <div class="modal-field">
         <label for="recipientEmail">Recipient Email *</label>
         <input
           id="recipientEmail"
           type="email"
           class="modal-input"
-          placeholder="e.g. manager@example.com"
+          placeholder="e.g. recipient@example.com"
           [(ngModel)]="recipientEmail"
           [disabled]="emailSending()"
-          (keyup.enter)="sendPdfByEmail()"
+          (keyup.enter)="submitForAuth()"
         />
       </div>
       <div class="modal-error" *ngIf="emailError" role="alert">{{ emailError }}</div>
     </div>
 
     <div class="modal-success" *ngIf="emailSuccess" role="status">
-      &#10003; PDF report sent successfully!
+      &#10003; Request submitted. You will be notified once the report has been sent.
     </div>
 
     <div class="modal-actions" *ngIf="!emailSuccess">
       <button type="button" class="btn-modal-cancel" (click)="closeEmailModal()" [disabled]="emailSending()">Cancel</button>
-      <button type="button" class="btn-modal-send" (click)="sendPdfByEmail()" [disabled]="emailSending()">
-        {{ emailSending() ? 'Sending...' : 'Send PDF' }}
+      <button type="button" class="btn-modal-send" (click)="submitForAuth()" [disabled]="emailSending()">
+        {{ emailSending() ? 'Submitting...' : 'Submit Request' }}
       </button>
     </div>
   </div>

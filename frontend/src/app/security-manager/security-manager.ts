@@ -254,6 +254,21 @@ export class SecurityManager implements OnInit {
   protected incidentFilterResidenceType: 'all' | 'complex' | 'gated' = 'all';
   protected incidentFilterComplexId = '';
   protected incidentFilterCommunityId = '';
+
+  protected pendingAuthorisations: Array<{
+    _id: string;
+    createdAt: string;
+    guardEmail: string;
+    guardName: string;
+    recipientEmail: string;
+    recipientName: string;
+    recipientSurname: string;
+    securityCompanyName: string;
+  }> = [];
+  protected pendingAuthLoading = false;
+  protected pendingAuthError = '';
+  protected pendingAuthAuthorising = new Set<string>();
+  protected pendingAuthRejecting = new Set<string>();
   private filteredIncidentsCache: any[] = [];
   private filteredIncidentsKey = '';
 
@@ -306,6 +321,7 @@ export class SecurityManager implements OnInit {
     this.loadVisitors();
     this.loadSosAlerts();
     this.loadIncidents();
+    this.loadPendingAuthorisations();
   }
 
   private hydrateFromStoredUser(): void {
@@ -1387,6 +1403,80 @@ export class SecurityManager implements OnInit {
   protected onIncidentFilterResidenceTypeChange(): void {
     this.incidentFilterComplexId = '';
     this.incidentFilterCommunityId = '';
+  }
+
+  protected loadPendingAuthorisations(): void {
+    this.pendingAuthLoading = true;
+    this.pendingAuthError = '';
+    this.dataService.get<{ message: string; payload: unknown[] }>('incident/pending-auth').subscribe({
+      next: (response) => {
+        const items = Array.isArray(response) ? response : ((response?.payload ?? []) as unknown[]);
+        this.pendingAuthorisations = (items as Array<Record<string, unknown>>).map((item) => ({
+          _id: String(item['_id'] ?? ''),
+          createdAt: String(item['createdAt'] ?? ''),
+          guardEmail: String(item['guardEmail'] ?? ''),
+          guardName: String(item['guardName'] ?? ''),
+          recipientEmail: String(item['recipientEmail'] ?? ''),
+          recipientName: String(item['recipientName'] ?? ''),
+          recipientSurname: String(item['recipientSurname'] ?? ''),
+          securityCompanyName: String(item['securityCompanyName'] ?? ''),
+        }));
+        this.pendingAuthLoading = false;
+        this.refreshView();
+      },
+      error: () => {
+        this.pendingAuthError = 'Failed to load pending authorisations.';
+        this.pendingAuthLoading = false;
+      },
+    });
+  }
+
+  protected authoriseReport(id: string): void {
+    if (this.pendingAuthAuthorising.has(id)) return;
+    this.pendingAuthAuthorising.add(id);
+    this.dataService.post<{ message: string }>(`incident/authorise-report/${id}`, {}).subscribe({
+      next: () => {
+        this.pendingAuthAuthorising.delete(id);
+        this.pendingAuthorisations = this.pendingAuthorisations.filter((r) => r._id !== id);
+        this.refreshView();
+        this._snackBar.open('Report sent successfully.', 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.pendingAuthAuthorising.delete(id);
+        this._snackBar.open(err?.error?.message ?? 'Failed to authorise report.', 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.refreshView();
+      },
+    });
+  }
+
+  protected rejectReport(id: string): void {
+    if (this.pendingAuthRejecting.has(id)) return;
+    this.pendingAuthRejecting.add(id);
+    this.dataService.post<{ message: string }>(`incident/reject-report/${id}`, {}).subscribe({
+      next: () => {
+        this.pendingAuthRejecting.delete(id);
+        this.pendingAuthorisations = this.pendingAuthorisations.filter((r) => r._id !== id);
+        this.refreshView();
+        this._snackBar.open('Request declined. The submitter has been notified.', 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.pendingAuthRejecting.delete(id);
+        this._snackBar.open(err?.error?.message ?? 'Failed to reject request.', 'close', {
+          horizontalPosition: this.horizontalPosition,
+          verticalPosition: this.verticalPosition,
+        });
+        this.refreshView();
+      },
+    });
   }
 
   protected get filteredSosAlerts(): any[] {

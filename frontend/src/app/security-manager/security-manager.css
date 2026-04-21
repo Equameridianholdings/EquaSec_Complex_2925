@@ -1658,6 +1658,90 @@ table tbody tr:hover {
   background: #152a47;
 }
 
+/* ─── Report Authorisations ─── */
+.btn-authorise {
+  background: var(--manager-accent);
+  color: #ffffff;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-authorise:hover:not(:disabled) {
+  background: #152a47;
+}
+
+.btn-authorise:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.auth-action-cell {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-reject-auth {
+  background: transparent;
+  border: 1.5px solid #ef4444;
+  color: #ef4444;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-reject-auth:hover:not(:disabled) {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.btn-reject-auth:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-refresh {
+  background: transparent;
+  border: 1.5px solid var(--manager-accent);
+  color: var(--manager-accent);
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background: var(--manager-accent);
+  color: #ffffff;
+}
+
+.btn-refresh:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  background: #fef2f2;
+  border-left: 4px solid #ef4444;
+  color: #b91c1c;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
 /* ─── Visitor Detail Modal ─── */
 .visitor-detail-backdrop {
   position: fixed;
