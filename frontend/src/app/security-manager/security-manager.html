@@ -315,46 +315,35 @@
           <table class="visitors-table">
             <thead>
               <tr>
-                <th>Visitor Name</th>
-                <th>Visitor Phone</th>
+                <th>Visitor</th>
                 <th>Vehicle</th>
-                <th>Tenant Name</th>
-                <th>Unit & Location</th>
-                <th>Tenant Phone</th>
-                <th>Visit Date & Time</th>
+                <th>Visit Date</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let visitor of filteredVisitors" class="visitor-table-row">
                 <td class="col-visitor-name">
                   <strong>{{ visitor.name }} {{ visitor.surname }}</strong>
+                  <div class="visitor-location-secondary">{{ visitor.phone }}</div>
                 </td>
-                <td class="col-visitor-phone">{{ visitor.phone }}</td>
                 <td class="col-vehicle">
                   <span *ngIf="visitor.vehicle; else walkInVehicle" class="vehicle-info">
                     {{ visitor.vehicle.make }} {{ visitor.vehicle.model }}
                     <br>
                     <span class="vehicle-reg-plate">{{ visitor.vehicle.reg }}</span>
-                    <span *ngIf="visitor.vehicle.color" class="vehicle-color">{{ visitor.vehicle.color }}</span>
                   </span>
                   <ng-template #walkInVehicle>
                     <span class="walk-in-badge">Walk-in</span>
                   </ng-template>
                 </td>
-                <td class="col-tenant-name">{{ visitor.tenantName }}</td>
-                <td class="col-unit-location">
-                  <div class="unit-location-path">
-                    <span class="location-text location-primary">{{ visitor.tenantUnit }}</span>
-                    <span class="location-arrow">→</span>
-                    <span class="location-text">{{ getComplexName(visitor.complexId) }}</span>
-                    <ng-container *ngIf="visitor.communityId">
-                      <span class="location-arrow">→</span>
-                      <span class="location-text">{{ getCommunityName(visitor.communityId) }}</span>
-                    </ng-container>
-                  </div>
+                <td class="col-date">
+                  <span class="date-line">{{ visitor.visitDate | date: 'MMM dd, yyyy' }}</span>
+                  <span class="time-line">{{ visitor.visitDate | date: 'HH:mm' }}</span>
                 </td>
-                <td class="col-tenant-phone">{{ visitor.tenantPhone }}</td>
-                <td class="col-date"><span class="date-line">{{ visitor.visitDate | date: 'MMM dd, yyyy' }}</span><span class="time-line">{{ visitor.visitDate | date: 'HH:mm' }}</span></td>
+                <td class="col-actions">
+                  <button class="btn-view-more" (click)="openVisitorDetail(visitor)">View More</button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -366,6 +355,84 @@
         </div>
       </ng-template>
     </section>
+
+    <!-- Visitor Detail Modal -->
+    <div class="visitor-detail-backdrop" *ngIf="selectedVisitor" (click)="closeVisitorDetail()">
+      <div class="visitor-detail-modal" (click)="$event.stopPropagation()">
+        <div class="visitor-detail-header">
+          <h3>Visitor Details</h3>
+          <button class="btn-close-detail" (click)="closeVisitorDetail()">✕</button>
+        </div>
+        <div class="visitor-detail-body">
+          <div class="visitor-detail-section">
+            <p class="detail-label">Name</p>
+            <p class="detail-value">{{ selectedVisitor.name }} {{ selectedVisitor.surname }}</p>
+          </div>
+          <div class="visitor-detail-section">
+            <p class="detail-label">Phone</p>
+            <p class="detail-value">{{ selectedVisitor.phone }}</p>
+          </div>
+          <div class="visitor-detail-section">
+            <p class="detail-label">Visit Date & Time</p>
+            <p class="detail-value">{{ selectedVisitor.visitDate | date: 'MMM dd, yyyy HH:mm' }}</p>
+          </div>
+          <div class="visitor-detail-section">
+            <p class="detail-label">Tenant</p>
+            <p class="detail-value">{{ selectedVisitor.tenantName }}</p>
+            <p class="detail-secondary">{{ selectedVisitor.tenantPhone }}</p>
+          </div>
+          <div class="visitor-detail-section">
+            <p class="detail-label">Location</p>
+            <p class="detail-value">
+              {{ selectedVisitor.tenantUnit }} →
+              {{ getComplexName(selectedVisitor.complexId) }}
+              <ng-container *ngIf="selectedVisitor.communityId">
+                → {{ getCommunityName(selectedVisitor.communityId) }}
+              </ng-container>
+            </p>
+          </div>
+          <div class="visitor-detail-section" *ngIf="selectedVisitor.vehicle">
+            <p class="detail-label">Vehicle</p>
+            <p class="detail-value">
+              {{ selectedVisitor.vehicle.make }} {{ selectedVisitor.vehicle.model }}
+              <span *ngIf="selectedVisitor.vehicle.color"> · {{ selectedVisitor.vehicle.color }}</span>
+            </p>
+            <p class="detail-secondary vehicle-reg-plate">{{ selectedVisitor.vehicle.reg }}</p>
+          </div>
+          <div class="visitor-detail-section" *ngIf="!selectedVisitor.vehicle">
+            <p class="detail-label">Entry Type</p>
+            <p class="detail-value"><span class="walk-in-badge">Walk-in</span></p>
+          </div>
+
+          <!-- Photos -->
+          <div class="visitor-detail-photos" *ngIf="selectedVisitor.idPhoto || selectedVisitor.diskPhoto">
+            <p class="detail-label">Identification Photos</p>
+            <div class="visitor-photo-row">
+              <div class="visitor-photo-item" *ngIf="selectedVisitor.idPhoto">
+                <p class="photo-caption">ID / Face</p>
+                <button class="btn-view-image" (click)="viewImage(selectedVisitor.idPhoto!)">View Image</button>
+              </div>
+              <div class="visitor-photo-item" *ngIf="selectedVisitor.diskPhoto">
+                <p class="photo-caption">License Disk</p>
+                <button class="btn-view-image" (click)="viewImage(selectedVisitor.diskPhoto!)">View Image</button>
+              </div>
+            </div>
+          </div>
+          <div class="visitor-detail-photos" *ngIf="!selectedVisitor.idPhoto && !selectedVisitor.diskPhoto">
+            <p class="detail-label">Identification Photos</p>
+            <p class="detail-secondary">No photos captured for this visit.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Lightbox -->
+    <div class="image-lightbox-backdrop" *ngIf="viewingImageUrl" (click)="closeImageViewer()">
+      <div class="image-lightbox" (click)="$event.stopPropagation()">
+        <button class="btn-close-lightbox" (click)="closeImageViewer()">✕</button>
+        <img [src]="viewingImageUrl" alt="Visitor photo" class="lightbox-image">
+      </div>
+    </div>
 
     <!-- Incidents Section -->
     <section class="panel-section">

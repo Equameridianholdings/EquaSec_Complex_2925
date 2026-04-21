@@ -110,6 +110,8 @@ export class SecurityManager implements OnInit {
     communityId?: string;
     communityResidenceType?: 'house' | 'complex';
     communityComplexId?: string;
+    idPhoto?: string;
+    diskPhoto?: string;
     vehicle?: {
       make: string;
       model: string;
@@ -219,6 +221,8 @@ export class SecurityManager implements OnInit {
   protected visitorFilterCommunityComplexId = '';
   protected visitorStartDate = '';
   protected visitorEndDate = '';
+  protected selectedVisitor: (typeof this.visitors)[0] | null = null;
+  protected viewingImageUrl: string | null = null;
 
   protected sosAlerts: Array<{
     id: string;
@@ -1245,6 +1249,8 @@ export class SecurityManager implements OnInit {
             tenantPhone: visitor.destination?.users[0]?.cellNumber as string,
             visitDate: log.date.toLocaleString(),
             complexId: log.guard.complex?._id as string,
+            idPhoto: (log.visitor as any).idPhoto,
+            diskPhoto: (log.visitor as any).diskPhoto,
             vehicle: visitor.vehicle
               ? {
                   make: visitor.vehicle.make,
@@ -2109,6 +2115,24 @@ export class SecurityManager implements OnInit {
       return '';
     }
     return this.gatedCommunities.find((gc) => gc.id === communityId)?.name || 'Unknown';
+  }
+
+  protected openVisitorDetail(visitor: (typeof this.visitors)[0]): void {
+    this.selectedVisitor = visitor;
+    this.viewingImageUrl = null;
+  }
+
+  protected closeVisitorDetail(): void {
+    this.selectedVisitor = null;
+    this.viewingImageUrl = null;
+  }
+
+  protected viewImage(url: string): void {
+    this.viewingImageUrl = url;
+  }
+
+  protected closeImageViewer(): void {
+    this.viewingImageUrl = null;
   }
 
   private buildTenantLocationPath(tenant: any): string[] {
