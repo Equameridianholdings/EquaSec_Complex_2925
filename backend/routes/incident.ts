@@ -49,7 +49,13 @@ incidentRouter.get("/:id", async (req, res) => {
 });
 
 incidentRouter.post("/guard-report", async (req: Request, res: Response) => {
-  const { description, reportedAt, guard, station } = req.body;
+  const body = req.body as {
+    description?: unknown;
+    guard?: Record<string, unknown>;
+    reportedAt?: unknown;
+    station?: Record<string, unknown>;
+  };
+  const { description, guard, reportedAt, station } = body;
 
   if (!description || typeof description !== "string" || !description.trim()) {
     res.status(400).json({ message: "Description is required" });
@@ -60,7 +66,7 @@ incidentRouter.post("/guard-report", async (req: Request, res: Response) => {
     const newIncident = new incidentSchema({
       description: description.trim(),
       sos: {
-        date: reportedAt ? new Date(reportedAt) : new Date(),
+        date: reportedAt ? new Date(reportedAt as Date | number | string) : new Date(),
         guard: guard ?? {},
         station: station ?? {},
       },
