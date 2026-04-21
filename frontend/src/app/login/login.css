@@ -240,12 +240,16 @@ select.form-control option {
 }
 
 .footer-links a {
-	color: #1e3a5f;
-	text-decoration: none;
+	color: #2563eb;
+	text-decoration: underline;
+	text-underline-offset: 3px;
 	font-weight: 600;
+	cursor: pointer;
+	transition: color 0.2s;
 }
 
 .footer-links a:hover {
+	color: #1e3a5f;
 	text-decoration: underline;
 }
 
@@ -253,6 +257,7 @@ select.form-control option {
 	color: #2563eb;
 	font-weight: 700;
 	text-decoration: underline;
+	text-underline-offset: 3px;
 	cursor: pointer;
 	transition: color 0.2s;
 }
