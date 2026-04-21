@@ -168,33 +168,11 @@
           class="modal-input"
           placeholder="e.g. manager@example.com"
           [(ngModel)]="recipientEmail"
-          [disabled]="emailSending() || broadcastSending()"
+          [disabled]="emailSending()"
           (keyup.enter)="sendPdfByEmail()"
         />
       </div>
       <div class="modal-error" *ngIf="emailError" role="alert">{{ emailError }}</div>
-
-      <!-- Broadcast section — only visible when a station filter is active -->
-      <div class="modal-divider" *ngIf="filterStation && selectedStationDetails">
-        <span>or</span>
-      </div>
-
-      <div class="modal-broadcast-section" *ngIf="filterStation && selectedStationDetails">
-        <p class="modal-broadcast-info">
-          Send the PDF to <strong>all tenants</strong> registered at
-          <strong>{{ selectedStationDetails!.displayName }}</strong>.
-        </p>
-        <button
-          type="button"
-          class="btn-modal-broadcast"
-          (click)="broadcastToStation()"
-          [disabled]="emailSending() || broadcastSending()"
-        >
-          {{ broadcastSending() ? 'Broadcasting...' : '&#128226; Broadcast to all tenants at ' + filterStation }}
-        </button>
-        <div class="modal-broadcast-error" *ngIf="broadcastError" role="alert">{{ broadcastError }}</div>
-        <div class="modal-broadcast-success" *ngIf="broadcastSuccess" role="status">&#10003; {{ broadcastSuccess }}</div>
-      </div>
     </div>
 
     <div class="modal-success" *ngIf="emailSuccess" role="status">
@@ -202,8 +180,8 @@
     </div>
 
     <div class="modal-actions" *ngIf="!emailSuccess">
-      <button type="button" class="btn-modal-cancel" (click)="closeEmailModal()" [disabled]="emailSending() || broadcastSending()">Cancel</button>
-      <button type="button" class="btn-modal-send" (click)="sendPdfByEmail()" [disabled]="emailSending() || broadcastSending()">
+      <button type="button" class="btn-modal-cancel" (click)="closeEmailModal()" [disabled]="emailSending()">Cancel</button>
+      <button type="button" class="btn-modal-send" (click)="sendPdfByEmail()" [disabled]="emailSending()">
         {{ emailSending() ? 'Sending...' : 'Send PDF' }}
       </button>
     </div>
