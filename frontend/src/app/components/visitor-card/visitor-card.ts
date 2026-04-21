@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnDestroy, OnInit, signal, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, Input, OnDestroy, OnInit, signal, ViewChildren, QueryList, ElementRef } from '@angular/core';
 import { getHours, shareCode, visitorDTO } from '../../interfaces/visitorDTO';
 import { ResponseBody } from '../../interfaces/ResponseBody';
 import { DataService } from '../../services/data.service';
@@ -17,8 +17,10 @@ export class VisitorCard implements OnInit, OnDestroy {
   submitting = signal(false);
   showConfirmModal = signal(false);
   showIdModal = signal(false);
+  showDiskModal = signal(false);
   selectedIdType = signal<string>('');
   capturedPhoto = signal<string | null>(null);
+  diskPhoto = signal<string | null>(null);
   cameraActive = signal(false);
   private cameraStream: MediaStream | null = null;
   private _snackBar = inject(MatSnackBar);
@@ -27,8 +29,11 @@ export class VisitorCard implements OnInit, OnDestroy {
   dataService = inject(DataService)
   granted = signal(false)
 
-  @ViewChild('cameraPreview') cameraPreviewRef!: ElementRef<HTMLVideoElement>;
-  @ViewChild('photoCanvas') photoCanvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChildren('cameraPreview') cameraPreviewList!: QueryList<ElementRef<HTMLVideoElement>>;
+  @ViewChildren('photoCanvas') photoCanvasList!: QueryList<ElementRef<HTMLCanvasElement>>;
+
+  private get cameraPreviewRef() { return this.cameraPreviewList?.first; }
+  private get photoCanvasRef() { return this.photoCanvasList?.first; }
 
   ngOnInit(): void {
     this.hours = getHours(this.visitor);
@@ -53,6 +58,7 @@ export class VisitorCard implements OnInit, OnDestroy {
     if (!code) return;
     this.selectedIdType.set('');
     this.capturedPhoto.set(null);
+    this.diskPhoto.set(null);
     this.cameraActive.set(false);
     this.showIdModal.set(true);
   }
@@ -84,15 +90,43 @@ export class VisitorCard implements OnInit, OnDestroy {
     const video = this.cameraPreviewRef?.nativeElement;
     const canvas = this.photoCanvasRef?.nativeElement;
     if (!video || !canvas) return;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d')?.drawImage(video, 0, 0);
+    const w = video.videoWidth || video.clientWidth;
+    const h = video.videoHeight || video.clientHeight;
+    if (!w || !h) {
+      this.showToast('Camera not ready, please try again.');
+      return;
+    }
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d')?.drawImage(video, 0, 0, w, h);
     this.capturedPhoto.set(canvas.toDataURL('image/jpeg'));
     this.stopCamera();
   }
 
   protected retakePhoto(): void {
     this.capturedPhoto.set(null);
+    setTimeout(() => this.startCamera(), 50);
+  }
+
+  protected captureDiskPhoto(): void {
+    const video = this.cameraPreviewRef?.nativeElement;
+    const canvas = this.photoCanvasRef?.nativeElement;
+    if (!video || !canvas) return;
+    const w = video.videoWidth || video.clientWidth;
+    const h = video.videoHeight || video.clientHeight;
+    if (!w || !h) {
+      this.showToast('Camera not ready, please try again.');
+      return;
+    }
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d')?.drawImage(video, 0, 0, w, h);
+    this.diskPhoto.set(canvas.toDataURL('image/jpeg'));
+    this.stopCamera();
+  }
+
+  protected retakeDiskPhoto(): void {
+    this.diskPhoto.set(null);
     setTimeout(() => this.startCamera(), 50);
   }
 
@@ -107,6 +141,23 @@ export class VisitorCard implements OnInit, OnDestroy {
   protected proceedToConfirm(): void {
     this.stopCamera();
     this.showIdModal.set(false);
+    if (this.visitor.driving) {
+      this.diskPhoto.set(null);
+      this.showDiskModal.set(true);
+    } else {
+      this.showConfirmModal.set(true);
+    }
+  }
+
+  protected cancelDiskModal(): void {
+    this.stopCamera();
+    this.diskPhoto.set(null);
+    this.showDiskModal.set(false);
+  }
+
+  protected proceedFromDisk(): void {
+    this.stopCamera();
+    this.showDiskModal.set(false);
     this.showConfirmModal.set(true);
   }
 
@@ -121,6 +172,7 @@ export class VisitorCard implements OnInit, OnDestroy {
     this.showConfirmModal.set(false);
     this.selectedIdType.set('');
     this.capturedPhoto.set(null);
+    this.diskPhoto.set(null);
   }
 
   protected confirmGrant(): void {

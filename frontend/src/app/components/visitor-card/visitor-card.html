@@ -57,6 +57,7 @@
             <option value="face">Face Identification</option>
           </select>
         </div>
+        <canvas #photoCanvas style="display:none"></canvas>
         <div class="camera-section" style="margin-top:16px">
           @if (!cameraActive() && !capturedPhoto()) {
             <button
@@ -69,12 +70,16 @@
             </button>
           }
           @if (cameraActive() && !capturedPhoto()) {
-            <video #cameraPreview autoplay playsinline class="camera-preview"></video>
-            <canvas #photoCanvas style="display:none"></canvas>
+            <div class="scanner-viewport">
+              <video #cameraPreview autoplay playsinline class="scanner-video"></video>
+            </div>
             <button type="button" class="btn-main" (click)="capturePhoto()">📸 Capture</button>
           }
           @if (capturedPhoto()) {
-            <img [src]="capturedPhoto()" alt="Captured visitor photo" class="captured-photo" />
+            <div class="captured-preview">
+              <img [src]="capturedPhoto()" alt="Captured visitor photo" class="captured-photo" />
+              <span class="captured-badge">✔ Photo Captured</span>
+            </div>
             <button type="button" class="btn-secondary" (click)="retakePhoto()">↩ Retake</button>
           }
         </div>
@@ -86,6 +91,50 @@
           class="btn-main"
           [disabled]="!selectedIdType() || !capturedPhoto()"
           (click)="proceedToConfirm()"
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showDiskModal()) {
+  <div class="modal-backdrop" (click)="cancelDiskModal()">
+    <div class="modal" style="max-width:480px;width:100%" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Vehicle Disk</h2>
+        <button class="btn-icon" type="button" (click)="cancelDiskModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Take a photo of the vehicle's <strong>license disk</strong>.</p>
+        <canvas #photoCanvas style="display:none"></canvas>
+        <div class="camera-section" style="margin-top:16px">
+          @if (!cameraActive() && !diskPhoto()) {
+            <button type="button" class="btn-main" (click)="openCamera()">📷 Capture Disk</button>
+          }
+          @if (cameraActive() && !diskPhoto()) {
+            <div class="scanner-viewport">
+              <video #cameraPreview autoplay playsinline class="scanner-video"></video>
+            </div>
+            <button type="button" class="btn-main" (click)="captureDiskPhoto()">📸 Capture</button>
+          }
+          @if (diskPhoto()) {
+            <div class="captured-preview">
+              <img [src]="diskPhoto()" alt="Vehicle disk photo" class="captured-photo" />
+              <span class="captured-badge">✔ Disk Captured</span>
+            </div>
+            <button type="button" class="btn-secondary" (click)="retakeDiskPhoto()">↩ Retake</button>
+          }
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="cancelDiskModal()">Cancel</button>
+        <button
+          type="button"
+          class="btn-main"
+          [disabled]="!diskPhoto()"
+          (click)="proceedFromDisk()"
         >
           Continue
         </button>
