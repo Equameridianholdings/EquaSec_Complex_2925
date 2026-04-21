@@ -234,6 +234,25 @@ export class SecurityManager implements OnInit {
   protected sosSearchTerm = '';
   protected sosFilterSourceType: 'all' | 'complex' | 'gated' = 'all';
 
+  protected incidents: Array<{
+    id: string;
+    description: string;
+    reportedAt: string;
+    guardName: string;
+    complexId: string;
+    complexName: string;
+    gatedCommunityId: string;
+    gatedCommunityName: string;
+    stationType: 'complex' | 'gated' | 'unknown';
+  }> = [];
+  protected incidentFilterStartDate = '';
+  protected incidentFilterEndDate = '';
+  protected incidentFilterResidenceType: 'all' | 'complex' | 'gated' = 'all';
+  protected incidentFilterComplexId = '';
+  protected incidentFilterCommunityId = '';
+  private filteredIncidentsCache: any[] = [];
+  private filteredIncidentsKey = '';
+
   private filteredEmployeesCache: any[] = [];
   private filteredEmployeesKey = '';
   private filteredVisitorsCache: any[] = [];
@@ -282,6 +301,7 @@ export class SecurityManager implements OnInit {
     this.loadCurrentUser();
     this.loadVisitors();
     this.loadSosAlerts();
+    this.loadIncidents();
   }
 
   private hydrateFromStoredUser(): void {
@@ -1291,6 +1311,78 @@ export class SecurityManager implements OnInit {
     });
   }
 
+  private loadIncidents(): void {
+    this.dataService.get<any>('incident').subscribe({
+      next: (response) => {
+        const items = Array.isArray(response) ? response : (response?.payload ?? []);
+        this.incidents = (items || [])
+          .map((item: any) => {
+            const guard = item?.sos?.guard ?? {};
+            const station = item?.sos?.station ?? {};
+            const rawType = String(station?.type ?? '').toLowerCase();
+            const stationType: 'complex' | 'gated' | 'unknown' =
+              rawType === 'complex' || rawType === 'gated' ? rawType : 'unknown';
+            return {
+              id: String(item?._id),
+              description: String(item?.description ?? ''),
+              reportedAt: String(item?.sos?.date ?? ''),
+              guardName: `${guard?.name ?? ''} ${guard?.surname ?? ''}`.trim() || 'Unknown Guard',
+              complexId: String(station?.complexId ?? ''),
+              complexName: String(station?.complexName ?? ''),
+              gatedCommunityId: String(station?.gatedCommunityId ?? ''),
+              gatedCommunityName: String(station?.gatedCommunityName ?? ''),
+              stationType,
+            };
+          })
+          .sort(
+            (a: { reportedAt: string }, b: { reportedAt: string }) =>
+              new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime(),
+          );
+        this.filteredIncidentsKey = '';
+        this.refreshView();
+      },
+      error: () => {
+        this.incidents = [];
+      },
+    });
+  }
+
+  protected get filteredIncidents(): any[] {
+    const key = `${this.incidents.length}|${this.incidentFilterStartDate}|${this.incidentFilterEndDate}|${this.incidentFilterResidenceType}|${this.incidentFilterComplexId}|${this.incidentFilterCommunityId}`;
+    if (this.filteredIncidentsKey === key) {
+      return this.filteredIncidentsCache;
+    }
+
+    const start = this.incidentFilterStartDate ? new Date(this.incidentFilterStartDate).getTime() : null;
+    const end = this.incidentFilterEndDate ? new Date(this.incidentFilterEndDate + 'T23:59:59').getTime() : null;
+
+    this.filteredIncidentsCache = this.incidents.filter((incident) => {
+      if (this.incidentFilterResidenceType !== 'all' && incident.stationType !== this.incidentFilterResidenceType) {
+        return false;
+      }
+      if (this.incidentFilterResidenceType === 'complex' && this.incidentFilterComplexId && incident.complexId !== this.incidentFilterComplexId) {
+        return false;
+      }
+      if (this.incidentFilterResidenceType === 'gated' && this.incidentFilterCommunityId && incident.gatedCommunityId !== this.incidentFilterCommunityId) {
+        return false;
+      }
+      if (start || end) {
+        const ts = incident.reportedAt ? new Date(incident.reportedAt).getTime() : 0;
+        if (start && ts < start) return false;
+        if (end && ts > end) return false;
+      }
+      return true;
+    });
+
+    this.filteredIncidentsKey = key;
+    return this.filteredIncidentsCache;
+  }
+
+  protected onIncidentFilterResidenceTypeChange(): void {
+    this.incidentFilterComplexId = '';
+    this.incidentFilterCommunityId = '';
+  }
+
   protected get filteredSosAlerts(): any[] {
     const query = this.sosSearchTerm.trim().toLowerCase();
 
@@ -1347,6 +1439,17 @@ export class SecurityManager implements OnInit {
 
     const now = Date.now();
     const ageMs = now - alertTime;
+    return ageMs >= 0 && ageMs <= 15 * 60 * 1000;
+  }
+
+  protected get activeSosAlertCount(): number {
+    return this.sosAlerts.filter((alert) => this.isSosRecent(alert.date)).length;
+  }
+
+  protected isIncidentRecent(reportedAt: string): boolean {
+    const ts = new Date(reportedAt).getTime();
+    if (Number.isNaN(ts)) return false;
+    const ageMs = Date.now() - ts;
     return ageMs >= 0 && ageMs <= 15 * 60 * 1000;
   }
 
