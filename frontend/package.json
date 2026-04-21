@@ -38,6 +38,8 @@
     "@angular/ssr": "^21.0.2",
     "@auth0/angular-jwt": "^5.2.0",
     "express": "^5.1.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "rxjs": "~7.8.0",
     "socket.io-client": "^4.8.3",
     "tslib": "^2.3.0",

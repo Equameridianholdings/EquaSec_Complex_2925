@@ -33,6 +33,9 @@
           <button type="button" class="btn-header-action" (click)="updateProfile()">
             Update Profile
           </button>
+          <button type="button" class="btn-header-reports" (click)="viewIncidentReports()">
+            View Incident Book
+          </button>
           <button type="button" class="btn-header-incident" (click)="openIncidentModal()">
             ⚠ Log Incident
           </button>
@@ -1051,7 +1054,44 @@
           <strong>Guard:</strong> {{ guardName }}<br />
           <strong>Station:</strong> {{ selectedStationName }}
         </p>
-        <div class="form-group">
+
+        <!-- Gated community chooser — only shown for gated/boomgate stations -->
+        <div class="form-group" *ngIf="stationType === 'gated'">
+          <label for="incident-gated-community">Gated Community *</label>
+          <select
+            id="incident-gated-community"
+            class="form-control"
+            [(ngModel)]="incidentGatedCommunityId"
+            name="incidentGatedCommunityId"
+            [disabled]="incidentSubmitting"
+            (ngModelChange)="onIncidentGatedCommunityChange()"
+          >
+            <option value="">— Select gated community —</option>
+            <option *ngFor="let gc of gatedCommunities" [value]="gc.id">{{ gc.name }}</option>
+          </select>
+        </div>
+
+        <!-- Location chooser — shown after gated community is selected -->
+        <div class="form-group" *ngIf="stationType === 'gated' && incidentGatedCommunityId">
+          <label for="incident-location">Where did this incident occur? *</label>
+          <select
+            id="incident-location"
+            class="form-control"
+            [(ngModel)]="incidentLocationType"
+            name="incidentLocationType"
+            [disabled]="incidentSubmitting"
+          >
+            <option value="">— Select location —</option>
+            <option value="general">🏘️ General (entire community)</option>
+            <option *ngFor="let c of incidentGatedCommunityComplexes" [value]="c.id">
+              🏢 {{ c.name }}
+            </option>
+            <option value="houses">🏠 Standalone Houses</option>
+          </select>
+        </div>
+
+        <!-- Description — always visible for complex stations; shown after selection for gated -->
+        <div class="form-group" *ngIf="stationType !== 'gated' || (incidentGatedCommunityId && incidentLocationType)">
           <label for="incident-description">Incident Description *</label>
           <textarea
             id="incident-description"
@@ -1063,11 +1103,17 @@
             [disabled]="incidentSubmitting"
           ></textarea>
         </div>
+
         <p class="error-text" *ngIf="incidentError">{{ incidentError }}</p>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn-secondary" (click)="closeIncidentModal()" [disabled]="incidentSubmitting">Cancel</button>
-        <button type="button" class="btn-main" (click)="submitIncident()" [disabled]="incidentSubmitting || !incidentDescription.trim()">
+        <button
+          type="button"
+          class="btn-main"
+          (click)="submitIncident()"
+          [disabled]="incidentSubmitting || !incidentDescription.trim() || (stationType === 'gated' && (!incidentGatedCommunityId || !incidentLocationType))"
+        >
           {{ incidentSubmitting ? 'Saving...' : 'Save Incident' }}
         </button>
       </div>
