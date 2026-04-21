@@ -323,37 +323,15 @@ export class GuardIncidents implements OnInit {
   emailSending = signal(false);
   emailSuccess = false;
 
-  broadcastSending = signal(false);
-  broadcastSuccess = '';
-  broadcastError = '';
-
-  /** Returns station IDs + display name from first matched filtered incident */
-  get selectedStationDetails(): { complexId?: string; gatedCommunityId?: string; displayName: string } | null {
-    if (!this.filterStation) return null;
-    for (const inc of this.filteredIncidents) {
-      const s = inc.sos?.station;
-      if (s) {
-        return {
-          complexId: s.complexId || undefined,
-          gatedCommunityId: s.gatedCommunityId || undefined,
-          displayName: s.complexName || s.gatedCommunityName || this.filterStation,
-        };
-      }
-    }
-    return null;
-  }
-
   openEmailModal(): void {
     this.recipientEmail = '';
     this.emailError = '';
     this.emailSuccess = false;
-    this.broadcastError = '';
-    this.broadcastSuccess = '';
     this.isEmailModalOpen = true;
   }
 
   closeEmailModal(): void {
-    if (this.emailSending() || this.broadcastSending()) return;
+    if (this.emailSending()) return;
     this.isEmailModalOpen = false;
   }
 
@@ -414,53 +392,6 @@ export class GuardIncidents implements OnInit {
 
   goBack(): void {
     this.router.navigate(['/guard-portal']);
-  }
-
-  broadcastToStation(): void {
-    const station = this.selectedStationDetails;
-    if (!station) {
-      this.broadcastError = 'Please select a station filter before broadcasting.';
-      return;
-    }
-    if (this.filteredIncidents.length === 0) {
-      this.broadcastError = 'There are no incidents on screen to send.';
-      return;
-    }
-
-    this.broadcastError = '';
-    this.broadcastSuccess = '';
-    this.broadcastSending.set(true);
-
-    this.loadLogoBase64().then((logo) => {
-      const doc = this.buildPdfDoc(logo);
-      const arrayBuffer = doc.output('arraybuffer');
-      const bytes = new Uint8Array(arrayBuffer);
-      let binary = '';
-      const chunkSize = 8192;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode(...(bytes.subarray(i, i + chunkSize) as unknown as number[]));
-      }
-      const pdfBase64 = btoa(binary);
-
-      const payload = {
-        complexId: station.complexId,
-        gatedCommunityId: station.gatedCommunityId,
-        guardName: this.guardName,
-        pdfBase64,
-        stationName: station.displayName,
-      };
-
-      this.dataService.post<any>('incident/broadcast-report', payload).subscribe({
-        next: (res: any) => {
-          this.broadcastSending.set(false);
-          this.broadcastSuccess = res?.message ?? 'Broadcast sent successfully!';
-        },
-        error: (err: any) => {
-          this.broadcastError = err?.error?.message ?? 'Failed to broadcast report. Please try again.';
-          this.broadcastSending.set(false);
-        },
-      });
-    });
   }
 
   private getCurrentUser(): any | null {

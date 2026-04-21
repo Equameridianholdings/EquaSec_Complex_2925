@@ -1,5 +1,4 @@
 import incidentSchema from "#db/incidentSchema.js";
-import residentSchema from "#db/residentSchema.js";
 import userSchema from "#db/userSchema.js";
 import { incidentBodyValidation, incidentDTO } from "#interfaces/incidentDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
@@ -55,70 +54,6 @@ incidentRouter.post("/email-report", async (req: Request, res: Response) => {
     return;
   } catch {
     res.status(500).json({ message: "Failed to send email. Please try again." });
-    return;
-  }
-});
-
-incidentRouter.post("/broadcast-report", async (req: Request, res: Response) => {
-  const body = req.body as {
-    complexId?: unknown;
-    gatedCommunityId?: unknown;
-    guardName?: unknown;
-    pdfBase64?: unknown;
-    stationName?: unknown;
-  };
-
-  const { complexId, gatedCommunityId, guardName, pdfBase64, stationName } = body;
-
-  if (!complexId && !gatedCommunityId) {
-    res.status(400).json({ message: "A station (complex or gated community) must be specified." });
-    return;
-  }
-
-  if (!pdfBase64 || typeof pdfBase64 !== "string" || !pdfBase64.trim()) {
-    res.status(400).json({ message: "PDF content is required." });
-    return;
-  }
-
-  // Query residents at this station
-  const query: { communityComplexId?: string; communityId?: string } = {};
-  if (typeof complexId === "string" && complexId.trim()) {
-    query.communityComplexId = complexId.trim();
-  } else if (typeof gatedCommunityId === "string" && gatedCommunityId.trim()) {
-    query.communityId = gatedCommunityId.trim();
-  }
-
-  try {
-    const residents = await residentSchema.find(query).select("emailAddress").lean<{ emailAddress?: unknown }[]>();
-    const emails = residents
-      .map((r) => r.emailAddress)
-      .filter((e): e is string => typeof e === "string" && Boolean(e.trim()));
-
-    if (emails.length === 0) {
-      res.status(404).json({ message: "No tenants found at this station." });
-      return;
-    }
-
-    const reporterName = typeof guardName === "string" && guardName.trim() ? guardName.trim() : "A guard";
-    const location = typeof stationName === "string" && stationName.trim() ? stationName.trim() : "your station";
-    const message = `Please find the EquaSec Incident Book report for ${reporterName} at ${location} attached as a PDF.`;
-    const safeGuardName = reporterName.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_");
-    const base64Content = pdfBase64.replace(/^data:application\/pdf;base64,/, "").trim();
-
-    await sendCustomEmail({
-      attachments: [{ content: base64Content, filename: `EquaSec_IncidentBook_${safeGuardName}.pdf` }],
-      message,
-      recipients: emails,
-      subject: `EquaSec Incident Book — ${location}`,
-    });
-
-    res.status(200).json({
-      count: emails.length,
-      message: `Report broadcast to ${String(emails.length)} tenant${emails.length !== 1 ? "s" : ""}.`,
-    });
-    return;
-  } catch {
-    res.status(500).json({ message: "Failed to broadcast report. Please try again." });
     return;
   }
 });
