@@ -75,12 +75,15 @@ export class VisitorCard implements OnInit, OnDestroy {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       this.cameraStream = stream;
-      const video = this.cameraPreviewRef?.nativeElement;
-      if (video) {
-        video.srcObject = stream;
-        await video.play();
-      }
       this.cameraActive.set(true);
+      // Wait for Angular to render the video element before assigning the stream
+      setTimeout(() => {
+        const video = this.cameraPreviewRef?.nativeElement;
+        if (video) {
+          video.srcObject = stream;
+          video.play().catch(() => this.showToast('Could not start camera preview.'));
+        }
+      }, 80);
     } catch {
       this.showToast('Camera access denied or not available.');
     }
