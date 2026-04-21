@@ -53,7 +53,11 @@ export class VisitorCard implements OnInit, OnDestroy {
     if (!code) return;
     this.selectedIdType.set('');
     this.capturedPhoto.set(null);
+    this.cameraActive.set(false);
     this.showIdModal.set(true);
+  }
+
+  protected openCamera(): void {
     setTimeout(() => this.startCamera(), 50);
   }
 
