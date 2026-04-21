@@ -452,6 +452,8 @@ visitorRouter.patch("/grant", async (req, res) => {
     const visitor = req.body as visitorDTO;
     const visitorRecord = toRecord(req.body);
     const visitorId = toIdString(visitorRecord._id) || toIdString(visitorRecord.id);
+    const idPhoto = typeof visitorRecord.idPhoto === 'string' ? visitorRecord.idPhoto : undefined;
+    const diskPhoto = typeof visitorRecord.diskPhoto === 'string' ? visitorRecord.diskPhoto : undefined;
 
     await cleanupExpiredVisitors();
 
@@ -488,10 +490,12 @@ visitorRouter.patch("/grant", async (req, res) => {
     visitor.validity = nextValidity;
     visitor.access = nextAccess;
 
-    const updatePayload = {
+    const updatePayload: Record<string, unknown> = {
       access: nextAccess,
       arrivedAt: new Date(),
       validity: nextValidity,
+      ...(idPhoto ? { idPhoto } : {}),
+      ...(diskPhoto ? { diskPhoto } : {}),
     };
 
     const persistedVisitor = await visitorShema
@@ -503,7 +507,11 @@ visitorRouter.patch("/grant", async (req, res) => {
       return;
     }
 
-    const log = new logSchema({ date: new Date(), guard: security, visitor: persistedVisitor });
+    const log = new logSchema({
+      date: new Date(),
+      guard: security,
+      visitor: persistedVisitor,
+    });
     await log.save();
 
     res.status(200).json({ message: "Access Granted!", payload: persistedVisitor });

@@ -198,6 +198,8 @@ export class VisitorCard implements OnInit, OnDestroy {
           validity: false,
           access: true,
           expiry: code.expiry ?? null,
+          idPhoto: this.capturedPhoto() ?? undefined,
+          diskPhoto: this.diskPhoto() ?? undefined,
         })
         .subscribe({
           next: (res) => {

@@ -15,6 +15,8 @@ const visitor = new mongoose.Schema(
     surname: { required: true, type: String },
     validity: { required: true, type: Boolean },
     vehicle: { required: false, type: Object },
+    idPhoto: { required: false, type: String },
+    diskPhoto: { required: false, type: String },
   },
   { collection: "visitors" },
 );

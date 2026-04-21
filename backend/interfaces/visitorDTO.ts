@@ -17,6 +17,8 @@ export interface visitorDTO {
   surname: string;
   validity: boolean;
   vehicle?: vehicleDTO;
+  idPhoto?: string;
+  diskPhoto?: string;
 }
 
 export const visitorBodyValidation = checkSchema({
