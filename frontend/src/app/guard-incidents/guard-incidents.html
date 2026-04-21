@@ -1,0 +1,211 @@
+@if (loading()) {
+  <app-loader />
+}
+
+<div class="incidents-page">
+  <header class="incidents-header">
+    <div class="header-card">
+      <div class="header-identity">
+        <div class="header-info">
+          <span class="header-label">Guard Portal</span>
+          <p class="header-sub">My Incident Reports</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="btn-back" (click)="goBack()">← Back to Portal</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="filter-panel">
+    <div class="section-title">
+      <div>
+        <h2>Incident Reports</h2>
+        <span class="helper">All incidents you have logged while on duty.</span>
+      </div>
+      <button
+        type="button"
+        class="btn-clear-filters"
+        (click)="clearFilters()"
+        *ngIf="searchDescription || filterDateFrom || filterDateTo || filterStation"
+      >
+        Clear Filters
+      </button>
+    </div>
+
+    <div class="filter-grid">
+      <div class="filter-field">
+        <label for="filterDescription">Search Description</label>
+        <input
+          id="filterDescription"
+          type="text"
+          class="filter-input"
+          placeholder="Enter keyword..."
+          [(ngModel)]="searchDescription"
+        />
+      </div>
+
+      <div class="filter-field">
+        <label for="filterStation">Station</label>
+        <select id="filterStation" class="filter-input" [(ngModel)]="filterStation">
+          <option value="">All stations</option>
+          <option *ngFor="let station of stationOptions" [value]="station">{{ station }}</option>
+        </select>
+      </div>
+
+      <div class="filter-field">
+        <label for="filterDateFrom">From Date</label>
+        <input
+          id="filterDateFrom"
+          type="date"
+          class="filter-input"
+          [(ngModel)]="filterDateFrom"
+        />
+      </div>
+
+      <div class="filter-field">
+        <label for="filterDateTo">To Date</label>
+        <input
+          id="filterDateTo"
+          type="date"
+          class="filter-input"
+          [(ngModel)]="filterDateTo"
+        />
+      </div>
+    </div>
+  </section>
+
+  <section class="results-section">
+    <div class="results-bar" *ngIf="!loading() && !loadError">
+      <div class="results-count">
+        Showing {{ filteredIncidents.length }} of {{ incidents().length }} report{{ incidents().length !== 1 ? 's' : '' }}
+      </div>
+      <div class="results-actions">
+        <button
+          type="button"
+          class="btn-download-pdf"
+          (click)="downloadPdf()"
+          [disabled]="filteredIncidents.length === 0"
+        >
+          Download PDF
+        </button>
+        <button
+          type="button"
+          class="btn-email-pdf"
+          (click)="openEmailModal()"
+          [disabled]="filteredIncidents.length === 0"
+        >
+          &#9993; Email PDF
+        </button>
+      </div>
+    </div>
+
+    <div class="error-banner" *ngIf="loadError" role="alert">
+      {{ loadError }}
+    </div>
+
+    <div class="incidents-grid" *ngIf="filteredIncidents.length > 0; else emptyState">
+      <article class="incident-card" *ngFor="let incident of filteredIncidents">
+        <div class="incident-card-header">
+          <div class="incident-date">
+            <span class="date-icon">📅</span>
+            <span>{{ formatDate(incident.sos.date) }}</span>
+          </div>
+        </div>
+
+        <div class="incident-body">
+          <p class="incident-description">{{ incident.description }}</p>
+        </div>
+
+        <div class="incident-meta-row">
+          <span class="meta-label">Location:</span>
+          <span class="meta-value">{{ locationLabel(incident) }}</span>
+        </div>
+      </article>
+    </div>
+
+    <ng-template #emptyState>
+      <div class="empty-state" *ngIf="!loading() && !loadError">
+        <div class="empty-icon">📋</div>
+        <h3>No incidents found</h3>
+        <p *ngIf="searchDescription || filterDateFrom || filterDateTo || filterStation">
+          No reports match your current filters.
+        </p>
+        <p *ngIf="!searchDescription && !filterDateFrom && !filterDateTo && !filterStation">
+          You have not logged any incidents yet.
+        </p>
+      </div>
+    </ng-template>
+  </section>
+
+  <footer class="incidents-footer">
+    <span>&#169; 2026 Equameridian Holdings (Pty) Ltd. All rights reserved.</span>
+  </footer>
+</div>
+
+<!-- Floating back button -->
+<button type="button" class="btn-float-back" (click)="goBack()" aria-label="Back to Portal">
+  &#8592;
+</button>
+
+<!-- Email PDF Modal -->
+<div class="modal-backdrop" *ngIf="isEmailModalOpen" (click)="closeEmailModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="email-modal-title" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="email-modal-title">Email Incident Book</h2>
+      <button class="btn-modal-close" type="button" (click)="closeEmailModal()" [disabled]="emailSending()">&#10005;</button>
+    </div>
+
+    <div class="modal-body" *ngIf="!emailSuccess">
+      <p class="modal-info">
+        The <strong>{{ filteredIncidents.length }}</strong> incident{{ filteredIncidents.length !== 1 ? 's' : '' }} currently on screen will be generated as a PDF and sent to the address below.
+      </p>
+      <div class="modal-field">
+        <label for="recipientEmail">Recipient Email *</label>
+        <input
+          id="recipientEmail"
+          type="email"
+          class="modal-input"
+          placeholder="e.g. manager@example.com"
+          [(ngModel)]="recipientEmail"
+          [disabled]="emailSending() || broadcastSending()"
+          (keyup.enter)="sendPdfByEmail()"
+        />
+      </div>
+      <div class="modal-error" *ngIf="emailError" role="alert">{{ emailError }}</div>
+
+      <!-- Broadcast section — only visible when a station filter is active -->
+      <div class="modal-divider" *ngIf="filterStation && selectedStationDetails">
+        <span>or</span>
+      </div>
+
+      <div class="modal-broadcast-section" *ngIf="filterStation && selectedStationDetails">
+        <p class="modal-broadcast-info">
+          Send the PDF to <strong>all tenants</strong> registered at
+          <strong>{{ selectedStationDetails!.displayName }}</strong>.
+        </p>
+        <button
+          type="button"
+          class="btn-modal-broadcast"
+          (click)="broadcastToStation()"
+          [disabled]="emailSending() || broadcastSending()"
+        >
+          {{ broadcastSending() ? 'Broadcasting...' : '&#128226; Broadcast to all tenants at ' + filterStation }}
+        </button>
+        <div class="modal-broadcast-error" *ngIf="broadcastError" role="alert">{{ broadcastError }}</div>
+        <div class="modal-broadcast-success" *ngIf="broadcastSuccess" role="status">&#10003; {{ broadcastSuccess }}</div>
+      </div>
+    </div>
+
+    <div class="modal-success" *ngIf="emailSuccess" role="status">
+      &#10003; PDF report sent successfully!
+    </div>
+
+    <div class="modal-actions" *ngIf="!emailSuccess">
+      <button type="button" class="btn-modal-cancel" (click)="closeEmailModal()" [disabled]="emailSending() || broadcastSending()">Cancel</button>
+      <button type="button" class="btn-modal-send" (click)="sendPdfByEmail()" [disabled]="emailSending() || broadcastSending()">
+        {{ emailSending() ? 'Sending...' : 'Send PDF' }}
+      </button>
+    </div>
+  </div>
+</div>

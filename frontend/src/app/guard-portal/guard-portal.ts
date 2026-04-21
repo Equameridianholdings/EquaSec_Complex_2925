@@ -80,6 +80,15 @@ export class GuardPortal implements OnInit, OnDestroy {
     return gc?.complexesInCommunity ?? [];
   }
 
+  protected get incidentGatedCommunityComplexes(): Array<{ id: string; name: string }> {
+    const gc = this.gatedCommunities.find((g) => g.id === this.incidentGatedCommunityId);
+    return gc?.complexesInCommunity ?? [];
+  }
+
+  protected onIncidentGatedCommunityChange(): void {
+    this.incidentLocationType = '';
+  }
+
   private getResidenceSortValue(item: any): string {
     return String(item?.unit ?? item?.houseNumber ?? '').trim();
   }
@@ -267,6 +276,8 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected incidentDescription = '';
   protected incidentSubmitting = false;
   protected incidentError = '';
+  protected incidentLocationType = ''; // '' | 'general' | 'houses' | <complexId>
+  protected incidentGatedCommunityId = '';
   protected selectedTenantToDelete: null | {
     email: string;
     id: string;
@@ -3153,6 +3164,10 @@ export class GuardPortal implements OnInit, OnDestroy {
     };
   }
 
+  protected viewIncidentReports(): void {
+    this.router.navigate(['/guard-incidents']);
+  }
+
   protected openIncidentModal(): void {
     if (!this.isStationSelected) {
       this._snackBar.open('Please select your station before logging an incident.', 'close', {
@@ -3164,6 +3179,8 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.incidentDescription = '';
     this.incidentError = '';
     this.incidentSubmitting = false;
+    this.incidentLocationType = '';
+    this.incidentGatedCommunityId = this.stationType === 'gated' ? (this.filtersForm.selectedGatedCommunity || '') : '';
     this.isIncidentModalOpen = true;
   }
 
@@ -3174,10 +3191,22 @@ export class GuardPortal implements OnInit, OnDestroy {
     this.isIncidentModalOpen = false;
     this.incidentDescription = '';
     this.incidentError = '';
+    this.incidentLocationType = '';
+    this.incidentGatedCommunityId = '';
   }
 
   protected submitIncident(): void {
     if (this.incidentSubmitting) {
+      return;
+    }
+
+    // For gated stations a gated community and location type must be chosen
+    if (this.stationType === 'gated' && !this.incidentGatedCommunityId) {
+      this.incidentError = 'Please select the gated community.';
+      return;
+    }
+    if (this.stationType === 'gated' && !this.incidentLocationType) {
+      this.incidentError = 'Please select where the incident occurred.';
       return;
     }
 
@@ -3201,7 +3230,27 @@ export class GuardPortal implements OnInit, OnDestroy {
         name: `${guard?.name ?? ''} ${guard?.surname ?? ''}`.trim() || this.guardName,
         emailAddress: guard?.emailAddress ?? '',
       },
-      station,
+      station: {
+        ...station,
+        ...(this.stationType === 'gated' && this.incidentGatedCommunityId
+          ? {
+              gatedCommunityId: this.incidentGatedCommunityId,
+              gatedCommunityName: this.gatedCommunities.find(g => g.id === this.incidentGatedCommunityId)?.name ?? '',
+            }
+          : {}),
+        ...(this.stationType === 'gated' && this.incidentLocationType
+          ? {
+              locationType: this.incidentLocationType === 'houses' ? 'houses'
+                          : this.incidentLocationType === 'general' ? 'general'
+                          : 'complex',
+              locationComplexId: this.incidentLocationType !== 'houses' && this.incidentLocationType !== 'general'
+                ? this.incidentLocationType : undefined,
+              locationComplexName: this.incidentLocationType === 'houses' ? 'Standalone Houses'
+                                 : this.incidentLocationType === 'general' ? 'General'
+                                 : (this.incidentGatedCommunityComplexes.find(c => c.id === this.incidentLocationType)?.name ?? ''),
+            }
+          : {}),
+      },
     };
 
     this.dataService.post<any>('incident/guard-report', payload).subscribe({
@@ -3213,6 +3262,8 @@ export class GuardPortal implements OnInit, OnDestroy {
         this.incidentSubmitting = false;
         this.isIncidentModalOpen = false;
         this.incidentDescription = '';
+        this.incidentLocationType = '';
+        this.incidentGatedCommunityId = '';
         setTimeout(() => window.location.reload(), 1500);
       },
       error: (error: HttpErrorResponse) => {

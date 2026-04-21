@@ -22,6 +22,7 @@ interface SendCodeOptions {
 }
 
 interface SendCustomEmailOptions {
+  attachments?: { content: string; filename: string }[];
   message: string;
   recipients: string[];
   subject: string;
@@ -108,10 +109,16 @@ export async function sendCustomEmail(options: SendCustomEmailOptions): Promise<
     </div>
   `;
 
+  const extraAttachments = (options.attachments ?? []).map((a) => ({
+    content: Buffer.from(a.content, 'base64'),
+    contentType: 'application/pdf',
+    filename: a.filename,
+  }));
+
   await Promise.all(
     recipients.map((recipient) =>
       transporter.sendMail({
-        attachments: footerLogoAttachment ? [footerLogoAttachment] : [],
+        attachments: [...(footerLogoAttachment ? [footerLogoAttachment] : []), ...extraAttachments],
         from: `EquaSec <${smtp.from}>`,
         html,
         subject,

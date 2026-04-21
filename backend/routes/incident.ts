@@ -1,13 +1,202 @@
 import incidentSchema from "#db/incidentSchema.js";
+import residentSchema from "#db/residentSchema.js";
+import userSchema from "#db/userSchema.js";
 import { incidentBodyValidation, incidentDTO } from "#interfaces/incidentDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
+import { sendCustomEmail } from "#utils/sendEmail.js";
 import { ValidObjectId } from "#utils/validObjectId.js";
 import { Request, Response, Router } from "express";
 
 const incidentRouter = Router();
 
 incidentRouter.use(AuthMiddleware);
+
+incidentRouter.post("/email-report", async (req: Request, res: Response) => {
+  const body = req.body as {
+    guardName?: unknown;
+    pdfBase64?: unknown;
+    recipientEmail?: unknown;
+  };
+
+  const { guardName, pdfBase64, recipientEmail } = body;
+
+  if (!recipientEmail || typeof recipientEmail !== "string" || !recipientEmail.trim()) {
+    res.status(400).json({ message: "Recipient email is required." });
+    return;
+  }
+
+  if (!pdfBase64 || typeof pdfBase64 !== "string" || !pdfBase64.trim()) {
+    res.status(400).json({ message: "PDF content is required." });
+    return;
+  }
+
+  const reporterName = typeof guardName === "string" && guardName.trim() ? guardName.trim() : "A guard";
+  const message = `Please find the EquaSec Incident Book report for ${reporterName} attached as a PDF.`;
+  const safeGuardName = reporterName.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_");
+
+  // Strip data URI prefix if present
+  const base64Content = pdfBase64.replace(/^data:application\/pdf;base64,/, "").trim();
+
+  try {
+    await sendCustomEmail({
+      attachments: [
+        {
+          content: base64Content,
+          filename: `EquaSec_IncidentBook_${safeGuardName}.pdf`,
+        },
+      ],
+      message,
+      recipients: [recipientEmail.trim()],
+      subject: `EquaSec Incident Book — ${reporterName}`,
+    });
+
+    res.status(200).json({ message: "Report sent successfully." });
+    return;
+  } catch {
+    res.status(500).json({ message: "Failed to send email. Please try again." });
+    return;
+  }
+});
+
+incidentRouter.post("/broadcast-report", async (req: Request, res: Response) => {
+  const body = req.body as {
+    complexId?: unknown;
+    gatedCommunityId?: unknown;
+    guardName?: unknown;
+    pdfBase64?: unknown;
+    stationName?: unknown;
+  };
+
+  const { complexId, gatedCommunityId, guardName, pdfBase64, stationName } = body;
+
+  if (!complexId && !gatedCommunityId) {
+    res.status(400).json({ message: "A station (complex or gated community) must be specified." });
+    return;
+  }
+
+  if (!pdfBase64 || typeof pdfBase64 !== "string" || !pdfBase64.trim()) {
+    res.status(400).json({ message: "PDF content is required." });
+    return;
+  }
+
+  // Query residents at this station
+  const query: { communityComplexId?: string; communityId?: string } = {};
+  if (typeof complexId === "string" && complexId.trim()) {
+    query.communityComplexId = complexId.trim();
+  } else if (typeof gatedCommunityId === "string" && gatedCommunityId.trim()) {
+    query.communityId = gatedCommunityId.trim();
+  }
+
+  try {
+    const residents = await residentSchema.find(query).select("emailAddress").lean<{ emailAddress?: unknown }[]>();
+    const emails = residents
+      .map((r) => r.emailAddress)
+      .filter((e): e is string => typeof e === "string" && Boolean(e.trim()));
+
+    if (emails.length === 0) {
+      res.status(404).json({ message: "No tenants found at this station." });
+      return;
+    }
+
+    const reporterName = typeof guardName === "string" && guardName.trim() ? guardName.trim() : "A guard";
+    const location = typeof stationName === "string" && stationName.trim() ? stationName.trim() : "your station";
+    const message = `Please find the EquaSec Incident Book report for ${reporterName} at ${location} attached as a PDF.`;
+    const safeGuardName = reporterName.replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_");
+    const base64Content = pdfBase64.replace(/^data:application\/pdf;base64,/, "").trim();
+
+    await sendCustomEmail({
+      attachments: [{ content: base64Content, filename: `EquaSec_IncidentBook_${safeGuardName}.pdf` }],
+      message,
+      recipients: emails,
+      subject: `EquaSec Incident Book — ${location}`,
+    });
+
+    res.status(200).json({
+      count: emails.length,
+      message: `Report broadcast to ${String(emails.length)} tenant${emails.length !== 1 ? "s" : ""}.`,
+    });
+    return;
+  } catch {
+    res.status(500).json({ message: "Failed to broadcast report. Please try again." });
+    return;
+  }
+});
+
+incidentRouter.get("/my-reports", async (req, res) => {
+  const email = res.get('email');
+
+  if (!email) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  try {
+    // Look up the guard to get their assigned sites
+    const guardDoc = await userSchema.findOne({ emailAddress: email }).lean().exec();
+
+    if (!guardDoc) {
+      res.status(404).json({ message: "Guard not found" });
+      return;
+    }
+
+    const guard = guardDoc as {
+      assignedCommunities?: unknown[];
+      assignedComplexes?: unknown[];
+      employeeContracts?: { assignedCommunities?: unknown[]; assignedComplexes?: unknown[] }[];
+    };
+
+    // Collect all assigned complex IDs and gated community IDs
+    const complexIdSet = new Set<string>();
+    const communityIdSet = new Set<string>();
+
+    const addIds = (arr: unknown, set: Set<string>) => {
+      if (Array.isArray(arr)) {
+        for (const v of arr) {
+          const s = String(v ?? '').trim();
+          if (s) set.add(s);
+        }
+      }
+    };
+
+    addIds(guard.assignedComplexes, complexIdSet);
+    addIds(guard.assignedCommunities, communityIdSet);
+
+    if (Array.isArray(guard.employeeContracts)) {
+      for (const contract of guard.employeeContracts) {
+        addIds(contract.assignedComplexes, complexIdSet);
+        addIds(contract.assignedCommunities, communityIdSet);
+      }
+    }
+
+    const complexIds = Array.from(complexIdSet);
+    const communityIds = Array.from(communityIdSet);
+
+    if (complexIds.length === 0 && communityIds.length === 0) {
+      res.status(200).json({ message: "Incidents retrieved", payload: [] });
+      return;
+    }
+
+    const orClauses: object[] = [];
+    if (complexIds.length > 0) {
+      orClauses.push({ "sos.station.complexId": { $in: complexIds } });
+    }
+    if (communityIds.length > 0) {
+      orClauses.push({ "sos.station.gatedCommunityId": { $in: communityIds } });
+    }
+
+    const incidents = await incidentSchema
+      .find({ $or: orClauses })
+      .sort({ "sos.date": -1 })
+      .exec();
+
+    res.status(200).json({ message: "Incidents retrieved", payload: incidents });
+    return;
+  } catch {
+    res.status(500).json({ message: "Internal Server Error" });
+    return;
+  }
+});
 
 incidentRouter.get("/", async (req, res) => {
   try {

@@ -11,14 +11,14 @@ export interface visitorDTO {
   code?: number;
   contact: string;
   destination?: unitDTO;
+  diskPhoto?: string;
   driving: boolean;
   expiry?: Date;
+  idPhoto?: string;
   name: string;
   surname: string;
   validity: boolean;
   vehicle?: vehicleDTO;
-  idPhoto?: string;
-  diskPhoto?: string;
 }
 
 export const visitorBodyValidation = checkSchema({

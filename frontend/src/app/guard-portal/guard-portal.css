@@ -177,6 +177,27 @@
 	color: #ffffff;
 }
 
+.btn-header-reports {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(37, 99, 235, 0.15);
+	border: 1px solid rgba(59, 130, 246, 0.45);
+	color: #93c5fd;
+	border-radius: 999px;
+	padding: 7px 16px;
+	font-size: 12px;
+	font-weight: 700;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.btn-header-reports:hover {
+	background: rgba(37, 99, 235, 0.3);
+	border-color: rgba(59, 130, 246, 0.7);
+	color: #bfdbfe;
+}
+
 .btn-header-incident {
 	display: inline-flex;
 	align-items: center;
@@ -203,20 +224,21 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	background: transparent;
-	border: 1px solid rgba(148, 163, 184, 0.4);
-	color: #94a3b8;
+	background: rgba(239, 68, 68, 0.12);
+	border: 1px solid rgba(239, 68, 68, 0.5);
+	color: #fca5a5;
 	border-radius: 999px;
 	padding: 7px 16px;
 	font-size: 12px;
-	font-weight: 600;
+	font-weight: 700;
 	cursor: pointer;
 	transition: all 0.2s ease;
 }
 
 .btn-header-logout:hover {
+	background: rgba(239, 68, 68, 0.25);
 	border-color: #f87171;
-	color: #f87171;
+	color: #ffffff;
 }
 
 .guard-avatar {
@@ -315,6 +337,8 @@
 	margin-bottom: 12px;
 	line-height: 1.7;
 }
+
+/* ── Incident location type chooser ─────────── */
 
 .search-grid {
 	display: grid;
