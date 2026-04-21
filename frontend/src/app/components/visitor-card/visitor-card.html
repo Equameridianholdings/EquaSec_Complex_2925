@@ -34,6 +34,57 @@
   </div>
 </div>
 
+@if (showIdModal()) {
+  <div class="modal-backdrop" (click)="cancelIdModal()">
+    <div class="modal" style="max-width:480px;width:100%" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Visitor Identification</h2>
+        <button class="btn-icon" type="button" (click)="cancelIdModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Identify <strong>{{ visitor.name }} {{ visitor.surname }}</strong> and take a photo.</p>
+        <div class="form-group" style="margin-top:12px">
+          <label for="id-type-select">Identification Type</label>
+          <select
+            id="id-type-select"
+            class="form-control"
+            [value]="selectedIdType()"
+            (change)="onIdTypeChange($event)"
+          >
+            <option value="">Select type...</option>
+            <option value="id">ID Document</option>
+            <option value="drivers">Driver's License</option>
+            <option value="face">Face Identification</option>
+          </select>
+        </div>
+        <div class="camera-section" style="margin-top:16px">
+          @if (!capturedPhoto()) {
+            <video #cameraPreview autoplay playsinline class="camera-preview"></video>
+            <canvas #photoCanvas style="display:none"></canvas>
+            @if (cameraActive()) {
+              <button type="button" class="btn-main" (click)="capturePhoto()">📸 Capture Photo</button>
+            }
+          } @else {
+            <img [src]="capturedPhoto()" alt="Captured visitor photo" class="captured-photo" />
+            <button type="button" class="btn-secondary" (click)="retakePhoto()">↩ Retake</button>
+          }
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" (click)="cancelIdModal()">Cancel</button>
+        <button
+          type="button"
+          class="btn-main"
+          [disabled]="!selectedIdType() || !capturedPhoto()"
+          (click)="proceedToConfirm()"
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
 @if (showConfirmModal()) {
   <div class="modal-backdrop" (click)="cancelGrant()">
     <div class="modal" style="max-width:420px;width:100%" (click)="$event.stopPropagation()">
