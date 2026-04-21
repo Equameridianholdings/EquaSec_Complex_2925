@@ -1795,12 +1795,23 @@
   align-items: center;
   gap: 12px;
   margin-top: 16px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.camera-section .camera-preview {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
 }
 
 .captured-photo {
   width: 100%;
-  max-height: 260px;
+  max-height: 280px;
   object-fit: cover;
   border-radius: 10px;
   border: 2px solid #6366f1;
+  display: block;
 }
