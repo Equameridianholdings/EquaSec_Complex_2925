@@ -69,12 +69,24 @@
             </button>
           }
           @if (cameraActive() && !capturedPhoto()) {
-            <video #cameraPreview autoplay playsinline class="camera-preview"></video>
+            <div class="scanner-viewport">
+              <video #cameraPreview autoplay playsinline class="scanner-video"></video>
+              <div class="scanner-overlay">
+                <div class="scanner-corner tl"></div>
+                <div class="scanner-corner tr"></div>
+                <div class="scanner-corner bl"></div>
+                <div class="scanner-corner br"></div>
+                <div class="scanner-line"></div>
+              </div>
+            </div>
             <canvas #photoCanvas style="display:none"></canvas>
             <button type="button" class="btn-main" (click)="capturePhoto()">📸 Capture</button>
           }
           @if (capturedPhoto()) {
-            <img [src]="capturedPhoto()" alt="Captured visitor photo" class="captured-photo" />
+            <div class="captured-preview">
+              <img [src]="capturedPhoto()" alt="Captured visitor photo" class="captured-photo" />
+              <span class="captured-badge">✔ Photo Captured</span>
+            </div>
             <button type="button" class="btn-secondary" (click)="retakePhoto()">↩ Retake</button>
           }
         </div>
