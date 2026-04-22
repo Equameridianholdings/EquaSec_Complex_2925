@@ -114,14 +114,14 @@
             <button type="button" class="btn-main" (click)="openCamera()">📷 Capture Disk</button>
           }
           @if (cameraActive() && !diskPhoto()) {
-            <div class="scanner-viewport">
-              <video #cameraPreview autoplay playsinline class="scanner-video"></video>
+            <div class="scanner-viewport scanner-viewport--circle">
+              <video #cameraPreview autoplay playsinline class="scanner-video scanner-video--circle"></video>
             </div>
             <button type="button" class="btn-main" (click)="captureDiskPhoto()">📸 Capture</button>
           }
           @if (diskPhoto()) {
             <div class="captured-preview">
-              <img [src]="diskPhoto()" alt="Vehicle disk photo" class="captured-photo" />
+              <img [src]="diskPhoto()" alt="Vehicle disk photo" class="captured-photo captured-photo--circle" />
               <span class="captured-badge">✔ Disk Captured</span>
             </div>
             <button type="button" class="btn-secondary" (click)="retakeDiskPhoto()">↩ Retake</button>
