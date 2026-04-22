@@ -177,6 +177,18 @@
 	color: #ffffff;
 }
 
+.btn-flash--on {
+	background: rgba(250, 204, 21, 0.2);
+	border-color: rgba(250, 204, 21, 0.55);
+	color: #fde68a;
+}
+
+.btn-flash--on:hover {
+	background: rgba(250, 204, 21, 0.3);
+	border-color: rgba(250, 204, 21, 0.75);
+	color: #fef08a;
+}
+
 .btn-header-reports {
 	display: inline-flex;
 	align-items: center;
