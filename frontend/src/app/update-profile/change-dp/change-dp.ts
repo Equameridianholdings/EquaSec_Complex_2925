@@ -62,7 +62,7 @@ export class ChangeDp {
       });
     } catch {
       return await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: { facingMode: 'user' },
         audio: false,
       });
     }
@@ -193,15 +193,9 @@ export class ChangeDp {
   }
 
   private stopProfileCamera(): void {
-    const track = this.profileCameraStream?.getVideoTracks()[0];
-    if (track && this.flashEnabled()) {
-      void track.applyConstraints({ advanced: [{ torch: false } as MediaTrackConstraintSet] }).catch(() => {});
-    }
     this.profileCameraStream?.getTracks().forEach((t) => t.stop());
     this.profileCameraStream = null;
     this.hasCameraStream.update(() => false);
-    this.flashEnabled.set(false);
-    this.flashSupported.set(false);
     const video = this.profileCameraVideo?.nativeElement;
     if (video) {
       video.srcObject = null;

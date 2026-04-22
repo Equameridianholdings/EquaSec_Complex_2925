@@ -38,7 +38,7 @@ const runMonthlyVisitorCleanup = async () => {
 const scheduleMonthlyCleanup = () => {
   const runIfTenth = () => {
     if (new Date().getDate() === 10) {
-      runMonthlyVisitorCleanup();
+      void runMonthlyVisitorCleanup();
     }
   };
   // Check immediately on startup in case the server restarts on the 10th

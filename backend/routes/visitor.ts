@@ -515,11 +515,12 @@ visitorRouter.patch("/grant", async (req, res) => {
     });
     await log.save();
 
-    const visitorObj = persistedVisitor.toObject ? persistedVisitor.toObject() : { ...persistedVisitor };
-    if (typeof visitorObj.idPhoto === 'string') visitorObj.idPhoto = decryptPhoto(visitorObj.idPhoto);
-    if (typeof visitorObj.diskPhoto === 'string') visitorObj.diskPhoto = decryptPhoto(visitorObj.diskPhoto);
+    const visitorPlain = (persistedVisitor as unknown as { toObject: () => visitorDTO }).toObject();
+    const decryptedIdPhoto = typeof visitorPlain.idPhoto === 'string' ? decryptPhoto(visitorPlain.idPhoto) : visitorPlain.idPhoto;
+    const decryptedDiskPhoto = typeof visitorPlain.diskPhoto === 'string' ? decryptPhoto(visitorPlain.diskPhoto) : visitorPlain.diskPhoto;
+    const responseVisitor: visitorDTO = { ...visitorPlain, diskPhoto: decryptedDiskPhoto, idPhoto: decryptedIdPhoto };
 
-    res.status(200).json({ message: "Access Granted!", payload: visitorObj });
+    res.status(200).json({ message: "Access Granted!", payload: responseVisitor });
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error!" });

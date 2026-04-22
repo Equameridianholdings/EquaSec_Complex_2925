@@ -1712,8 +1712,10 @@ userRouter.patch("/update", AuthMiddleware, async (req, res) => {
       return res.status(404).json({ message: "User details not found!" });
     }
 
-    const userObj = user.toObject ? user.toObject() : { ...user };
-    if (typeof userObj.profilePhoto === 'string') userObj.profilePhoto = decryptPhoto(userObj.profilePhoto);
+    const rawUser = user.toObject<UserDTO>();
+    const profilePhotoRaw = rawUser.profilePhoto;
+    const decryptedPhoto = typeof profilePhotoRaw === 'string' ? decryptPhoto(profilePhotoRaw) : profilePhotoRaw;
+    const userObj = { ...rawUser, profilePhoto: decryptedPhoto };
 
     return res.status(200).json({ message: "User details updated", payload: userObj });
   } catch {
@@ -1733,9 +1735,9 @@ userRouter.get("/current", AuthMiddleware, async (req, res) => {
     const user = (await userSchema.findOne({ emailAddress: currentUserEmail }).exec()) as unknown as UserDTO;
     
     if (user) {
-      const userObj = { ...user };
-      if (typeof userObj.profilePhoto === 'string') userObj.profilePhoto = decryptPhoto(userObj.profilePhoto);
-      return res.status(200).json({ message: "Successfully retrieved User!", payload: userObj });
+      const profilePhotoRaw = user.profilePhoto;
+      const decryptedPhoto = typeof profilePhotoRaw === 'string' ? decryptPhoto(profilePhotoRaw) : profilePhotoRaw;
+      return res.status(200).json({ message: "Successfully retrieved User!", payload: { ...user, profilePhoto: decryptedPhoto } });
     } else {
       return res.status(404).json({ message: "User details not found!" });
     }
