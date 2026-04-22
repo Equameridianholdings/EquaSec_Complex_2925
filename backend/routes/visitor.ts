@@ -522,7 +522,8 @@ visitorRouter.patch("/grant", async (req, res) => {
 
     res.status(200).json({ message: "Access Granted!", payload: responseVisitor });
     return;
-  } catch {
+  } catch (err) {
+    console.error("[/grant] Internal error:", err);
     res.status(500).json({ message: "Internal Server Error!" });
     return;
   }

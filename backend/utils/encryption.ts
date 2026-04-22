@@ -56,6 +56,10 @@ export const decrypt = (cipherArr: string[]) => {
  * Returns a prefixed JSON-serialised string that can be stored as a plain string field.
  */
 export const encryptPhoto = (photoData: string): string => {
+  if (!process.env.ENCRYPT_SECRET_KEY) {
+    console.warn("[encryptPhoto] ENCRYPT_SECRET_KEY not set — storing photo unencrypted.");
+    return photoData;
+  }
   const parts = encrypt(photoData);
   return ENCRYPTED_PREFIX + JSON.stringify(parts);
 };
