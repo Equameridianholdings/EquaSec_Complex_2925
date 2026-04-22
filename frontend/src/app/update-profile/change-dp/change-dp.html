@@ -18,6 +18,20 @@
         @if (profilePhotoData()) {
           <img [src]="profilePhotoData()" alt="Profile preview" class="camera-preview" />
         }
+        @if (hasCameraStream() && flashSupported()) {
+          <button
+            type="button"
+            class="btn-flash"
+            [class.btn-flash--on]="flashEnabled()"
+            (click)="toggleFlash()"
+            [attr.aria-label]="flashEnabled() ? 'Turn flash off' : 'Turn flash on'"
+            [title]="flashEnabled() ? 'Turn flash off' : 'Turn flash on'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true">
+              <path d="M7 2v11h3v9l7-12h-4l4-8z"/>
+            </svg>
+          </button>
+        }
       </div>
       <div class="camera-actions">
         <button

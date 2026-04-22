@@ -29,6 +29,8 @@ export class ChangeDp {
   profilePhotoData = signal("");
   cameraError = signal('');
   hasCameraStream = signal(false);
+  flashEnabled = signal(false);
+  flashSupported = signal(false);
   private profileCameraStream: MediaStream | null = null;
 
   closeModal() {
@@ -123,6 +125,10 @@ export class ChangeDp {
         throw new Error('No active camera track');
       }
 
+      const capabilities = videoTrack.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean };
+      this.flashSupported.set(!!(capabilities?.torch));
+      this.flashEnabled.set(false);
+
       video.srcObject = this.profileCameraStream;
       video.muted = true;
       video.setAttribute('playsinline', 'true');
@@ -166,6 +172,20 @@ export class ChangeDp {
     void this.startProfileCamera();
   }
 
+  async toggleFlash(): Promise<void> {
+    const track = this.profileCameraStream?.getVideoTracks()[0];
+    if (!track || !this.flashSupported()) {
+      return;
+    }
+    const newState = !this.flashEnabled();
+    try {
+      await track.applyConstraints({ advanced: [{ torch: newState } as MediaTrackConstraintSet] });
+      this.flashEnabled.set(newState);
+    } catch {
+      this.flashSupported.set(false);
+    }
+  }
+
   useCapturedProfilePhoto(): void {
     this.submitting.update(() => true);
     this.stopProfileCamera();
@@ -193,9 +213,15 @@ export class ChangeDp {
   }
 
   private stopProfileCamera(): void {
-    this.profileCameraStream?.getTracks().forEach((track) => track.stop());
+    const track = this.profileCameraStream?.getVideoTracks()[0];
+    if (track && this.flashEnabled()) {
+      void track.applyConstraints({ advanced: [{ torch: false } as MediaTrackConstraintSet] }).catch(() => {});
+    }
+    this.profileCameraStream?.getTracks().forEach((t) => t.stop());
     this.profileCameraStream = null;
     this.hasCameraStream.update(() => false);
+    this.flashEnabled.set(false);
+    this.flashSupported.set(false);
     const video = this.profileCameraVideo?.nativeElement;
     if (video) {
       video.srcObject = null;
