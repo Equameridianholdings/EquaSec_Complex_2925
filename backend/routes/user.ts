@@ -1735,9 +1735,10 @@ userRouter.get("/current", AuthMiddleware, async (req, res) => {
     const user = (await userSchema.findOne({ emailAddress: currentUserEmail }).exec()) as unknown as UserDTO;
     
     if (user) {
-      const profilePhotoRaw = user.profilePhoto;
+      const userDoc = (user as unknown as { toObject: () => UserDTO }).toObject();
+      const profilePhotoRaw = userDoc.profilePhoto;
       const decryptedPhoto = typeof profilePhotoRaw === 'string' ? decryptPhoto(profilePhotoRaw) : profilePhotoRaw;
-      return res.status(200).json({ message: "Successfully retrieved User!", payload: { ...user, profilePhoto: decryptedPhoto } });
+      return res.status(200).json({ message: "Successfully retrieved User!", payload: { ...userDoc, profilePhoto: decryptedPhoto } });
     } else {
       return res.status(404).json({ message: "User details not found!" });
     }
