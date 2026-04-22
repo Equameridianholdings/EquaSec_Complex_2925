@@ -302,6 +302,37 @@ export class SecurityManager implements OnInit {
   private assignedComplexesLoaded = false;
   private gatedCommunitiesLoaded = false;
 
+  protected activeSection: 'sos' | 'complexes' | 'communities' | 'management' | 'employees' | 'visitors' | 'incidents' | 'reports' = 'sos';
+  protected isSideNavOpen = false;
+
+  protected readonly navItems: Array<{ key: 'sos' | 'complexes' | 'communities' | 'management' | 'employees' | 'visitors' | 'incidents' | 'reports'; label: string; icon: string }> = [
+    { key: 'sos', label: 'SOS Alerts', icon: '🚨' },
+    { key: 'complexes', label: 'Assigned Complexes', icon: '🏢' },
+    { key: 'communities', label: 'Gated Communities', icon: '🏘️' },
+    { key: 'management', label: 'Security Management', icon: '👥' },
+    { key: 'employees', label: 'Employees', icon: '🪪' },
+    { key: 'visitors', label: 'Visitors', icon: '🚗' },
+    { key: 'incidents', label: 'Incident Reports', icon: '📋' },
+    { key: 'reports', label: 'Pending Reports', icon: '📄' },
+  ];
+
+  protected get activeSectionLabel(): string {
+    return this.navItems.find(n => n.key === this.activeSection)?.label ?? 'Dashboard';
+  }
+
+  protected setSection(section: typeof this.activeSection): void {
+    this.activeSection = section;
+    this.isSideNavOpen = false;
+  }
+
+  protected toggleSideNav(): void {
+    this.isSideNavOpen = !this.isSideNavOpen;
+  }
+
+  protected closeSideNav(): void {
+    this.isSideNavOpen = false;
+  }
+
   constructor(
     private readonly router: Router,
     private readonly dataService: DataService,
@@ -1271,7 +1302,7 @@ export class SecurityManager implements OnInit {
               ? {
                   make: visitor.vehicle.make,
                   model: visitor.vehicle.model,
-                  reg: visitor.vehicle?.registerationNumber,
+                  reg: visitor.vehicle?.registrationNumber || visitor.vehicle?.registerationNumber,
                   color: visitor.vehicle.color,
                 }
               : undefined,
