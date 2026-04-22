@@ -1,8 +1,8 @@
-import { Int32 } from "mongodb";
+import { Double } from "mongodb";
 import mongoose from "mongoose";
 
 const invoice = new mongoose.Schema({
-    amount: { required: true, type: Int32},
+    amount: { required: true, type: Double},
     dueDate: { required: true, type: Date},
     invoiceStatus: { default: "Due", required: true, type: String},
     isSubscribed: { default: false, required: true, type: Boolean },

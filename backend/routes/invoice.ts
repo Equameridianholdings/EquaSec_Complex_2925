@@ -30,15 +30,15 @@ invoiceRouter.get("/subscribed", async (req: Request, res: Response) => {
 
     if (invoices.length === 0) {
       const unit = await unitSchema.findOne<unitDTO>({ users: user?._id.toString() }).exec();
-
+      
       if (!unit) return res.status(400).json({ message: "Error! You are not a part of a complex or gated community yet!"});
 
       const complex = await complexSchema.findById<complexDTO>(unit.complex?._id).exec();
-
+      
       if (!complex) return res.status(400).json({ message: "Error! You are not a part of a complex yet!"});
 
       const _invoice: invoiceDTO = {
-        amount: complex.price as unknown as number,
+        amount: complex.price,
         dueDate: new Date(),
         invoiceStatus: "Due",
         isSubscribed: false,
