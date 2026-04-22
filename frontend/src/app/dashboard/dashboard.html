@@ -11,7 +11,7 @@
       </div>
     </div>
     <p class="status-badge" [class.active]="true">
-      {{ currentUser().visitorsTokens <= 5 ? 'Free Trial' : 'Account Active' }}
+      {{ currentUser().visitorsTokens <= 5 && currentUser().visitorsTokens !== 0 ? 'Free Trial' : 'Account Active' }}
     </p>
   </div>
 

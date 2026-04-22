@@ -392,7 +392,7 @@ visitorRouter.post("/", visitorBodyValidation, validateSchema, async (req: Reque
     const userUnits = await unitSchema.findOne<unitDTO>({ users: _id.toString() }).exec();
 
     if (userUnits === null) {
-      res.status(404).json({ message: "User not found!" });
+      res.status(404).json({ message: "Error! You are not registered under a unit yet!" });
       return;
     }
 

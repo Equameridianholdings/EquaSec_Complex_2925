@@ -16,6 +16,9 @@ invoiceRouter.get("/subscribed", async (req: Request, res: Response) => {
   const email = res.get("email");
   try {
     const user = await userSchema.findOne({ emailAddress: email }).exec();
+
+    if (user && user.visitorsTokens as number <= 5 && user.visitorsTokens as number !== 0) return res.status(400).json({ message: "Trial is still active!"});
+
     const invoiceQuery = {
       dueDate: {
         $gte: new Date(),
@@ -25,12 +28,17 @@ invoiceRouter.get("/subscribed", async (req: Request, res: Response) => {
     };
     const invoices = await invoiceSchema.find<invoiceDTO>(invoiceQuery).exec();
 
-    if (invoices.length <= 0) {
+    if (invoices.length === 0) {
       const unit = await unitSchema.findOne<unitDTO>({ users: user?._id.toString() }).exec();
-      const complex = await complexSchema.findById<complexDTO>(unit?.complex?._id).exec();
+
+      if (!unit) return res.status(400).json({ message: "Error! You are not a part of a complex or gated community yet!"});
+
+      const complex = await complexSchema.findById<complexDTO>(unit.complex?._id).exec();
+
+      if (!complex) return res.status(400).json({ message: "Error! You are not a part of a complex yet!"});
 
       const _invoice: invoiceDTO = {
-        amount: complex?.price as unknown as number,
+        amount: complex.price as unknown as number,
         dueDate: new Date(),
         invoiceStatus: "Due",
         isSubscribed: false,

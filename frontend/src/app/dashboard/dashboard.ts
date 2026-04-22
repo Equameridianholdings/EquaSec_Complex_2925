@@ -61,7 +61,7 @@ export class Dashboard implements OnInit, OnDestroy {
   constructor(private readonly router: Router) {}
   ngOnInit(): void {
     this.dataService.get<ResponseBody>('user/current/').subscribe({
-      next: (res) => (this.currentUser.update(() => res.payload as UserDTO)),
+      next: (res) => this.currentUser.update(() => res.payload as UserDTO),
       error: (err) => {
         this._snackBar.open(err.error.message, 'close', {
           horizontalPosition: this.horizontalPosition,
@@ -72,6 +72,14 @@ export class Dashboard implements OnInit, OnDestroy {
   }
 
   openBookingModal() {
+    if (this.currentUser().visitorsTokens === 0) {
+      this._snackBar.open('Free trail expired!', 'close', {
+        horizontalPosition: this.horizontalPosition,
+        verticalPosition: this.verticalPosition,
+      });
+      return;
+    }
+
     this.dialog.open(BookVisitor, {
       data: {
         data: {},
@@ -92,7 +100,7 @@ export class Dashboard implements OnInit, OnDestroy {
     this.dialog.open(Paygate, {
       data: {
         currentUser: this.currentUser(),
-      }
+      },
     });
   }
 

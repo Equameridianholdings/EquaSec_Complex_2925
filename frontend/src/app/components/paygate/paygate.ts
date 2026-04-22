@@ -8,7 +8,7 @@ import {
   MatSnackBarVerticalPosition,
 } from '@angular/material/snack-bar';
 import { Loader } from '../loader/loader';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { invoiceDTO } from '../../interfaces/invoiceDTO';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 
@@ -27,6 +27,7 @@ export class Paygate implements OnInit {
           horizontalPosition: this.horizontalPosition,
           verticalPosition: this.verticalPosition,
         });
+        this.dialogRef.close();
       },
     });
   }
@@ -44,6 +45,7 @@ export class Paygate implements OnInit {
   private _snackBar = inject(MatSnackBar);
   horizontalPosition: MatSnackBarHorizontalPosition = 'center';
   verticalPosition: MatSnackBarVerticalPosition = 'top';
+  dialogRef = inject(MatDialogRef<Paygate>);
 
   isPROD: number = process.env['NG_APP_PRODUCTION'] as number;
   MERCHANT_ID = process.env['NG_APP_MERCHANT_ID'];
