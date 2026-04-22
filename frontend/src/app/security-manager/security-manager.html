@@ -2,54 +2,88 @@
   <app-loader />
 }
 <div class="security-manager-container">
+  <!-- Side Nav Overlay -->
+  <div class="sidenav-overlay" [class.open]="isSideNavOpen" (click)="closeSideNav()"></div>
+
+  <!-- Side Nav -->
+  <nav class="sidenav" [class.open]="isSideNavOpen" aria-label="Dashboard navigation">
+    <div class="sidenav-header">
+      <p class="sidenav-title">Navigation</p>
+      <button class="sidenav-close" (click)="closeSideNav()" aria-label="Close menu">&times;</button>
+    </div>
+    <ul class="sidenav-menu">
+      <li
+        *ngFor="let item of navItems"
+        class="sidenav-item"
+        [class.active]="activeSection === item.key"
+        (click)="setSection(item.key)"
+      >
+        <span class="sidenav-icon">{{ item.icon }}</span>
+        <span class="sidenav-label">{{ item.label }}</span>
+        <span class="sidenav-alert-badge" *ngIf="item.key === 'sos' && activeSosAlertCount > 0">{{ activeSosAlertCount }}</span>
+        <span class="sidenav-alert-badge sidenav-pending-badge" *ngIf="item.key === 'reports' && pendingAuthorisations.length > 0">{{ pendingAuthorisations.length }}</span>
+      </li>
+    </ul>
+
+    <!-- Sidenav Footer -->
+    <div class="sidenav-footer">
+      <div class="sidenav-sos-control" [class.has-alerts]="activeSosAlertCount > 0">
+        <div class="sidenav-sos-top-row">
+          <div>
+            <p class="sidenav-sos-label">Company SOS Alerts</p>
+            <p class="sidenav-sos-status" [class.enabled]="companySosOptedIn" [class.disabled]="!companySosOptedIn">
+              {{ companySosOptedIn ? 'Enabled' : 'Disabled' }}
+            </p>
+          </div>
+          <div
+            class="notification-bell"
+            [class.has-alerts]="activeSosAlertCount > 0"
+            [title]="activeSosAlertCount > 0 ? activeSosAlertCount + ' active SOS alert(s) in the last 15 min' : 'No active SOS alerts'"
+            aria-label="SOS notifications"
+          >
+            <span class="bell-icon">&#128276;</span>
+            <span class="bell-badge" *ngIf="activeSosAlertCount > 0">{{ activeSosAlertCount }}</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn-sos-optin"
+          [disabled]="companySosOptinUpdating"
+          (click)="toggleCompanySosOptin()"
+        >
+          {{ companySosOptinUpdating ? 'Saving...' : (companySosOptedIn ? 'Disable SOS' : 'Enable SOS') }}
+        </button>
+      </div>
+      <button class="sidenav-logout-btn" (click)="logout()">Logout</button>
+    </div>
+  </nav>
+
   <!-- Header -->
   <header class="manager-header">
     <div class="header-content">
-      <div>
-        <p class="eyebrow">Security Operations</p>
-        <h1>Security Manager Dashboard</h1>
-        <p class="subtext">{{ securityManagerEmail }}</p>
-      </div>
-      <div class="header-actions">
-        <div class="sos-optin-control" [class.has-alerts]="activeSosAlertCount > 0">
-          <div class="sos-optin-top-row">
-            <p class="sos-optin-label">Company SOS Alerts</p>
-            <div
-              class="notification-bell"
-              [class.has-alerts]="activeSosAlertCount > 0"
-              [title]="activeSosAlertCount > 0 ? activeSosAlertCount + ' active SOS alert(s) in the last 15 min' : 'No active SOS alerts'"
-              aria-label="SOS notifications"
-            >
-              <span class="bell-icon">🔔</span>
-              <span class="bell-badge" *ngIf="activeSosAlertCount > 0">{{ activeSosAlertCount }}</span>
-            </div>
-          </div>
-          <p class="sos-optin-status" [class.enabled]="companySosOptedIn" [class.disabled]="!companySosOptedIn">
-            {{ companySosOptedIn ? 'Enabled' : 'Disabled' }}
-          </p>
-          <button
-            type="button"
-            class="btn-sos-optin"
-            [disabled]="companySosOptinUpdating"
-            (click)="toggleCompanySosOptin()"
-          >
-            {{ companySosOptinUpdating ? 'Saving...' : (companySosOptedIn ? 'Disable SOS' : 'Enable SOS') }}
-          </button>
+      <div class="header-left">
+        <button class="hamburger-btn" (click)="toggleSideNav()" aria-label="Open navigation menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div>
+          <p class="eyebrow">Security Operations</p>
+          <h1>{{ activeSectionLabel }}</h1>
+          <p class="subtext">{{ securityManagerEmail }}</p>
         </div>
-        <button class="btn-logout" (click)="logout()">Logout</button>
       </div>
     </div>
   </header>
 
- 
+  <!-- Main Content -->
+  <main class="manager-main">
 
-  <!-- Main Grid -->
-  <div>
     <!-- SOS Alerts Section -->
-    <section class="panel-section sos-panel">
+    <section *ngIf="activeSection === 'sos'" class="panel-section sos-panel">
       <div class="panel-header">
         <div>
-          <h2>🚨 SOS Alerts</h2>
+          <h2>SOS Alerts</h2>
           <span class="helper">Read-only emergency events (latest first)</span>
         </div>
         <span class="sos-count-badge" *ngIf="activeSosAlertCount > 0">{{ activeSosAlertCount }} active now</span>
@@ -103,7 +137,7 @@
     </section>
 
     <!-- Assigned Complexes Section -->
-    <section class="panel-section">
+    <section *ngIf="activeSection === 'complexes'" class="panel-section">
       <div class="panel-header">
         <h2>Assigned Complexes</h2>
         <span class="helper">Complexes under your management</span>
@@ -136,7 +170,7 @@
     </section>
 
     <!-- Assigned Gated Communities Section -->
-    <section class="panel-section">
+    <section *ngIf="activeSection === 'communities'" class="panel-section">
       <div class="panel-header">
         <h2>Assigned Gated Communities</h2>
         <span class="helper">Gated communities under your management</span>
@@ -168,8 +202,8 @@
       </div>
     </section>
 
-    <!-- Security Manager Assignment Section -->
-    <section class="panel-section">
+    <!-- Security Management Section -->
+    <section *ngIf="activeSection === 'management'" class="panel-section">
       <div class="panel-header">
         <h2>Security Management</h2>
         <span class="helper">Assign security managers to complexes and gated communities</span>
@@ -209,15 +243,14 @@
     </section>
 
     <!-- Employee Management Section -->
-    <section class="panel-section">
+    <section *ngIf="activeSection === 'employees'" class="panel-section">
       <div class="panel-header">
         <h2>Employee Management</h2>
         <button class="btn-add" (click)="openEmployeeModal()">+ Add Employee</button>
       </div>
 
-      <!-- Search and Filter -->
       <div class="search-filter">
-        <input type="text" class="search-input" placeholder="🔍 Search by name, email, or phone..." [(ngModel)]="searchTerm">
+        <input type="text" class="search-input" placeholder=" Search by name, email, or phone..." [(ngModel)]="searchTerm">
         <select class="filter-select" [(ngModel)]="filterStatus">
           <option value="all">All Status</option>
           <option value="active">Active</option>
@@ -225,7 +258,6 @@
         </select>
       </div>
 
-      <!-- Employees Cards Grid -->
       <div class="data-cards-grid" *ngIf="filteredEmployees.length > 0; else noEmployees">
         <div class="data-card" *ngFor="let emp of filteredEmployees">
           <div class="card-header">
@@ -236,8 +268,8 @@
               </span>
             </div>
             <div class="card-actions">
-              <button class="btn-icon" (click)="editEmployee(emp)" title="Edit">✏️</button>
-              <button class="btn-icon delete" (click)="openDeleteEmployeeModal(emp)" title="Delete">🗑️</button>
+              <button class="btn-icon" (click)="editEmployee(emp)" title="Edit">Edit</button>
+              <button class="btn-icon delete" (click)="openDeleteEmployeeModal(emp)" title="Delete">Del</button>
             </div>
           </div>
           <div class="card-content">
@@ -266,7 +298,7 @@
     </section>
 
     <!-- Visitors Section -->
-    <section class="panel-section">
+    <section *ngIf="activeSection === 'visitors'" class="panel-section">
       <div class="panel-header">
         <div>
           <h2>Visitors</h2>
@@ -281,13 +313,11 @@
           <option value="community">Gated Community</option>
         </select>
 
-        <!-- Show complex dropdown if Complex selected -->
         <select *ngIf="visitorFilterResidenceType === 'complex'" class="filter-select" [(ngModel)]="visitorFilterComplexId">
           <option value="">All Complexes</option>
           <option *ngFor="let complex of assignedComplexes" [value]="complex.id">{{ complex.name }}</option>
         </select>
 
-        <!-- Show community dropdowns if Gated Community selected -->
         <ng-container *ngIf="visitorFilterResidenceType === 'community'">
           <select class="filter-select" [(ngModel)]="visitorFilterCommunityId" (change)="onVisitorFilterCommunityChange()">
             <option value="">All Gated Communities</option>
@@ -356,86 +386,8 @@
       </ng-template>
     </section>
 
-    <!-- Visitor Detail Modal -->
-    <div class="visitor-detail-backdrop" *ngIf="selectedVisitor" (click)="closeVisitorDetail()">
-      <div class="visitor-detail-modal" (click)="$event.stopPropagation()">
-        <div class="visitor-detail-header">
-          <h3>Visitor Details</h3>
-          <button class="btn-close-detail" (click)="closeVisitorDetail()">✕</button>
-        </div>
-        <div class="visitor-detail-body">
-          <div class="visitor-detail-section">
-            <p class="detail-label">Name</p>
-            <p class="detail-value">{{ selectedVisitor.name }} {{ selectedVisitor.surname }}</p>
-          </div>
-          <div class="visitor-detail-section">
-            <p class="detail-label">Phone</p>
-            <p class="detail-value">{{ selectedVisitor.phone }}</p>
-          </div>
-          <div class="visitor-detail-section">
-            <p class="detail-label">Visit Date & Time</p>
-            <p class="detail-value">{{ selectedVisitor.visitDate | date: 'MMM dd, yyyy HH:mm' }}</p>
-          </div>
-          <div class="visitor-detail-section">
-            <p class="detail-label">Tenant</p>
-            <p class="detail-value">{{ selectedVisitor.tenantName }}</p>
-            <p class="detail-secondary">{{ selectedVisitor.tenantPhone }}</p>
-          </div>
-          <div class="visitor-detail-section">
-            <p class="detail-label">Location</p>
-            <p class="detail-value">
-              {{ selectedVisitor.tenantUnit }} →
-              {{ getComplexName(selectedVisitor.complexId) }}
-              <ng-container *ngIf="selectedVisitor.communityId">
-                → {{ getCommunityName(selectedVisitor.communityId) }}
-              </ng-container>
-            </p>
-          </div>
-          <div class="visitor-detail-section" *ngIf="selectedVisitor.vehicle">
-            <p class="detail-label">Vehicle</p>
-            <p class="detail-value">
-              {{ selectedVisitor.vehicle.make }} {{ selectedVisitor.vehicle.model }}
-              <span *ngIf="selectedVisitor.vehicle.color"> · {{ selectedVisitor.vehicle.color }}</span>
-            </p>
-            <p class="detail-secondary vehicle-reg-plate">{{ selectedVisitor.vehicle.reg }}</p>
-          </div>
-          <div class="visitor-detail-section" *ngIf="!selectedVisitor.vehicle">
-            <p class="detail-label">Entry Type</p>
-            <p class="detail-value"><span class="walk-in-badge">Walk-in</span></p>
-          </div>
-
-          <!-- Photos -->
-          <div class="visitor-detail-photos" *ngIf="selectedVisitor.idPhoto || selectedVisitor.diskPhoto">
-            <p class="detail-label">Identification Photos</p>
-            <div class="visitor-photo-row">
-              <div class="visitor-photo-item" *ngIf="selectedVisitor.idPhoto">
-                <p class="photo-caption">ID / Face</p>
-                <button class="btn-view-image" (click)="viewImage(selectedVisitor.idPhoto!)">View Image</button>
-              </div>
-              <div class="visitor-photo-item" *ngIf="selectedVisitor.diskPhoto">
-                <p class="photo-caption">License Disk</p>
-                <button class="btn-view-image" (click)="viewImage(selectedVisitor.diskPhoto!)">View Image</button>
-              </div>
-            </div>
-          </div>
-          <div class="visitor-detail-photos" *ngIf="!selectedVisitor.idPhoto && !selectedVisitor.diskPhoto">
-            <p class="detail-label">Identification Photos</p>
-            <p class="detail-secondary">No photos captured for this visit.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Image Lightbox -->
-    <div class="image-lightbox-backdrop" *ngIf="viewingImageUrl" (click)="closeImageViewer()">
-      <div class="image-lightbox" (click)="$event.stopPropagation()">
-        <button class="btn-close-lightbox" (click)="closeImageViewer()">✕</button>
-        <img [src]="viewingImageUrl" alt="Visitor photo" class="lightbox-image">
-      </div>
-    </div>
-
     <!-- Incidents Section -->
-    <section class="panel-section">
+    <section *ngIf="activeSection === 'incidents'" class="panel-section">
       <div class="panel-header">
         <div>
           <h2>Incident Reports</h2>
@@ -505,8 +457,8 @@
       </ng-template>
     </section>
 
-    <!-- Pending Report Authorisations Section -->
-    <section class="panel-section">
+    <!-- Pending Report Requests Section -->
+    <section *ngIf="activeSection === 'reports'" class="panel-section">
       <div class="panel-header">
         <div>
           <h2>Pending Report Requests</h2>
@@ -570,6 +522,85 @@
         </div>
       </ng-template>
     </section>
+
+  </main>
+
+  <!-- Visitor Detail Modal -->
+  <div class="visitor-detail-backdrop" *ngIf="selectedVisitor" (click)="closeVisitorDetail()">
+    <div class="visitor-detail-modal" (click)="$event.stopPropagation()">
+      <div class="visitor-detail-header">
+        <h3>Visitor Details</h3>
+        <button class="btn-close-detail" (click)="closeVisitorDetail()">&times;</button>
+      </div>
+      <div class="visitor-detail-body">
+        <div class="visitor-detail-section">
+          <p class="detail-label">Name</p>
+          <p class="detail-value">{{ selectedVisitor.name }} {{ selectedVisitor.surname }}</p>
+        </div>
+        <div class="visitor-detail-section">
+          <p class="detail-label">Phone</p>
+          <p class="detail-value">{{ selectedVisitor.phone }}</p>
+        </div>
+        <div class="visitor-detail-section">
+          <p class="detail-label">Visit Date & Time</p>
+          <p class="detail-value">{{ selectedVisitor.visitDate | date: 'MMM dd, yyyy HH:mm' }}</p>
+        </div>
+        <div class="visitor-detail-section">
+          <p class="detail-label">Tenant</p>
+          <p class="detail-value">{{ selectedVisitor.tenantName }}</p>
+          <p class="detail-secondary">{{ selectedVisitor.tenantPhone }}</p>
+        </div>
+        <div class="visitor-detail-section">
+          <p class="detail-label">Location</p>
+          <p class="detail-value">
+            {{ selectedVisitor.tenantUnit }} &rarr;
+            {{ getComplexName(selectedVisitor.complexId) }}
+            <ng-container *ngIf="selectedVisitor.communityId">
+              &rarr; {{ getCommunityName(selectedVisitor.communityId) }}
+            </ng-container>
+          </p>
+        </div>
+        <div class="visitor-detail-section" *ngIf="selectedVisitor.vehicle">
+          <p class="detail-label">Vehicle</p>
+          <p class="detail-value">
+            {{ selectedVisitor.vehicle.make }} {{ selectedVisitor.vehicle.model }}
+            <span *ngIf="selectedVisitor.vehicle.color"> &middot; {{ selectedVisitor.vehicle.color }}</span>
+          </p>
+          <p class="detail-secondary vehicle-reg-plate">{{ selectedVisitor.vehicle.reg }}</p>
+        </div>
+        <div class="visitor-detail-section" *ngIf="!selectedVisitor.vehicle">
+          <p class="detail-label">Entry Type</p>
+          <p class="detail-value"><span class="walk-in-badge">Walk-in</span></p>
+        </div>
+
+        <!-- Photos -->
+        <div class="visitor-detail-photos" *ngIf="selectedVisitor.idPhoto || selectedVisitor.diskPhoto">
+          <p class="detail-label">Identification Photos</p>
+          <div class="visitor-photo-row">
+            <div class="visitor-photo-item" *ngIf="selectedVisitor.idPhoto">
+              <p class="photo-caption">ID / Face</p>
+              <button class="btn-view-image" (click)="viewImage(selectedVisitor.idPhoto!)">View Image</button>
+            </div>
+            <div class="visitor-photo-item" *ngIf="selectedVisitor.diskPhoto">
+              <p class="photo-caption">License Disk</p>
+              <button class="btn-view-image" (click)="viewImage(selectedVisitor.diskPhoto!)">View Image</button>
+            </div>
+          </div>
+        </div>
+        <div class="visitor-detail-photos" *ngIf="!selectedVisitor.idPhoto && !selectedVisitor.diskPhoto">
+          <p class="detail-label">Identification Photos</p>
+          <p class="detail-secondary">No photos captured for this visit.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Lightbox -->
+  <div class="image-lightbox-backdrop" *ngIf="viewingImageUrl" (click)="closeImageViewer()">
+    <div class="image-lightbox" (click)="$event.stopPropagation()">
+      <button class="btn-close-lightbox" (click)="closeImageViewer()">&times;</button>
+      <img [src]="viewingImageUrl" alt="Visitor photo" class="lightbox-image">
+    </div>
   </div>
 
   <!-- Add/Edit Employee Modal -->
@@ -577,7 +608,7 @@
     <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>{{ editingEmployeeId ? 'Edit Employee' : 'Add Employee' }}</h2>
-        <button class="btn-close" (click)="closeEmployeeModal()">✕</button>
+        <button class="btn-close" (click)="closeEmployeeModal()">&times;</button>
       </div>
 
       <form class="modal-form">
@@ -639,7 +670,7 @@
     <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>Delete Employee</h2>
-        <button class="btn-close" (click)="closeDeleteEmployeeModal()">✕</button>
+        <button class="btn-close" (click)="closeDeleteEmployeeModal()">&times;</button>
       </div>
 
       <div class="modal-content">
@@ -662,7 +693,7 @@
     <div class="modal large" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>{{ selectedComplex?.name }}</h2>
-        <button class="btn-close" (click)="closeComplexDetails()">✕</button>
+        <button class="btn-close" (click)="closeComplexDetails()">&times;</button>
       </div>
 
       <div class="modal-content">
@@ -738,12 +769,11 @@
     <div class="modal large" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>Manage Assignment - {{ selectedSecurityManager?.name }} {{ selectedSecurityManager?.surname }}</h2>
-        <button class="btn-close" (click)="closeAssignmentModal()">✕</button>
+        <button class="btn-close" (click)="closeAssignmentModal()">&times;</button>
       </div>
 
       <div class="modal-content">
         <form class="modal-form">
-          <!-- Complexes Assignment -->
           <div class="assignment-section">
             <h3>Assign Complexes</h3>
             <div class="checkbox-grid">
@@ -762,7 +792,6 @@
 
           <div class="section-divider"></div>
 
-          <!-- Communities Assignment -->
           <div class="assignment-section">
             <h3>Assign Gated Communities</h3>
             <div class="checkbox-grid">
@@ -796,11 +825,10 @@
     <div class="modal large" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>{{ editingTenantId ? 'Edit Tenant' : 'Register Tenant' }}</h2>
-        <button class="btn-close" (click)="closeTenantModal()">✕</button>
+        <button class="btn-close" (click)="closeTenantModal()">&times;</button>
       </div>
 
       <form class="modal-form">
-        <!-- Personal Information -->
         <h3>Personal Information</h3>
         <div class="form-row">
           <div class="form-group">
@@ -826,7 +854,6 @@
 
         <div class="section-divider"></div>
 
-        <!-- Residence Information -->
         <h3>Residence Information</h3>
         <div class="form-row">
           <div class="form-group">
@@ -905,10 +932,8 @@
 
         <div class="section-divider"></div>
 
-        <!-- Vehicle Information -->
         <h3>Vehicle Information</h3>
-        
-        <!-- List of registered vehicles -->
+
         <div *ngIf="tenantForm.vehicles.length > 0" class="vehicle-list">
           <h4>Registered Vehicles ({{ tenantForm.vehicles.length }})</h4>
           <div *ngFor="let vehicle of tenantForm.vehicles; let i = index" class="vehicle-item">
@@ -917,11 +942,10 @@
               <span class="vehicle-reg">{{ vehicle.reg }}</span>
               <span *ngIf="vehicle.color" class="vehicle-color">{{ vehicle.color }}</span>
             </div>
-            <button type="button" class="btn-icon delete" (click)="removeVehicle(i)" title="Remove vehicle">🗑️</button>
+            <button type="button" class="btn-icon delete" (click)="removeVehicle(i)" title="Remove vehicle">Del</button>
           </div>
         </div>
 
-        <!-- Add new vehicle form -->
         <div class="vehicle-form">
           <h4>{{ tenantForm.vehicles.length > 0 ? 'Add Another Vehicle' : 'Add Vehicle' }}</h4>
           <div class="form-row">
@@ -970,7 +994,7 @@
     <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h2>Delete Tenant</h2>
-        <button class="btn-close" (click)="closeDeleteTenantModal()">✕</button>
+        <button class="btn-close" (click)="closeDeleteTenantModal()">&times;</button>
       </div>
 
       <div class="modal-content">

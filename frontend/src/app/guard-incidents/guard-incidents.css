@@ -622,4 +622,34 @@
   .incidents-grid {
     grid-template-columns: 1fr;
   }
+
+  /* ── Send Report Modal (small screens) ── */
+  .modal-backdrop {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .modal {
+    padding: 20px 16px;
+    border-radius: 16px 16px 0 0;
+    max-width: 100%;
+    gap: 14px;
+  }
+
+  .modal-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  .btn-modal-cancel,
+  .btn-modal-send {
+    width: 100%;
+    text-align: center;
+    padding: 12px;
+    font-size: 14px;
+  }
 }
