@@ -763,6 +763,36 @@
   display: none;
 }
 
+.btn-flash {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: #e0e0e0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+  z-index: 10;
+}
+
+.btn-flash:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.btn-flash--on {
+  background: #f5c518;
+  color: #1a1a1a;
+}
+
+.btn-flash--on:hover {
+  background: #e0b010;
+}
+
 .camera-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
