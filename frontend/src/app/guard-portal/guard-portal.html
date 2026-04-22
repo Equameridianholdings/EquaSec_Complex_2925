@@ -27,6 +27,15 @@
           <span>Shift start (SA): {{ shiftStartSaLabel }}</span>
         </div>
         <div class="header-actions">
+          <button
+            type="button"
+            class="btn-header-action btn-flash"
+            [class.btn-flash--on]="torchActive"
+            (click)="toggleTorch()"
+            [attr.aria-label]="torchActive ? 'Turn flash off' : 'Turn flash on'"
+          >
+            {{ torchActive ? '🔦 Flash On' : '🔦 Flash' }}
+          </button>
           <button type="button" class="btn-header-action" (click)="changeStation()">
             {{ stationActionLabel }}
           </button>
