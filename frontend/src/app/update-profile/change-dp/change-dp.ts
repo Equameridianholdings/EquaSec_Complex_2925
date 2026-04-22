@@ -29,8 +29,6 @@ export class ChangeDp {
   profilePhotoData = signal("");
   cameraError = signal('');
   hasCameraStream = signal(false);
-  flashEnabled = signal(false);
-  flashSupported = signal(false);
   private profileCameraStream: MediaStream | null = null;
 
   closeModal() {
@@ -125,10 +123,6 @@ export class ChangeDp {
         throw new Error('No active camera track');
       }
 
-      const capabilities = videoTrack.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean };
-      this.flashSupported.set(!!(capabilities?.torch));
-      this.flashEnabled.set(false);
-
       video.srcObject = this.profileCameraStream;
       video.muted = true;
       video.setAttribute('playsinline', 'true');
@@ -170,20 +164,6 @@ export class ChangeDp {
 
   retakeProfilePhoto() {
     void this.startProfileCamera();
-  }
-
-  async toggleFlash(): Promise<void> {
-    const track = this.profileCameraStream?.getVideoTracks()[0];
-    if (!track || !this.flashSupported()) {
-      return;
-    }
-    const newState = !this.flashEnabled();
-    try {
-      await track.applyConstraints({ advanced: [{ torch: newState } as MediaTrackConstraintSet] });
-      this.flashEnabled.set(newState);
-    } catch {
-      this.flashSupported.set(false);
-    }
   }
 
   useCapturedProfilePhoto(): void {

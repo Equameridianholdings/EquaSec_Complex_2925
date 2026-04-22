@@ -11,6 +11,7 @@ import { visitorBodyValidation, visitorDTO } from "#interfaces/visitorDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import Code_Generator from "#utils/code_generator.js";
+import { decryptPhoto, encryptPhoto } from "#utils/encryption.js";
 import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
 
@@ -494,8 +495,8 @@ visitorRouter.patch("/grant", async (req, res) => {
       access: nextAccess,
       arrivedAt: new Date(),
       validity: nextValidity,
-      ...(idPhoto ? { idPhoto } : {}),
-      ...(diskPhoto ? { diskPhoto } : {}),
+      ...(idPhoto ? { idPhoto: encryptPhoto(idPhoto) } : {}),
+      ...(diskPhoto ? { diskPhoto: encryptPhoto(diskPhoto) } : {}),
     };
 
     const persistedVisitor = await visitorShema
@@ -514,7 +515,11 @@ visitorRouter.patch("/grant", async (req, res) => {
     });
     await log.save();
 
-    res.status(200).json({ message: "Access Granted!", payload: persistedVisitor });
+    const visitorObj = persistedVisitor.toObject ? persistedVisitor.toObject() : { ...persistedVisitor };
+    if (typeof visitorObj.idPhoto === 'string') visitorObj.idPhoto = decryptPhoto(visitorObj.idPhoto);
+    if (typeof visitorObj.diskPhoto === 'string') visitorObj.diskPhoto = decryptPhoto(visitorObj.diskPhoto);
+
+    res.status(200).json({ message: "Access Granted!", payload: visitorObj });
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error!" });

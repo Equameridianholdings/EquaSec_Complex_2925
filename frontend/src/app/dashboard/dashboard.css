@@ -795,16 +795,8 @@
 
 .camera-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  align-items: center;
-}
-
-.btn-flash--inline {
-  position: static;
-  width: 100%;
-  height: 38px;
-  border-radius: 8px;
 }
 
 .moving-out-section {
