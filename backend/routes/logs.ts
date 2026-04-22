@@ -1,6 +1,7 @@
 import logSchema from "#db/logsSchema.js";
 import { logDTO } from "#interfaces/logDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
+import { decryptPhoto } from "#utils/encryption.js";
 import { ValidObjectId } from "#utils/validObjectId.js";
 import { Router } from "express";
 import { ObjectId } from "mongodb";
@@ -10,16 +11,25 @@ const logsRouter = Router();
 
 logsRouter.use(AuthMiddleware);
 
+const decryptLogPhotos = (log: Record<string, unknown>): Record<string, unknown> => {
+  const visitor = log.visitor as Record<string, unknown> | undefined;
+  if (!visitor || typeof visitor !== 'object') return log;
+  const updated = { ...visitor };
+  if (typeof updated.idPhoto === 'string') updated.idPhoto = decryptPhoto(updated.idPhoto);
+  if (typeof updated.diskPhoto === 'string') updated.diskPhoto = decryptPhoto(updated.diskPhoto);
+  return { ...log, visitor: updated };
+};
+
 logsRouter.get("/", async (req, res) => {
   try {
-    const logs = await logSchema.find({});
+    const logs = await logSchema.find({}).lean<Record<string, unknown>[]>();
 
     if (logs.length === 0) {
       res.status(200).json([]);
       return;
     }
 
-    res.status(200).json({message: "All logs retrieved", payload: logs});
+    res.status(200).json({message: "All logs retrieved", payload: logs.map(decryptLogPhotos)});
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error" });
@@ -34,14 +44,14 @@ logsRouter.get("/:id", async (req, res) => {
     "guard.securityCompany._id": ValidObjectId(id),
   };
   try {
-    const logs = await logSchema.find(logQuery);
+    const logs = await logSchema.find(logQuery).lean<Record<string, unknown>[]>();
 
     if (logs.length === 0) {
       res.status(404).json({ message: "No logs found!" });
       return;
     }
 
-    res.status(200).json(logs);
+    res.status(200).json(logs.map(decryptLogPhotos));
     return;
   } catch {
     res.status(500).json({ message: "Internal Server Error" });

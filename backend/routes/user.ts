@@ -9,7 +9,7 @@ import { userBodyValidation, UserDTO } from "#interfaces/userDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import RoleMiddleware from "#middleware/role.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
-// import { encrypt } from "#utils/encryption.js";
+import { decryptPhoto, encryptPhoto } from "#utils/encryption.js";
 import GenerateJWT from "#utils/generateJWT.js";
 import { sendCustomEmail, SendEmailOptions, sendForgotPasswordEmail, sendSecurityCompanyCode } from "#utils/sendEmail.js";
 import VerifyToken from "#utils/verifyToken.js";
@@ -1644,7 +1644,7 @@ userRouter.post("/login", checkSchema(loginBodyValidation), validateSchema, asyn
             gatedCommunity: isTenant ? (tenantProfile.gatedCommunity ?? null) : (nonTenantUser.gatedCommunity ?? null),
             houseNumber: isTenant ? (tenantProfile.houseNumber ?? "") : (nonTenantUser.houseNumber ?? ""),
             name: user.name,
-            profilePhoto: user.profilePhoto,
+            profilePhoto: typeof user.profilePhoto === 'string' ? decryptPhoto(user.profilePhoto) : user.profilePhoto,
             residenceType: isTenant ? (tenantProfile.residenceType ?? "") : (nonTenantUser.residenceType ?? ""),
             securityCompany: isTenant
               ? null
@@ -1702,13 +1702,22 @@ userRouter.patch("/update", AuthMiddleware, async (req, res) => {
 
     const updatePayload = req.body as Partial<UserDTO>;
 
+    if (typeof updatePayload.profilePhoto === 'string' && updatePayload.profilePhoto.length > 0) {
+      updatePayload.profilePhoto = encryptPhoto(updatePayload.profilePhoto);
+    }
+
     const user = await userSchema.findOneAndUpdate({ emailAddress: email }, { $set: updatePayload }, { returnDocument: "after" }).exec();
 
     if (!user) {
       return res.status(404).json({ message: "User details not found!" });
     }
 
-    return res.status(200).json({ message: "User details updated", payload: user });
+    const rawUser = user.toObject<UserDTO>();
+    const profilePhotoRaw = rawUser.profilePhoto;
+    const decryptedPhoto = typeof profilePhotoRaw === 'string' ? decryptPhoto(profilePhotoRaw) : profilePhotoRaw;
+    const userObj = { ...rawUser, profilePhoto: decryptedPhoto };
+
+    return res.status(200).json({ message: "User details updated", payload: userObj });
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
   }
@@ -1726,7 +1735,9 @@ userRouter.get("/current", AuthMiddleware, async (req, res) => {
     const user = (await userSchema.findOne({ emailAddress: currentUserEmail }).exec()) as unknown as UserDTO;
     
     if (user) {
-      return res.status(200).json({ message: "Successfully retrieved User!", payload: user });
+      const profilePhotoRaw = user.profilePhoto;
+      const decryptedPhoto = typeof profilePhotoRaw === 'string' ? decryptPhoto(profilePhotoRaw) : profilePhotoRaw;
+      return res.status(200).json({ message: "Successfully retrieved User!", payload: { ...user, profilePhoto: decryptedPhoto } });
     } else {
       return res.status(404).json({ message: "User details not found!" });
     }

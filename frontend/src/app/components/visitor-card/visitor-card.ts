@@ -84,8 +84,18 @@ export class VisitorCard implements OnInit, OnDestroy {
           video.play().catch(() => this.showToast('Could not start camera preview.'));
         }
       }, 80);
+      this.enableTorch(stream);
     } catch {
       this.showToast('Camera access denied or not available.');
+    }
+  }
+
+  private enableTorch(stream: MediaStream): void {
+    const track = stream.getVideoTracks()[0];
+    if (!track) return;
+    const capabilities = track.getCapabilities?.() as MediaTrackCapabilities & { torch?: boolean };
+    if (capabilities?.torch) {
+      track.applyConstraints({ advanced: [{ torch: true } as MediaTrackConstraintSet] }).catch(() => {});
     }
   }
 

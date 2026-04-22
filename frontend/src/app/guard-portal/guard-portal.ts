@@ -259,9 +259,6 @@ export class GuardPortal implements OnInit, OnDestroy {
   }
   protected toastVisible = false;
   protected toastMessage = '';
-  protected torchSupported: boolean | null = null;
-  protected torchActive = false;
-  private torchTrack: MediaStreamTrack | null = null;
   private toastTimeoutId: number | null = null;
   protected isHoldingSos = false;
   protected showSosSuccess = false;
@@ -3276,57 +3273,9 @@ export class GuardPortal implements OnInit, OnDestroy {
     });
   }
 
-  async toggleTorch(): Promise<void> {
-    if (!isPlatformBrowser(this.platformId)) return;
-
-    if (this.torchSupported === null) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-        });
-        const track = stream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities() as any;
-        if (capabilities?.torch) {
-          this.torchSupported = true;
-          this.torchTrack = track;
-        } else {
-          this.torchSupported = false;
-          stream.getTracks().forEach((t) => t.stop());
-          this.showToast('Flash is not supported on this device.');
-          return;
-        }
-      } catch {
-        this.torchSupported = false;
-        this.showToast('Flash is not supported on this device.');
-        return;
-      }
-    }
-
-    if (!this.torchSupported) {
-      this.showToast('Flash is not supported on this device.');
-      return;
-    }
-
-    this.torchActive = !this.torchActive;
-    try {
-      await (this.torchTrack as any).applyConstraints({
-        advanced: [{ torch: this.torchActive }],
-      });
-    } catch {
-      this.torchActive = !this.torchActive;
-      this.showToast('Failed to toggle flash.');
-    }
-  }
 
   ngOnDestroy(): void {
     this.clearSosHoldTimer();
     this.clearSosAutoCloseTimer();
-    if (this.torchTrack) {
-      if (this.torchActive) {
-        (this.torchTrack as any).applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
-      }
-      this.torchTrack.stop();
-      this.torchTrack = null;
-    }
   }
 }
