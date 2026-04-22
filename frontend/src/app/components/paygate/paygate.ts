@@ -47,11 +47,11 @@ export class Paygate implements OnInit {
   verticalPosition: MatSnackBarVerticalPosition = 'top';
   dialogRef = inject(MatDialogRef<Paygate>);
 
-  isPROD: number = process.env['NG_APP_PRODUCTION'] as number;
+  isPROD = process.env['NG_APP_PRODUCTION'] as unknown as string;
   MERCHANT_ID = process.env['NG_APP_MERCHANT_ID'];
   MERCHANT_Key = process.env['NG_APP_MERCHANT_KEY'];
   PAYFAST_URI =
-    this.isPROD === 1
+    this.isPROD === "1"
       ? process.env['NG_APP_PAYFAST_URI']
       : process.env['NG_APP_PAYFAST_SANDBOX_URI'];
   RETURN_URI = process.env['NG_APP_RETURN_URI'];
