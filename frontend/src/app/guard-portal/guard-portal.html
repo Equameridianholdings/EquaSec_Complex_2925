@@ -715,16 +715,15 @@
           >
             <div class="form-group">
               <label for="guard-tenant-house">House Number *</label>
-              <select
+              <input
                 id="guard-tenant-house"
                 class="form-control"
+                type="text"
                 [(ngModel)]="tenantForm.address"
                 name="guardTenantAddressHouse"
                 [required]="tenantForm.communityResidenceType === 'house'"
-              >
-                <option value="">Select House</option>
-                <option *ngFor="let house of availableHouses" [value]="house">{{ house }}</option>
-              </select>
+                placeholder="Enter house number"
+              />
             </div>
           </div>
 
@@ -1022,9 +1021,7 @@
         <p>
           Residence: <strong>{{ selectedTenantToDelete?.unit || '-' }}</strong>
         </p>
-        <p>
-          Email: <strong>{{ selectedTenantToDelete?.email || '-' }}</strong>
-        </p>
+        <!-- Email removed as requested -->
         <p class="error-text">This will also remove all linked vehicle records for this tenant.</p>
       </div>
       <div class="modal-actions">
