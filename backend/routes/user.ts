@@ -551,10 +551,26 @@ userRouter.post(
       }
     }
 
-    const user: UserDTO = req.body as UserDTO;
+    const user = req.body as {
+      address?: string;
+      cellNumber?: string;
+      communityComplexId?: string;
+      communityId?: string;
+      communityResidenceType?: string;
+      complexId?: string;
+      emailAddress: string;
+      houseNumber?: string;
+      idNumber?: string;
+      name?: string;
+      password?: string;
+      residenceType?: string;
+      surname?: string;
+      unitNumber?: string;
+      vehicles?: { color?: string; make: string; model: string; reg: string }[];
+    };
 
     try {
-      // If a registration token is provided, validate it
+      // If a registration token is provided, use the same logic as /tenant endpoint
       if (registrationToken) {
         const tokenRecord = await registrationTokenSchema.findOne({ token: registrationToken }).lean();
 
@@ -571,8 +587,15 @@ userRouter.post(
         }
 
         // Ensure the email matches the token
-        if (user.emailAddress.trim().toLowerCase() !== tokenRecord.emailAddress) {
+        const normalizedEmail = user.emailAddress.trim().toLowerCase();
+        if (normalizedEmail !== tokenRecord.emailAddress) {
           return res.status(400).json({ message: "Email address does not match the registration link." });
+        }
+
+        // Check if user already exists
+        const existingUser = await userSchema.findOne({ emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
+        if (existingUser) {
+          return res.status(409).json({ message: "User with this email already exists." });
         }
 
         // Validate that residence details match the token (prevent tampering)
@@ -588,58 +611,173 @@ userRouter.post(
             message: "Residence details do not match the registration link. Please do not modify locked fields.",
           });
         }
-      }
 
-      // Generate password: auto-generate for token registration, use provided password otherwise
-      let finalPassword: string;
-      let temporaryPin: string | undefined;
-      
-      if (registrationToken) {
-        // Auto-generate 6-digit code for token registration
-        temporaryPin = String(Math.floor(100000 + Math.random() * 900000));
-        finalPassword = temporaryPin;
-      } else {
-        // Use provided password for normal registration
-        finalPassword = user.password as unknown as string;
-      }
+        // Use the same registration logic as /tenant endpoint
+        const temporaryPin = String(Math.floor(100000 + Math.random() * 900000));
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(temporaryPin, salt);
 
-      user.salt = await bcrypt.genSalt(10);
-      const hashPassword = await bcrypt.hash(finalPassword, user.salt);
+        const trimmedAddress = tokenRecord.address.trim();
+        let linkedComplex: null | { _id: unknown; address?: string; gatedCommunityName?: null | string; name?: string } = null;
+        let linkedGatedCommunity: null | { _id: unknown; name?: string } = null;
 
-      user.password = hashPassword;
+        // Validate and fetch complex if needed
+        if (tokenRecord.residenceType === "complex") {
+          if (!tokenRecord.complexId || !ObjectId.isValid(tokenRecord.complexId)) {
+            return res.status(400).json({ message: "Valid complex is required for complex residence." });
+          }
 
-      // Add Id number encryption logic here
-      // user.idNumber = encrypt(user.idNumber);
+          linkedComplex = await complexSchema.findById(tokenRecord.complexId).select({ _id: 1, address: 1, gatedCommunityName: 1, name: 1 }).lean();
+          if (!linkedComplex) {
+            return res.status(404).json({ message: "Complex not found." });
+          }
+        }
 
-      const newUser = new userSchema(user);
-      await newUser.save();
+        // Validate and fetch gated community if needed
+        if (tokenRecord.residenceType === "community") {
+          if (!tokenRecord.communityId || !ObjectId.isValid(tokenRecord.communityId)) {
+            return res.status(400).json({ message: "Valid gated community is required for community residence." });
+          }
 
-      // If registration was via token, mark token as used and send email with PIN
-      if (registrationToken && temporaryPin) {
+          linkedGatedCommunity = await gatedCommunitySchema.findById(tokenRecord.communityId).select({ _id: 1, name: 1 }).lean();
+          if (!linkedGatedCommunity) {
+            return res.status(404).json({ message: "Gated community not found." });
+          }
+
+          if (tokenRecord.communityResidenceType === "complex") {
+            if (!tokenRecord.communityComplexId || !ObjectId.isValid(tokenRecord.communityComplexId)) {
+              return res.status(400).json({ message: "Valid complex is required for complex residence within a gated community." });
+            }
+
+            const communityComplex = await complexSchema.findById(tokenRecord.communityComplexId).select({ _id: 1, address: 1, gatedCommunityName: 1, name: 1 }).lean();
+            if (!communityComplex) {
+              return res.status(404).json({ message: "Complex not found." });
+            }
+
+            const complexCommunityName = String(communityComplex.gatedCommunityName ?? "").trim().toLowerCase();
+            const selectedCommunityName = String(linkedGatedCommunity.name ?? "").trim().toLowerCase();
+            if (!complexCommunityName || complexCommunityName !== selectedCommunityName) {
+              return res.status(400).json({ message: "Selected complex does not belong to the selected gated community." });
+            }
+
+            linkedComplex = communityComplex;
+          }
+        }
+
+        // Create tenant user with proper fields
+        const tenantUser = new userSchema({
+          cellNumber: user.cellNumber?.trim() || "",
+          emailAddress: normalizedEmail,
+          idNumber: user.idNumber?.trim() || undefined,
+          movedOut: false,
+          name: user.name?.trim() || "",
+          password: hashedPassword,
+          profilePhoto: "",
+          salt,
+          surname: user.surname?.trim() || "",
+          type: ["tenant"],
+        });
+
+        try {
+          await tenantUser.save();
+        } catch (saveError) {
+          console.error('Failed to save tenant user:', saveError);
+          return res.status(500).json({ message: "Unable to save tenant user." });
+        }
+
+        // Sync vehicles
+        try {
+          await syncTenantVehiclesForUser(
+            {
+              _id: tenantUser._id,
+              cellNumber: tenantUser.cellNumber,
+              emailAddress: tenantUser.emailAddress,
+              name: tenantUser.name,
+              surname: tenantUser.surname,
+            },
+            user.vehicles || [],
+          );
+        } catch (vehicleError) {
+          console.error('Failed to sync vehicles:', vehicleError);
+          await userSchema.findByIdAndDelete(tenantUser._id).exec();
+          return res.status(500).json({ message: "Unable to sync tenant vehicles." });
+        }
+
+        // Link tenant to unit
+        try {
+          const usesUnit = tokenRecord.residenceType === "complex" || tokenRecord.residenceType === "community";
+          if (usesUnit) {
+            await linkTenantToUnit(
+              String(tenantUser._id ?? ""),
+              {
+                complex: linkedComplex
+                  ? {
+                      _id: String(linkedComplex._id ?? ""),
+                      address: String(linkedComplex.address ?? ""),
+                      name: String(linkedComplex.name ?? ""),
+                    }
+                  : null,
+                gatedCommunity: linkedGatedCommunity
+                  ? {
+                      _id: String(linkedGatedCommunity._id ?? ""),
+                      name: String(linkedGatedCommunity.name ?? ""),
+                    }
+                  : null,
+              },
+              trimmedAddress,
+            );
+          }
+        } catch (linkError) {
+          console.error('Failed to link tenant to unit:', linkError);
+          await vehicleSchema.deleteMany({ "user._id": { $in: [String(tenantUser._id ?? ""), tenantUser._id] } });
+          await userSchema.findByIdAndDelete(tenantUser._id).exec();
+          return res.status(500).json({ message: "Unable to link tenant to unit." });
+        }
+
+        // Mark token as used
         await registrationTokenSchema.updateOne(
           { token: registrationToken },
           { $set: { used: true, usedAt: new Date() } },
         );
 
-        // Send email with temporary PIN
+        // Send email with temporary PIN (don't fail registration if email fails)
         try {
           await sendSecurityCompanyCode({
             code: temporaryPin,
-            to: user.emailAddress.trim().toLowerCase(),
+            to: normalizedEmail,
           });
         } catch (emailError) {
           console.error('Failed to send registration PIN email:', emailError);
-          // Don't fail the registration if email fails, just log it
         }
+
+        return res.status(201).json({ 
+          message: "Registration successful! Check your email for your login code.", 
+          payload: {
+            emailSent: true,
+            temporaryPin,
+            user: tenantUser,
+          },
+        });
       }
 
+      // Original non-token registration logic
+      const finalPassword = user.password as string;
+      const salt = await bcrypt.genSalt(10);
+      const hashPassword = await bcrypt.hash(finalPassword, salt);
+
+      const newUser = new userSchema({
+        ...user,
+        password: hashPassword,
+        salt,
+      });
+      await newUser.save();
+
       return res.status(201).json({ 
-        message: registrationToken 
-          ? "Registration successful! Check your email for your login code." 
-          : "User successfully added!", 
+        message: "User successfully added!", 
         payload: newUser 
       });
     } catch (error) {
+      console.error('[user][register] error:', error);
       return res.status(500).json({ message: `Internal Server Error! Error: ${error as string}` });
     }
   },
