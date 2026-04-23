@@ -2435,7 +2435,8 @@ export class SecurityManager implements OnInit {
 
     if (
       this.tenantForm.residenceType === 'community' &&
-      !this.availableCommunityResidenceTypes.includes(this.tenantForm.communityResidenceType)
+      this.tenantForm.communityResidenceType &&
+      !this.availableCommunityResidenceTypes.includes(this.tenantForm.communityResidenceType as 'house' | 'complex')
     ) {
       this.tenantError = 'Selected community residence type is not available.';
       this.tenantSuccess = '';
@@ -2510,6 +2511,7 @@ export class SecurityManager implements OnInit {
             id: updatedUser?._id ?? this.editingTenantId,
             email: updatedUser?.emailAddress ?? tenantData.email,
             phone: updatedUser?.cellNumber ?? tenantData.phone,
+            communityResidenceType: tenantData.communityResidenceType || undefined,
             locationPath: this.buildTenantLocationPath(tenantData),
           };
 
@@ -2566,6 +2568,7 @@ export class SecurityManager implements OnInit {
             id: createdUser?._id ?? tenantData.id,
             email: createdUser?.emailAddress ?? tenantData.email,
             phone: createdUser?.cellNumber ?? tenantData.phone,
+            communityResidenceType: tenantData.communityResidenceType || undefined,
             locationPath: this.buildTenantLocationPath(tenantData),
           };
 

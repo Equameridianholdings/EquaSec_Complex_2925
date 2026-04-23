@@ -10,8 +10,10 @@ export interface TenantFormDTO {
   residenceType: 'complex' | 'community';
   complexId: string;
   communityId: string;
-  communityResidenceType: 'house' | 'complex';
+  communityResidenceType: 'house' | 'complex' | '';
   communityComplexId: string;
   address: string;
   vehicles: VehicleFormDTO[];
+  password?: string; // For token-based registration
+  confirmPassword?: string; // For token-based registration
 }

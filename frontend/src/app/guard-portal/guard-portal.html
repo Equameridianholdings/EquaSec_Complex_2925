@@ -211,9 +211,14 @@
         <h2>Residents</h2>
         <span class="helper">Tenant residences linked to your selected station.</span>
       </div>
-      <button *ngIf="canRegisterTenant" type="button" class="btn-add" (click)="openTenantModal()">
-        + Register Tenant
-      </button>
+      <div *ngIf="canRegisterTenant" style="display: flex; gap: 8px;">
+        <button type="button" class="btn-add" (click)="openSelfRegistrationModal()">
+          📧 Send Registration Link
+        </button>
+        <button type="button" class="btn-add" (click)="openTenantModal()">
+          + Register Tenant
+        </button>
+      </div>
     </div>
     <ng-template #noResidents>
       <div class="empty-state">
@@ -1038,6 +1043,201 @@
           [disabled]="deletingTenant"
         >
           {{ deletingTenant ? 'Removing...' : 'Confirm Remove' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Self-Registration Modal -->
+  <div class="modal-backdrop" *ngIf="isSelfRegistrationModalOpen" (click)="closeSelfRegistrationModal()">
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="self-reg-modal-title"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-header">
+        <h2 id="self-reg-modal-title">Send Registration Link</h2>
+        <button
+          class="btn-icon"
+          type="button"
+          (click)="closeSelfRegistrationModal()"
+          [disabled]="selfRegSubmitting"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 16px;">
+          Send a secure registration link to a new resident. They will receive an email with a link to complete their registration.
+        </p>
+
+        <div class="form-group">
+          <label for="selfReg-email">Resident Email Address *</label>
+          <input
+            id="selfReg-email"
+            type="email"
+            class="form-control"
+            placeholder="email@example.com"
+            [(ngModel)]="selfRegEmail"
+            name="selfRegEmail"
+            [disabled]="selfRegSubmitting"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="selfReg-residence-type">Residence Type *</label>
+          <select
+            id="selfReg-residence-type"
+            class="form-control"
+            [(ngModel)]="selfRegResidenceType"
+            name="selfRegResidenceType"
+            (ngModelChange)="onSelfRegResidenceTypeChange()"
+            [disabled]="true"
+          >
+            <option value="complex">Complex</option>
+            <option value="community" *ngIf="gatedCommunities.length > 0">Gated Community</option>
+          </select>
+          <small class="text-muted">Based on your current station</small>
+        </div>
+
+        <!-- Complex selection -->
+        <div *ngIf="selfRegResidenceType === 'complex'">
+          <div class="form-group">
+            <label for="selfReg-complex">Complex *</label>
+            <select
+              id="selfReg-complex"
+              class="form-control"
+              [(ngModel)]="selfRegComplexId"
+              name="selfRegComplexId"
+              (ngModelChange)="onSelfRegComplexChange()"
+              [disabled]="true"
+            >
+              <option value="">Select Complex</option>
+              <option *ngFor="let complex of complexes" [value]="complex.id">
+                {{ complex.name }}
+              </option>
+            </select>
+            <small class="text-muted">Based on your current station</small>
+          </div>
+          <div class="form-group">
+            <label for="selfReg-unit">Unit Number *</label>
+            <select
+              id="selfReg-unit"
+              class="form-control"
+              [(ngModel)]="selfRegUnit"
+              name="selfRegUnit"
+              [disabled]="!selfRegComplexId || selfRegSubmitting"
+            >
+              <option value="">Select Unit</option>
+              <option *ngFor="let unit of selfRegAvailableUnits" [value]="unit">{{ unit }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Gated Community selection -->
+        <div *ngIf="selfRegResidenceType === 'community'">
+          <div class="form-group">
+            <label for="selfReg-community">Gated Community *</label>
+            <select
+              id="selfReg-community"
+              class="form-control"
+              [(ngModel)]="selfRegCommunityId"
+              name="selfRegCommunityId"
+              (ngModelChange)="onSelfRegCommunityChange()"
+              [disabled]="true"
+            >
+              <option value="">Select Gated Community</option>
+              <option *ngFor="let community of gatedCommunities" [value]="community.id">
+                {{ community.name }}
+              </option>
+            </select>
+            <small class="text-muted">Based on your current station</small>
+          </div>
+
+          <div class="form-group" *ngIf="selfRegCommunityId">
+            <label for="selfReg-community-residence-type">Community Residence Type *</label>
+            <select
+              id="selfReg-community-residence-type"
+              class="form-control"
+              [(ngModel)]="selfRegCommunityResidenceType"
+              name="selfRegCommunityResidenceType"
+              (ngModelChange)="onSelfRegCommunityResidenceTypeChange()"
+              [disabled]="selfRegSubmitting"
+            >
+              <option value="house">House</option>
+              <option value="complex" *ngIf="selfRegAvailableCommunityComplexes.length > 0">Complex</option>
+            </select>
+          </div>
+
+          <div *ngIf="selfRegCommunityResidenceType === 'house' && selfRegCommunityId">
+            <div class="form-group">
+              <label for="selfReg-house-number">House Number *</label>
+              <input
+                id="selfReg-house-number"
+                type="text"
+                class="form-control"
+                placeholder="e.g., 123"
+                [(ngModel)]="selfRegHouseNumber"
+                name="selfRegHouseNumber"
+                [disabled]="selfRegSubmitting"
+              />
+            </div>
+          </div>
+
+          <div *ngIf="selfRegCommunityResidenceType === 'complex' && selfRegCommunityId">
+            <div class="form-group">
+              <label for="selfReg-community-complex">Complex *</label>
+              <select
+                id="selfReg-community-complex"
+                class="form-control"
+                [(ngModel)]="selfRegCommunityComplexId"
+                name="selfRegCommunityComplexId"
+                (ngModelChange)="onSelfRegCommunityComplexChange()"
+                [disabled]="selfRegSubmitting"
+              >
+                <option value="">Select Complex</option>
+                <option *ngFor="let complex of selfRegAvailableCommunityComplexes" [value]="complex.id">
+                  {{ complex.name }}
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="selfReg-community-unit">Unit Number *</label>
+              <select
+                id="selfReg-community-unit"
+                class="form-control"
+                [(ngModel)]="selfRegCommunityUnit"
+                name="selfRegCommunityUnit"
+                [disabled]="!selfRegCommunityComplexId || selfRegSubmitting"
+              >
+                <option value="">Select Unit</option>
+                <option *ngFor="let unit of selfRegAvailableCommunityUnits" [value]="unit">{{ unit }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <p class="error-text" *ngIf="selfRegError">{{ selfRegError }}</p>
+        <p class="success-text" *ngIf="selfRegSuccess">{{ selfRegSuccess }}</p>
+      </div>
+      <div class="modal-actions">
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="closeSelfRegistrationModal()"
+          [disabled]="selfRegSubmitting"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn-main"
+          (click)="submitSelfRegistration()"
+          [disabled]="selfRegSubmitting"
+        >
+          {{ selfRegSubmitting ? 'Sending...' : 'Send Link' }}
         </button>
       </div>
     </div>

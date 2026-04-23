@@ -4,6 +4,7 @@ import { Login } from './login/login';
 import { Dashboard } from './dashboard/dashboard';
 import { GuardPortal } from './guard-portal/guard-portal';
 import { GuardIncidents } from './guard-incidents/guard-incidents';
+import { RegisterTenant } from './register-tenant/register-tenant';
 
 import { AdminPortal } from './admin-portal/admin-portal';
 import { SecurityManager } from './security-manager/security-manager';
@@ -48,6 +49,7 @@ export const routes: Routes = [
   },
   { path: 'guard-portal', component: GuardPortal, canActivate: [clientGuard], data: { roles: ['admin', 'security', 'manager'] } },
   { path: 'guard-incidents', component: GuardIncidents, canActivate: [clientGuard], data: { roles: ['admin', 'security', 'manager'] } },
+  { path: 'register-tenant', component: RegisterTenant, canActivate: [clientGuard], data: { roles: ['admin', 'security', 'manager'] } },
   { path: 'admin-portal', component: AdminPortal, canActivate: [clientGuard], data: { roles: ['admin'] } },
   { path: 'security-manager', component: SecurityManager, canActivate: [clientGuard], data: { roles: ['admin', 'manager'] }},
   { path: 'forgot-password/:email/:token', component: ForgetPassword },

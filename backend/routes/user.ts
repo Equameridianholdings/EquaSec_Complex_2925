@@ -1,5 +1,6 @@
 import complexSchema from "#db/complexSchema.js";
 import gatedCommunitySchema from "#db/gatedCommunity.js";
+import registrationTokenSchema from "#db/registrationTokenSchema.js";
 import securityCompanySchema from "#db/securityCompanySchema.js";
 import unitSchema from "#db/unitSchema.js";
 import userSchema from "#db/userSchema.js";
@@ -11,9 +12,10 @@ import RoleMiddleware from "#middleware/role.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
 import { decryptPhoto, encryptPhoto } from "#utils/encryption.js";
 import GenerateJWT from "#utils/generateJWT.js";
-import { sendCustomEmail, SendEmailOptions, sendForgotPasswordEmail, sendSecurityCompanyCode } from "#utils/sendEmail.js";
+import { sendCustomEmail, SendEmailOptions, sendForgotPasswordEmail, sendRegistrationLink, sendSecurityCompanyCode } from "#utils/sendEmail.js";
 import VerifyToken from "#utils/verifyToken.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { Request, Response } from "express";
 import { Router } from "express";
 import { checkSchema, Schema } from "express-validator/lib/middlewares/schema.js";
@@ -548,7 +550,45 @@ userRouter.post(
   validateSchema,
   async (req: Request, res: Response) => {
     const user: UserDTO = req.body as UserDTO;
+    const registrationToken = (req.body as { registrationToken?: string }).registrationToken;
+
     try {
+      // If a registration token is provided, validate it
+      if (registrationToken) {
+        const tokenRecord = await registrationTokenSchema.findOne({ token: registrationToken }).lean();
+
+        if (!tokenRecord) {
+          return res.status(404).json({ message: "Invalid registration link." });
+        }
+
+        if (tokenRecord.used) {
+          return res.status(410).json({ message: "This registration link has already been used." });
+        }
+
+        if (new Date() > new Date(tokenRecord.expiresAt)) {
+          return res.status(410).json({ message: "This registration link has expired." });
+        }
+
+        // Ensure the email matches the token
+        if (user.emailAddress.trim().toLowerCase() !== tokenRecord.emailAddress) {
+          return res.status(400).json({ message: "Email address does not match the registration link." });
+        }
+
+        // Validate that residence details match the token (prevent tampering)
+        if (
+          user.address !== tokenRecord.address ||
+          (user.residenceType ?? "") !== tokenRecord.residenceType ||
+          (user.communityComplexId ?? "") !== (tokenRecord.communityComplexId ?? "") ||
+          (user.communityId ?? "") !== (tokenRecord.communityId ?? "") ||
+          (user.houseNumber ?? "") !== (tokenRecord.houseNumber ?? "") ||
+          (user.unitNumber ?? "") !== (tokenRecord.unitNumber ?? "")
+        ) {
+          return res.status(400).json({
+            message: "Residence details do not match the registration link. Please do not modify locked fields.",
+          });
+        }
+      }
+
       user.salt = await bcrypt.genSalt(10);
       const hashPassword = await bcrypt.hash(user.password as unknown as string, user.salt);
 
@@ -559,6 +599,14 @@ userRouter.post(
 
       const newUser = new userSchema(user);
       await newUser.save();
+
+      // If registration was via token, mark token as used
+      if (registrationToken) {
+        await registrationTokenSchema.updateOne(
+          { token: registrationToken },
+          { $set: { used: true, usedAt: new Date() } },
+        );
+      }
 
       return res.status(201).json({ message: "User successfully added!", payload: newUser });
     } catch (error) {
@@ -2031,6 +2079,156 @@ userRouter.patch("/forgot-password/:email/:token", async (req, res) => {
     return res.status(200).json({ message: "Password updated", payload: user });
   } catch {
     return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// Generate and send self-registration link
+userRouter.post(
+  "/generate-registration-link",
+  AuthMiddleware,
+  body("emailAddress").isEmail().withMessage("Invalid email address"),
+  body("address").notEmpty().withMessage("Address/Unit is required"),
+  body("residenceType").isIn(["complex", "community"]).withMessage("Invalid residence type"),
+  validateSchema,
+  async (req: Request, res: Response) => {
+    try {
+      const guardEmail = res.get("email");
+
+      if (!guardEmail) {
+        return res.status(401).json({ message: "Access Denied!" });
+      }
+
+      const guard = await userSchema.findOne({ emailAddress: guardEmail }).select({ type: 1 }).lean();
+      const guardRoles = Array.isArray(guard?.type) ? guard.type : [];
+
+      // Only security guards and admins can generate registration links
+      if (!guardRoles.includes("security") && !guardRoles.includes("admin")) {
+        return res.status(403).json({ message: "Access Forbidden! Only guards can generate registration links." });
+      }
+
+      const body = req.body as {
+        address: string;
+        communityComplexId?: string;
+        communityId?: string;
+        communityResidenceType?: string;
+        complexId?: string;
+        emailAddress: string;
+        houseNumber?: string;
+        residenceType: string;
+        unitNumber?: string;
+      };
+
+      const normalizedEmail = body.emailAddress.trim().toLowerCase();
+
+      // Check if user already exists
+      const existingUser = await userSchema.findOne({ emailAddress: normalizedEmail }).select({ _id: 1 }).lean();
+      if (existingUser) {
+        return res.status(409).json({ message: "A user with this email already exists." });
+      }
+
+      // Check if there's an active unused token for this email
+      const existingToken = await registrationTokenSchema
+        .findOne({
+          emailAddress: normalizedEmail,
+          expiresAt: { $gt: new Date() },
+          used: false,
+        })
+        .lean();
+
+      if (existingToken) {
+        return res.status(409).json({
+          message: "A registration link has already been sent to this email address. Please check their inbox.",
+        });
+      }
+
+      // Generate a secure token
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // Token valid for 7 days
+
+      // Create registration token record
+      const newToken = new registrationTokenSchema({
+        address: body.address,
+        communityComplexId: body.communityComplexId || null,
+        communityId: body.communityId || null,
+        communityResidenceType: body.communityResidenceType || null,
+        complexId: body.complexId || null,
+        createdBy: guardEmail,
+        emailAddress: normalizedEmail,
+        expiresAt,
+        houseNumber: body.houseNumber || null,
+        residenceType: body.residenceType,
+        token,
+        unitNumber: body.unitNumber || null,
+        used: false,
+      });
+
+      await newToken.save();
+
+      // Send registration link email
+      await sendRegistrationLink({
+        address: body.address,
+        residenceType: body.residenceType,
+        to: normalizedEmail,
+        token,
+      });
+
+      return res.status(201).json({
+        message: "Registration link sent successfully!",
+        payload: { email: normalizedEmail },
+      });
+    } catch (error) {
+      console.error("[user][generate-registration-link] failed", error);
+      return res.status(500).json({ message: `Internal Server Error! Error: ${error as string}` });
+    }
+  },
+);
+
+// Validate registration token
+userRouter.get("/validate-registration-token/:token", async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).json({ message: "Token is required." });
+    }
+
+    const tokenRecord = await registrationTokenSchema
+      .findOne({
+        token,
+      })
+      .lean();
+
+    if (!tokenRecord) {
+      return res.status(404).json({ message: "Invalid registration link." });
+    }
+
+    if (tokenRecord.used) {
+      return res.status(410).json({ message: "This registration link has already been used." });
+    }
+
+    if (new Date() > new Date(tokenRecord.expiresAt)) {
+      return res.status(410).json({ message: "This registration link has expired." });
+    }
+
+    // Return the pre-filled data (excluding sensitive fields)
+    return res.status(200).json({
+      message: "Token is valid.",
+      payload: {
+        address: tokenRecord.address,
+        communityComplexId: tokenRecord.communityComplexId,
+        communityId: tokenRecord.communityId,
+        communityResidenceType: tokenRecord.communityResidenceType,
+        complexId: tokenRecord.complexId,
+        emailAddress: tokenRecord.emailAddress,
+        houseNumber: tokenRecord.houseNumber,
+        residenceType: tokenRecord.residenceType,
+        unitNumber: tokenRecord.unitNumber,
+      },
+    });
+  } catch (error) {
+    console.error("[user][validate-registration-token] failed", error);
+    return res.status(500).json({ message: `Internal Server Error! Error: ${error as string}` });
   }
 });
 
