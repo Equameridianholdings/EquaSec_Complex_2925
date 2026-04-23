@@ -1,0 +1,521 @@
+@if (tenantSubmitting) {
+  <app-loader />
+}
+
+<div class="register-tenant-page">
+  <header class="page-header">
+    <div class="header-content">
+      <button type="button" class="btn-back" (click)="cancel()" *ngIf="!isTokenRegistration">← Back</button>
+      <h1>{{ isUpdateMode ? 'Update Tenant' : isTokenRegistration ? 'Complete Your Registration' : 'Register Tenant' }}</h1>
+      <p *ngIf="isTokenRegistration" style="margin-top: 8px; color: #64748b;">Please complete your resident registration below.</p>
+    </div>
+  </header>
+
+  <div class="page-content">
+    <form class="tenant-form" novalidate>
+      <section class="form-section">
+        <h2>Personal Information</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="tenant-name">Name *</label>
+            <input
+              id="tenant-name"
+              type="text"
+              class="form-control"
+              placeholder="First name"
+              [(ngModel)]="tenantForm.name"
+              name="tenantName"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="tenant-surname">Surname *</label>
+            <input
+              id="tenant-surname"
+              type="text"
+              class="form-control"
+              placeholder="Last name"
+              [(ngModel)]="tenantForm.surname"
+              name="tenantSurname"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="tenant-email">Email *</label>
+            <input
+              id="tenant-email"
+              type="email"
+              class="form-control"
+              placeholder="email@example.com"
+              [(ngModel)]="tenantForm.email"
+              name="tenantEmail"
+              required
+              [disabled]="isUpdateMode || isTokenRegistration"
+            />
+            <small *ngIf="isTokenRegistration" style="color: #64748b; display: block; margin-top: 4px;">
+              Email address is locked and cannot be changed.
+            </small>
+          </div>
+          <div class="form-group">
+            <label for="tenant-phone">Phone *</label>
+            <input
+              id="tenant-phone"
+              type="tel"
+              class="form-control"
+              placeholder="0123456789"
+              [(ngModel)]="tenantForm.phone"
+              name="tenantPhone"
+              inputmode="numeric"
+              maxlength="10"
+              pattern="0[0-9]{9}"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-row" *ngIf="isTokenRegistration">
+          <div class="form-group">
+            <label for="tenant-password">Password (6 digits) *</label>
+            <input
+              id="tenant-password"
+              type="password"
+              class="form-control"
+              placeholder="123456"
+              [(ngModel)]="tenantForm.password"
+              name="tenantPassword"
+              inputmode="numeric"
+              maxlength="6"
+              pattern="[0-9]{6}"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="tenant-confirm-password">Confirm Password *</label>
+            <input
+              id="tenant-confirm-password"
+              type="password"
+              class="form-control"
+              placeholder="123456"
+              [(ngModel)]="tenantForm.confirmPassword"
+              name="tenantConfirmPassword"
+              inputmode="numeric"
+              maxlength="6"
+              pattern="[0-9]{6}"
+              required
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <h2>Residence Information</h2>
+        
+        @if (isTokenRegistration) {
+          <div class="alert alert-info" style="margin-bottom: 16px; padding: 12px; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 8px;">
+            <strong>ℹ️ Note:</strong> Your residence details are pre-assigned and cannot be changed during registration.
+          </div>
+        }
+        
+        @if (!isTokenRegistration && availableTenantResidenceTypes.length === 0) {
+          <div class="alert alert-warning">
+            <strong>⚠️ No Station Selected</strong>
+            <p>Please go back to the Guard Portal and select a station before registering a tenant.</p>
+          </div>
+        }
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="tenant-residence-type">Residence Type *</label>
+            <select
+              id="tenant-residence-type"
+              class="form-control"
+              [(ngModel)]="tenantForm.residenceType"
+              name="tenantResidenceType"
+              (ngModelChange)="onResidenceTypeChange()"
+              required
+              [disabled]="isTokenRegistration"
+            >
+              <option *ngFor="let type of availableTenantResidenceTypes" [value]="type.value">
+                {{ type.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row" *ngIf="tenantForm.residenceType === 'complex'">
+          <div class="form-group">
+            <label for="tenant-complex">Complex *</label>
+            <select
+              id="tenant-complex"
+              class="form-control"
+              [(ngModel)]="tenantForm.complexId"
+              name="tenantComplexId"
+              [required]="tenantForm.residenceType === 'complex'"
+              (ngModelChange)="onComplexChange()"
+              [disabled]="isTokenRegistration"
+            >
+              <option value="">Select Complex</option>
+              <option *ngFor="let complex of stationScopedComplexes" [value]="complex._id || complex.id">
+                {{ complex.name }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="tenant-unit">Unit Number *</label>
+            <select
+              id="tenant-unit"
+              class="form-control"
+              [(ngModel)]="tenantForm.address"
+              name="tenantAddressComplex"
+              [required]="tenantForm.residenceType === 'complex'"
+              [disabled]="!tenantForm.complexId || isTokenRegistration"
+            >
+              <option value="">Select Unit</option>
+              <option *ngFor="let unit of availableUnits" [value]="unit">{{ unit }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div *ngIf="tenantForm.residenceType === 'community'">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="tenant-community">Gated Community *</label>
+              <select
+                id="tenant-community"
+                class="form-control"
+                [(ngModel)]="tenantForm.communityId"
+                name="tenantCommunityId"
+                [required]="tenantForm.residenceType === 'community'"
+                (ngModelChange)="onCommunityChange()"
+                [disabled]="isTokenRegistration"
+              >
+                <option value="">Select Gated Community</option>
+                <option *ngFor="let community of stationScopedCommunities" [value]="community._id || community.id">
+                  {{ community.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row" *ngIf="tenantForm.communityId">
+            <div class="form-group">
+              <label for="tenant-community-type">Residence Type in Community *</label>
+              <select
+                id="tenant-community-type"
+                class="form-control"
+                [(ngModel)]="tenantForm.communityResidenceType"
+                name="tenantCommunityResidenceType"
+                (ngModelChange)="onCommunityResidenceTypeChange()"
+                required
+                [disabled]="isTokenRegistration"
+              >
+                <option *ngIf="availableCommunityResidenceTypes.includes('house')" value="house">
+                  Standalone House
+                </option>
+                <option
+                  *ngIf="availableCommunityResidenceTypes.includes('complex')"
+                  value="complex"
+                >
+                  Complex/Building
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            class="form-row"
+            *ngIf="tenantForm.communityId && tenantForm.communityResidenceType === 'house'"
+          >
+            <div class="form-group">
+              <label for="tenant-house">House Number *</label>
+              <select
+                id="tenant-house"
+                class="form-control"
+                [(ngModel)]="tenantForm.address"
+                name="tenantAddressHouse"
+                [required]="tenantForm.communityResidenceType === 'house'"
+                [disabled]="isTokenRegistration"
+              >
+                <option value="">Select House</option>
+                <option *ngFor="let house of availableHouses" [value]="house">{{ house }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            class="form-row"
+            *ngIf="tenantForm.communityId && tenantForm.communityResidenceType === 'complex'"
+          >
+            <div class="form-group">
+              <label for="tenant-community-complex">Complex in Community *</label>
+              <select
+                id="tenant-community-complex"
+                class="form-control"
+                [(ngModel)]="tenantForm.communityComplexId"
+                name="tenantCommunityComplexId"
+                (ngModelChange)="onCommunityComplexChange()"
+                [required]="tenantForm.communityResidenceType === 'complex'"
+                [disabled]="isTokenRegistration"
+              >
+                <option value="">Select Complex</option>
+                <option *ngFor="let complex of availableCommunityComplexes" [value]="complex.id">
+                  {{ complex.name }}
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="tenant-community-unit">Unit Number *</label>
+              <select
+                id="tenant-community-unit"
+                class="form-control"
+                [(ngModel)]="tenantForm.address"
+                name="tenantAddressCommunityUnit"
+                [required]="tenantForm.communityResidenceType === 'complex'"
+                [disabled]="!tenantForm.communityComplexId || isTokenRegistration"
+              >
+                <option value="">Select Unit</option>
+                <option *ngFor="let unit of availableCommunityUnits" [value]="unit">
+                  {{ unit }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <h2>Vehicle Information</h2>
+        @if (!isUpdateMode || (isUpdateMode && tenantForm.vehicles.length === 0)) {
+          <div class="form-row">
+            <div class="form-group">
+              <label>
+                {{
+                  isUpdateMode
+                    ? 'No vehicles on record — would you like to add one?'
+                    : 'Does the tenant have a vehicle to register?'
+                }}
+              </label>
+              <div class="toggle-btn-group">
+                <button
+                  type="button"
+                  class="toggle-btn"
+                  [class.active]="tenantHasCar === true"
+                  (click)="tenantHasCar = true"
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  class="toggle-btn"
+                  [class.active]="tenantHasCar === false"
+                  (click)="tenantHasCar = false"
+                >
+                  No
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+
+        <ng-container *ngIf="tenantHasCar === true">
+          <div *ngIf="tenantForm.vehicles.length > 0" class="vehicle-list">
+            <h3>Registered Vehicles ({{ tenantForm.vehicles.length }})</h3>
+            <div
+              *ngFor="let vehicle of tenantForm.vehicles; let i = index"
+              class="vehicle-item"
+              [class.vehicle-item-editing]="editingVehicleIndex === i"
+            >
+              <div class="vehicle-details">
+                <strong>{{ vehicle.make }} {{ vehicle.model }}</strong>
+                <span class="vehicle-reg">{{ vehicle.reg }}</span>
+                <span *ngIf="vehicle.color" class="vehicle-color">{{ vehicle.color }}</span>
+              </div>
+              <div class="vehicle-item-actions">
+                <button
+                  type="button"
+                  class="btn-icon"
+                  (click)="editVehicle(i)"
+                  title="Edit vehicle"
+                >
+                  ✏️
+                </button>
+                <button
+                  type="button"
+                  class="btn-icon"
+                  (click)="removeVehicle(i)"
+                  title="Remove vehicle"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="vehicle-form"
+            *ngIf="
+              tenantForm.vehicles.length === 0 ||
+              tenantAnotherVehicle === true ||
+              editingVehicleIndex !== null
+            "
+          >
+            <h3>
+              {{
+                editingVehicleIndex !== null
+                  ? 'Edit Vehicle'
+                  : tenantForm.vehicles.length > 0
+                    ? 'Add Another Vehicle'
+                    : 'Add Vehicle'
+              }}
+            </h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="vehicle-make">Vehicle Make</label>
+                <input
+                  id="vehicle-make"
+                  type="text"
+                  class="form-control"
+                  placeholder="e.g. Toyota"
+                  [(ngModel)]="currentVehicle.make"
+                  name="vehicleMake"
+                />
+              </div>
+              <div class="form-group">
+                <label for="vehicle-model">Vehicle Model</label>
+                <input
+                  id="vehicle-model"
+                  type="text"
+                  class="form-control"
+                  placeholder="e.g. Corolla"
+                  [(ngModel)]="currentVehicle.model"
+                  name="vehicleModel"
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="vehicle-reg">Registration Number</label>
+                <input
+                  id="vehicle-reg"
+                  type="text"
+                  class="form-control"
+                  placeholder="e.g. ABC 123 GP"
+                  [ngModel]="currentVehicle.reg"
+                  (ngModelChange)="currentVehicle.reg = $event.toUpperCase()"
+                  name="vehicleReg"
+                  style="text-transform: uppercase"
+                />
+              </div>
+              <div class="form-group">
+                <label for="vehicle-color">Color</label>
+                <input
+                  id="vehicle-color"
+                  type="text"
+                  class="form-control"
+                  placeholder="e.g. Silver"
+                  [(ngModel)]="currentVehicle.color"
+                  name="vehicleColor"
+                />
+              </div>
+            </div>
+
+            <button type="button" class="btn-add" (click)="addVehicle()">
+              {{
+                editingVehicleIndex !== null
+                  ? '💾 Save Changes'
+                  : tenantForm.vehicles.length > 0
+                    ? '+ Add Another Vehicle'
+                    : '+ Add Vehicle'
+              }}
+            </button>
+          </div>
+          <div
+            *ngIf="
+              (tenantForm.vehicles.length > 0 &&
+                tenantAnotherVehicle === null &&
+                editingVehicleIndex === null) ||
+              isUpdateMode
+            "
+            class="form-row"
+            style="margin-top: 0.75rem"
+          >
+            <div class="form-group">
+              <label>Would you like to add another vehicle?</label>
+              <div class="toggle-btn-group">
+                <button
+                  type="button"
+                  class="toggle-btn"
+                  [class.active]="tenantAnotherVehicle === true"
+                  (click)="tenantAnotherVehicle = true"
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  class="toggle-btn"
+                  [class.active]="tenantAnotherVehicle === false"
+                  (click)="tenantAnotherVehicle = false"
+                >
+                  No
+                </button>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </section>
+
+      <div *ngIf="tenantError" class="error-message">{{ tenantError }}</div>
+      <div *ngIf="tenantSuccess" class="success-message">{{ tenantSuccess }}</div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" (click)="cancel()">Cancel</button>
+        <button
+          type="button"
+          class="btn-main"
+          (click)="openConfirmTenantModal()"
+          [disabled]="tenantSubmitting || !isTenantFormReady"
+        >
+          {{ isUpdateMode ? 'Update Tenant' : 'Register Tenant' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal-backdrop" *ngIf="isTenantConfirmModalOpen" (click)="closeConfirmTenantModal()">
+  <div class="modal confirm-tenant-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Confirm Tenant Registration</h2>
+      <button class="btn-icon" type="button" (click)="closeConfirmTenantModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <p class="confirm-intro">Please review the information before submitting:</p>
+      <dl class="confirm-summary">
+        <div class="confirm-row" *ngFor="let row of confirmationRows">
+          <dt>{{ row.label }}</dt>
+          <dd>{{ row.value }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" (click)="closeConfirmTenantModal()">
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn-main"
+        (click)="confirmAndSubmitTenant()"
+        [disabled]="tenantSubmitting"
+      >
+        {{ isUpdateMode ? 'Confirm Update' : 'Confirm Registration' }}
+      </button>
+    </div>
+  </div>
+</div>

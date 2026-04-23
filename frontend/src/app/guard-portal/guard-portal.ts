@@ -297,6 +297,21 @@ export class GuardPortal implements OnInit, OnDestroy {
   protected stationLocked = false;
   protected stationType: 'gated' | 'complex' | '' = '';
 
+  // Self-registration modal
+  protected isSelfRegistrationModalOpen = false;
+  protected selfRegEmail = '';
+  protected selfRegResidenceType: 'complex' | 'community' = 'complex';
+  protected selfRegComplexId = '';
+  protected selfRegUnit = '';
+  protected selfRegCommunityId = '';
+  protected selfRegCommunityResidenceType: 'house' | 'complex' = 'house';
+  protected selfRegCommunityComplexId = '';
+  protected selfRegCommunityUnit = '';
+  protected selfRegHouseNumber = '';
+  protected selfRegSubmitting = false;
+  protected selfRegError = '';
+  protected selfRegSuccess = '';
+
   protected tenantForm: TenantFormDTO = {
     id: '',
     name: '',
@@ -1495,19 +1510,219 @@ export class GuardPortal implements OnInit, OnDestroy {
     }
 
     if (!this.hasValidStationSelection()) {
-      this.tenantError = 'Select your current station before registering a tenant.';
-      this.tenantSuccess = '';
+      this._snackBar.open('Select your current station before registering a tenant.', 'close', {
+        horizontalPosition: this.horizontalPosition,
+        verticalPosition: this.verticalPosition,
+      });
       return;
     }
 
-    this.isTenantModalOpen = true;
-    this.tenantError = '';
-    this.tenantSuccess = '';
-    this.tenantSubmitting = false;
-    this.resetTenantForm();
+    this.router.navigate(['/register-tenant']);
+  }
+
+  protected openSelfRegistrationModal(): void {
+    if (!this.canRegisterTenant) {
+      return;
+    }
+
+    if (!this.hasValidStationSelection()) {
+      this._snackBar.open('Select your current station before sending a registration link.', 'close', {
+        horizontalPosition: this.horizontalPosition,
+        verticalPosition: this.verticalPosition,
+      });
+      return;
+    }
+
+    this.resetSelfRegistrationForm();
+    this.prePopulateSelfRegFromStation();
+    this.isSelfRegistrationModalOpen = true;
+  }
+
+  protected closeSelfRegistrationModal(): void {
+    if (this.selfRegSubmitting) {
+      return;
+    }
+
+    this.isSelfRegistrationModalOpen = false;
+    this.resetSelfRegistrationForm();
+  }
+
+  protected resetSelfRegistrationForm(): void {
+    this.selfRegEmail = '';
+    this.selfRegResidenceType = 'complex';
+    this.selfRegComplexId = '';
+    this.selfRegUnit = '';
+    this.selfRegCommunityId = '';
+    this.selfRegCommunityResidenceType = 'house';
+    this.selfRegCommunityComplexId = '';
+    this.selfRegCommunityUnit = '';
+    this.selfRegHouseNumber = '';
+    this.selfRegError = '';
+    this.selfRegSuccess = '';
+  }
+
+  private prePopulateSelfRegFromStation(): void {
+    // Set residence type based on station type
+    if (this.stationType === 'complex') {
+      this.selfRegResidenceType = 'complex';
+      this.selfRegComplexId = this.filtersForm.selectedComplex;
+    } else if (this.stationType === 'gated') {
+      this.selfRegResidenceType = 'community';
+      this.selfRegCommunityId = this.filtersForm.selectedGatedCommunity;
+    }
+  }
+
+  protected submitSelfRegistration(): void {
+    if (this.selfRegSubmitting) {
+      return;
+    }
+
+    // Validate email
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!this.selfRegEmail.trim() || !emailPattern.test(this.selfRegEmail.trim())) {
+      this.selfRegError = 'Please enter a valid email address.';
+      return;
+    }
+
+    // Validate residence details
+    let address = '';
+    let complexId = '';
+    let communityId = '';
+    let communityResidenceType = '';
+    let communityComplexId = '';
+    let unitNumber = '';
+    let houseNumber = '';
+
+    if (this.selfRegResidenceType === 'complex') {
+      if (!this.selfRegComplexId || !this.selfRegUnit) {
+        this.selfRegError = 'Please select a complex and unit.';
+        return;
+      }
+      address = this.selfRegUnit;
+      complexId = this.selfRegComplexId;
+      unitNumber = this.selfRegUnit;
+    } else {
+      if (!this.selfRegCommunityId) {
+        this.selfRegError = 'Please select a gated community.';
+        return;
+      }
+
+      if (this.selfRegCommunityResidenceType === 'house') {
+        if (!this.selfRegHouseNumber) {
+          this.selfRegError = 'Please enter a house number.';
+          return;
+        }
+        address = this.selfRegHouseNumber;
+        houseNumber = this.selfRegHouseNumber;
+      } else {
+        if (!this.selfRegCommunityComplexId || !this.selfRegCommunityUnit) {
+          this.selfRegError = 'Please select a complex and unit.';
+          return;
+        }
+        address = this.selfRegCommunityUnit;
+        communityComplexId = this.selfRegCommunityComplexId;
+        unitNumber = this.selfRegCommunityUnit;
+      }
+
+      communityId = this.selfRegCommunityId;
+      communityResidenceType = this.selfRegCommunityResidenceType;
+    }
+
+    this.selfRegError = '';
+    this.selfRegSuccess = '';
+    this.selfRegSubmitting = true;
+    this.submitting.update(() => true);
+
+    const payload: any = {
+      address,
+      emailAddress: this.selfRegEmail.trim().toLowerCase(),
+      residenceType: this.selfRegResidenceType,
+    };
+
+    if (complexId) payload.complexId = complexId;
+    if (communityId) payload.communityId = communityId;
+    if (communityResidenceType) payload.communityResidenceType = communityResidenceType;
+    if (communityComplexId) payload.communityComplexId = communityComplexId;
+    if (unitNumber) payload.unitNumber = unitNumber;
+    if (houseNumber) payload.houseNumber = houseNumber;
+
+    this.dataService.post<ResponseBody>('user/generate-registration-link', payload).subscribe({
+      next: (response) => {
+        this.selfRegSubmitting = false;
+        this.submitting.update(() => false);
+        this.selfRegSuccess = response?.message ?? 'Registration link sent successfully!';
+        
+        setTimeout(() => {
+          this.closeSelfRegistrationModal();
+          window.location.reload();
+        }, 2000);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.selfRegSubmitting = false;
+        this.submitting.update(() => false);
+        this.selfRegError = error?.error?.message ?? 'Failed to send registration link. Please try again.';
+      },
+    });
+  }
+
+  protected onSelfRegResidenceTypeChange(): void {
+    this.selfRegComplexId = '';
+    this.selfRegUnit = '';
+    this.selfRegCommunityId = '';
+    this.selfRegCommunityResidenceType = 'house';
+    this.selfRegCommunityComplexId = '';
+    this.selfRegCommunityUnit = '';
+    this.selfRegHouseNumber = '';
+    this.selfRegError = '';
+  }
+
+  protected onSelfRegComplexChange(): void {
+    this.selfRegUnit = '';
+  }
+
+  protected onSelfRegCommunityChange(): void {
+    this.selfRegCommunityResidenceType = 'house';
+    this.selfRegCommunityComplexId = '';
+    this.selfRegCommunityUnit = '';
+    this.selfRegHouseNumber = '';
+  }
+
+  protected onSelfRegCommunityResidenceTypeChange(): void {
+    this.selfRegCommunityComplexId = '';
+    this.selfRegCommunityUnit = '';
+    this.selfRegHouseNumber = '';
+  }
+
+  protected onSelfRegCommunityComplexChange(): void {
+    this.selfRegCommunityUnit = '';
+  }
+
+  protected get selfRegAvailableUnits(): string[] {
+    if (this.selfRegResidenceType === 'complex' && this.selfRegComplexId) {
+      const complex = this.assignedComplexes.find(c => c.id === this.selfRegComplexId);
+      return complex?.units ?? [];
+    }
+    return [];
+  }
+
+  protected get selfRegAvailableCommunityComplexes(): Array<{ id: string; name: string; units: string[] }> {
+    if (this.selfRegCommunityId) {
+      const community = this.gatedCommunities.find(gc => gc.id === this.selfRegCommunityId);
+      return community?.complexesInCommunity ?? [];
+    }
+    return [];
+  }
+
+  protected get selfRegAvailableCommunityUnits(): string[] {
+    if (this.selfRegCommunityComplexId) {
+      const complex = this.selfRegAvailableCommunityComplexes.find(c => c.id === this.selfRegCommunityComplexId);
+      return complex?.units ?? [];
+    }
+    return [];
   }
 
   protected closeTenantModal(): void {
+    // This method can be removed or kept for compatibility
     this.isTenantModalOpen = false;
     this.isUpdateMode = false;
     this.tenantSubmitting = false;
@@ -1516,89 +1731,17 @@ export class GuardPortal implements OnInit, OnDestroy {
 
   protected openUpdateTenantModal(resident: any): void {
     if (!this.hasValidStationSelection()) {
-      this.tenantError = 'Select your current station before updating a tenant.';
-      this.tenantSuccess = '';
+      this._snackBar.open('Select your current station before updating a tenant.', 'close', {
+        horizontalPosition: this.horizontalPosition,
+        verticalPosition: this.verticalPosition,
+      });
       return;
     }
 
-    this.resetTenantForm();
-
-    // Determine residence type from the resident's linked ids.
-    // Residents in a complex that belongs to a gated community have complexId set
-    // but gatedCommunityId empty — treat them as community residents.
-    const hasGatedCommunityId = !!resident.gatedCommunityId;
-    const hasComplexOnly = !!resident.complexId && !hasGatedCommunityId;
-    const isGatedComplexResident =
-      hasComplexOnly &&
-      this.stationType === 'gated' &&
-      !!this.filtersForm.selectedGatedCommunity;
-
-    const isComplex = !!resident.complexId && !hasGatedCommunityId && !isGatedComplexResident;
-    const isCommunity = hasGatedCommunityId || isGatedComplexResident;
-    const residenceType: 'complex' | 'community' = isCommunity ? 'community' : 'complex';
-
-    // For gated-complex residents the community id comes from the current station selection.
-    const effectiveCommunityId = hasGatedCommunityId
-      ? (resident.gatedCommunityId ?? '')
-      : isGatedComplexResident
-        ? this.filtersForm.selectedGatedCommunity
-        : '';
-
-    // Resolve the unit/house value to match the format used in the dropdown options
-    // (e.g. "Unit 7" for complex units, "House 18" for gated-community houses).
-    const complexIdForLookup = isComplex ? (resident.complexId ?? '') : (resident.complexId ?? '');
-    const complexForUnits = this.stationScopedComplexes.find((c) => c.id === complexIdForLookup);
-    const rawUnitValue = resident.unit || resident.houseNumber || '';
-    let resolvedAddress = rawUnitValue;
-    if (complexForUnits?.units?.length) {
-      // Complex unit — look for "Unit N" prefix
-      const exactMatch = complexForUnits.units.find((u) => u === rawUnitValue);
-      const prefixedMatch = complexForUnits.units.find((u) => u === `Unit ${rawUnitValue}`);
-      resolvedAddress = exactMatch ?? prefixedMatch ?? rawUnitValue;
-    } else if (isCommunity && !resident.complexId) {
-      // House inside gated community — houses list uses "House N" prefix
-      const community = this.gatedCommunities.find(
-        (c) => c.id === resident.gatedCommunityId,
-      );
-      const houses: string[] = community?.houses ?? [];
-      const exactMatch = houses.find((h) => h === rawUnitValue);
-      const prefixedMatch = houses.find((h) => h === `House ${rawUnitValue}`);
-      resolvedAddress = exactMatch ?? prefixedMatch ?? rawUnitValue;
-    }
-
-    // Map resident vehicles from the loaded vehicles list
-    const residentVehicles = (Array.isArray(this.vehicles) ? this.vehicles : [])
-      .filter((v: any) => v.owner === resident.name)
-      .map((v: any) => ({
-        make: v.make ?? '',
-        model: v.model ?? '',
-        reg: v.regNumber ?? v.reg ?? '',
-        color: v.color ?? '',
-      }));
-
-    this.tenantForm = {
-      id: resident.id ?? '',
-      name: resident.firstName ?? resident.name?.split(' ')[0] ?? '',
-      surname: resident.surname ?? resident.name?.split(' ').slice(1).join(' ') ?? '',
-      email: resident.emailAddress ?? '',
-      phone: resident.phone ?? resident.cellphone ?? '',
-      idNumber: resident.idNumber ?? '',
-      residenceType,
-      complexId: isComplex ? (resident.complexId ?? '') : '',
-      communityId: isCommunity ? effectiveCommunityId : '',
-      communityResidenceType: isCommunity && resident.complexId ? 'complex' : 'house',
-      communityComplexId: isCommunity ? (resident.complexId ?? '') : '',
-      address: resolvedAddress,
-      vehicles: residentVehicles,
-    };
-
-    this.tenantHasCar = residentVehicles.length > 0 ? true : false;
-    this.tenantAnotherVehicle = null;
-    this.isUpdateMode = true;
-    this.isTenantModalOpen = true;
-    this.tenantError = '';
-    this.tenantSuccess = '';
-    this.tenantSubmitting = false;
+    const tenantId = resident.id ?? resident._id;
+    this.router.navigate(['/register-tenant'], {
+      queryParams: { id: tenantId }
+    });
   }
 
   protected openDeleteTenantModal(resident: any): void {
@@ -1816,7 +1959,8 @@ export class GuardPortal implements OnInit, OnDestroy {
 
     if (
       this.tenantForm.residenceType === 'community' &&
-      !this.availableCommunityResidenceTypes.includes(this.tenantForm.communityResidenceType)
+      this.tenantForm.communityResidenceType &&
+      !this.availableCommunityResidenceTypes.includes(this.tenantForm.communityResidenceType as 'house' | 'complex')
     ) {
       this.tenantError = 'Selected community residence type is not available.';
       this.tenantSuccess = '';
