@@ -761,7 +761,10 @@ userRouter.post(
       }
 
       // Original non-token registration logic
-      const finalPassword = user.password as string;
+      if (!user.password) {
+        return res.status(400).json({ message: "Password is required." });
+      }
+      const finalPassword = user.password;
       const salt = await bcrypt.genSalt(10);
       const hashPassword = await bcrypt.hash(finalPassword, salt);
 
