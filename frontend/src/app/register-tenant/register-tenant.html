@@ -76,37 +76,8 @@
           </div>
         </div>
 
-        <div class="form-row" *ngIf="isTokenRegistration">
-          <div class="form-group">
-            <label for="tenant-password">Password (6 digits) *</label>
-            <input
-              id="tenant-password"
-              type="password"
-              class="form-control"
-              placeholder="123456"
-              [(ngModel)]="tenantForm.password"
-              name="tenantPassword"
-              inputmode="numeric"
-              maxlength="6"
-              pattern="[0-9]{6}"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label for="tenant-confirm-password">Confirm Password *</label>
-            <input
-              id="tenant-confirm-password"
-              type="password"
-              class="form-control"
-              placeholder="123456"
-              [(ngModel)]="tenantForm.confirmPassword"
-              name="tenantConfirmPassword"
-              inputmode="numeric"
-              maxlength="6"
-              pattern="[0-9]{6}"
-              required
-            />
-          </div>
+        <div class="alert alert-info" *ngIf="isTokenRegistration" style="margin-top: 16px; padding: 12px; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 8px;">
+          <strong>🔐 Temporary Login Code:</strong> A 6-digit login code will be sent to your email after registration.
         </div>
       </section>
 

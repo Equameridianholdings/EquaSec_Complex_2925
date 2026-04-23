@@ -18,7 +18,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { Request, Response } from "express";
 import { Router } from "express";
-import { checkSchema, Schema } from "express-validator/lib/middlewares/schema.js";
+import { checkSchema, Schema, validationResult } from "express-validator";
 import { body } from "express-validator/lib/middlewares/validation-chain-builders.js";
 import { ObjectId } from "mongodb";
 // import { isKeyObject } from "util/types";
@@ -529,28 +529,25 @@ const unlinkTenantFromAllUnits = async (tenantId: string): Promise<void> => {
 userRouter.post(
   "/register",
   body("confirmPassword")
+    .if((value, { req }) => !req.body.registrationToken) // Only validate password if no registration token
     .custom((value, { req }) => {
       const user = req.body as UserDTO;
       return value === (user.password as unknown as string);
     })
     .withMessage("Passwords do not match."),
-  // body("idNumber")
-  //   .custom((value: string) => {
-  //     return checkID(value);
-  //   })
-  //   .withMessage("Invalid Id number!"),
-  // body("complex")
-  //   .custom((value) => {
-  //     if (!isKeyObject(value)) return {};
-
-  //     return value as unknown as complexDTO;
-  //   })
-  //   .withMessage("Invalid object!"),
-  checkSchema(userBodyValidation),
-  validateSchema,
   async (req: Request, res: Response) => {
-    const user: UserDTO = req.body as UserDTO;
     const registrationToken = (req.body as { registrationToken?: string }).registrationToken;
+    
+    // For token registrations, skip password validation
+    // For normal registrations, validate normally
+    if (!registrationToken) {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+    }
+
+    const user: UserDTO = req.body as UserDTO;
 
     try {
       // If a registration token is provided, validate it
@@ -589,8 +586,21 @@ userRouter.post(
         }
       }
 
+      // Generate password: auto-generate for token registration, use provided password otherwise
+      let finalPassword: string;
+      let temporaryPin: string | undefined;
+      
+      if (registrationToken) {
+        // Auto-generate 6-digit code for token registration
+        temporaryPin = String(Math.floor(100000 + Math.random() * 900000));
+        finalPassword = temporaryPin;
+      } else {
+        // Use provided password for normal registration
+        finalPassword = user.password as unknown as string;
+      }
+
       user.salt = await bcrypt.genSalt(10);
-      const hashPassword = await bcrypt.hash(user.password as unknown as string, user.salt);
+      const hashPassword = await bcrypt.hash(finalPassword, user.salt);
 
       user.password = hashPassword;
 
@@ -600,15 +610,31 @@ userRouter.post(
       const newUser = new userSchema(user);
       await newUser.save();
 
-      // If registration was via token, mark token as used
-      if (registrationToken) {
+      // If registration was via token, mark token as used and send email with PIN
+      if (registrationToken && temporaryPin) {
         await registrationTokenSchema.updateOne(
           { token: registrationToken },
           { $set: { used: true, usedAt: new Date() } },
         );
+
+        // Send email with temporary PIN
+        try {
+          await sendSecurityCompanyCode({
+            code: temporaryPin,
+            to: user.emailAddress.trim().toLowerCase(),
+          });
+        } catch (emailError) {
+          console.error('Failed to send registration PIN email:', emailError);
+          // Don't fail the registration if email fails, just log it
+        }
       }
 
-      return res.status(201).json({ message: "User successfully added!", payload: newUser });
+      return res.status(201).json({ 
+        message: registrationToken 
+          ? "Registration successful! Check your email for your login code." 
+          : "User successfully added!", 
+        payload: newUser 
+      });
     } catch (error) {
       return res.status(500).json({ message: `Internal Server Error! Error: ${error as string}` });
     }
