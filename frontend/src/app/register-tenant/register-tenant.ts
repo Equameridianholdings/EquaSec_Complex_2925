@@ -905,6 +905,23 @@ export class RegisterTenant implements OnInit {
       vehicles: this.tenantForm.vehicles,
     };
 
+    // Add unitNumber or houseNumber based on residence type
+    if (this.tenantForm.residenceType === 'complex') {
+      // Complex residence - address contains the unit number
+      payload.unitNumber = this.tenantForm.address.trim();
+      payload.houseNumber = '';
+    } else if (this.tenantForm.residenceType === 'community') {
+      if (this.tenantForm.communityResidenceType === 'house') {
+        // Community house - address contains house number
+        payload.houseNumber = this.tenantForm.address.trim();
+        payload.unitNumber = '';
+      } else if (this.tenantForm.communityResidenceType === 'complex') {
+        // Community complex - address contains unit number
+        payload.unitNumber = this.tenantForm.address.trim();
+        payload.houseNumber = '';
+      }
+    }
+
     // Add registration token if present
     if (this.isTokenRegistration && this.registrationToken) {
       payload.registrationToken = this.registrationToken;

@@ -2483,7 +2483,7 @@ export class SecurityManager implements OnInit {
             (complex) => complex.id === tenantData.communityComplexId,
           );
 
-    const payload = {
+    const payload: any = {
       name: tenantData.name,
       surname: tenantData.surname,
       emailAddress: normalizedTenantEmail,
@@ -2501,6 +2501,20 @@ export class SecurityManager implements OnInit {
       communityComplexId: tenantData.communityComplexId,
       vehicles: tenantData.vehicles,
     };
+
+    // Add unitNumber or houseNumber based on residence type
+    if (tenantData.residenceType === 'complex') {
+      payload.unitNumber = tenantData.address.trim();
+      payload.houseNumber = '';
+    } else if (tenantData.residenceType === 'community') {
+      if (tenantData.communityResidenceType === 'house') {
+        payload.houseNumber = tenantData.address.trim();
+        payload.unitNumber = '';
+      } else if (tenantData.communityResidenceType === 'complex') {
+        payload.unitNumber = tenantData.address.trim();
+        payload.houseNumber = '';
+      }
+    }
 
     if (this.editingTenantId) {
       this.dataService.put<ResponseBody>(`user/tenant/${this.editingTenantId}`, payload).subscribe({
