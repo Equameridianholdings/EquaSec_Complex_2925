@@ -1680,21 +1680,6 @@
               />
             </div>
 
-            <div class="form-group">
-              <label for="numberOfHouses">Number of Houses</label>
-              <input
-                type="number"
-                id="numberOfHouses"
-                name="numberOfHouses"
-                placeholder="e.g., 150"
-                class="form-control"
-                [ngModel]="numberOfHouses"
-                (ngModelChange)="numberOfHouses = $event"
-                (input)="markTouched($event)"
-                required
-                min="1"
-              />
-            </div>
 
             <div *ngIf="gatedCommunityError" class="error-message">
               {{ gatedCommunityError }}

@@ -90,12 +90,6 @@
           </div>
         }
         
-        @if (!isTokenRegistration && availableTenantResidenceTypes.length === 0) {
-          <div class="alert alert-warning">
-            <strong>⚠️ No Station Selected</strong>
-            <p>Please go back to the Guard Portal and select a station before registering a tenant.</p>
-          </div>
-        }
         
         <div class="form-row">
           <div class="form-group">
@@ -202,17 +196,19 @@
           >
             <div class="form-group">
               <label for="tenant-house">House Number *</label>
-              <select
+              <input
                 id="tenant-house"
                 class="form-control"
+                type="text"
                 [(ngModel)]="tenantForm.address"
                 name="tenantAddressHouse"
                 [required]="tenantForm.communityResidenceType === 'house'"
                 [disabled]="isTokenRegistration"
-              >
-                <option value="">Select House</option>
-                <option *ngFor="let house of availableHouses" [value]="house">{{ house }}</option>
-              </select>
+                placeholder="Enter house number"
+                style="text-transform:uppercase;"
+                (input)="tenantForm.address = $event.target.value.toUpperCase()"
+                autocomplete="off"
+              />
             </div>
           </div>
 
