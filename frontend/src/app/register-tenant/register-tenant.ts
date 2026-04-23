@@ -208,7 +208,7 @@ export class RegisterTenant implements OnInit {
           const complexUnits = allUnits
             .filter((unit: any) => {
               const unitComplexId = unit.complex?._id || unit.complex?.id || unit.complex;
-              return unitComplexId === complexId;
+              return String(unitComplexId) === String(complexId);
             })
             .map((unit: any) => unit.number || unit.unitNumber)
             .filter(Boolean);
@@ -287,7 +287,7 @@ export class RegisterTenant implements OnInit {
             const complexUnits = allUnits
               .filter((unit: any) => {
                 const unitComplexId = unit.complex?._id || unit.complex?.id || unit.complex;
-                return unitComplexId === communityComplexId;
+                return String(unitComplexId) === String(communityComplexId);
               })
               .map((unit: any) => unit.number || unit.unitNumber)
               .filter(Boolean);
@@ -428,7 +428,7 @@ export class RegisterTenant implements OnInit {
                 const units = allUnits
                   .filter((unit: any) => {
                     const unitComplexId = unit.complex?._id || unit.complex?.id || unit.complex;
-                    return unitComplexId === complexId;
+                    return String(unitComplexId) === String(complexId);
                   })
                   .map((unit: any) => unit.number || unit.unitNumber)
                   .filter(Boolean);
