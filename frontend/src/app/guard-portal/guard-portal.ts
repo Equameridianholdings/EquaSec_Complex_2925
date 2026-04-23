@@ -2017,7 +2017,7 @@ export class GuardPortal implements OnInit, OnDestroy {
             (complex) => complex.id === tenantData.communityComplexId,
           );
 
-    const payload = {
+    const payload: any = {
       name: tenantData.name,
       surname: tenantData.surname,
       emailAddress: normalizedTenantEmail,
@@ -2035,6 +2035,20 @@ export class GuardPortal implements OnInit, OnDestroy {
       communityComplexId: tenantData.communityComplexId,
       vehicles: tenantData.vehicles,
     };
+
+    // Add unitNumber or houseNumber based on residence type
+    if (tenantData.residenceType === 'complex') {
+      payload.unitNumber = tenantData.address.trim();
+      payload.houseNumber = '';
+    } else if (tenantData.residenceType === 'community') {
+      if (tenantData.communityResidenceType === 'house') {
+        payload.houseNumber = tenantData.address.trim();
+        payload.unitNumber = '';
+      } else if (tenantData.communityResidenceType === 'complex') {
+        payload.unitNumber = tenantData.address.trim();
+        payload.houseNumber = '';
+      }
+    }
 
     if (this.isUpdateMode) {
       const tenantId = this.tenantForm.id;
