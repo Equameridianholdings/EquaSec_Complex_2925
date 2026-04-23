@@ -21,18 +21,18 @@ interface SendCodeOptions {
   to: string;
 }
 
-interface SendRegistrationLinkOptions {
-  address: string;
-  residenceType: string;
-  to: string;
-  token: string;
-}
-
 interface SendCustomEmailOptions {
   attachments?: { content: string; filename: string }[];
   message: string;
   recipients: string[];
   subject: string;
+}
+
+interface SendRegistrationLinkOptions {
+  address: string;
+  residenceType: string;
+  to: string;
+  token: string;
 }
 
 interface SmtpConfig {
@@ -197,6 +197,108 @@ export async function sendForgotPasswordEmail(options: SendEmailOptions): Promis
   return true;
 }
 
+export async function sendRegistrationLink(options: SendRegistrationLinkOptions): Promise<boolean> {
+  const smtp = getSmtpConfig();
+  const transporter = nodemailer.createTransport({
+    auth: {
+      pass: smtp.pass,
+      user: smtp.user,
+    },
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+  });
+
+  try {
+    await transporter.verify();
+  } catch (error) {
+    const smtpError = error as {
+      code?: string;
+      command?: string;
+      response?: string;
+      responseCode?: number;
+    };
+    console.error("[email] smtp verify failed", {
+      code: smtpError.code,
+      command: smtpError.command,
+      response: smtpError.response,
+      responseCode: smtpError.responseCode,
+    });
+    throw error;
+  }
+
+  const footerLogoAttachment = getFooterLogoAttachment();
+  const registrationUrl = `https://equasec.co.za/register-tenant?token=${encodeURIComponent(options.token)}`;
+  const subject = "Complete Your EquaSec Resident Registration";
+  const text = `Welcome to EquaSec!\n\nYou have been invited to register as a resident at ${options.address}.\n\nPlease click the following link to complete your registration:\n\n${registrationUrl}\n\nThis link will expire after use and is valid for 7 days.\n\nIf you did not request this registration, please ignore this email.\n\nKind regards,\nThe EquaSec Team`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; padding: 24px;">
+      <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px;">
+        <h2 style="margin: 0 0 12px; color: #1e3a5f;">Complete Your Registration</h2>
+        <p style="margin: 0 0 12px;">Welcome to EquaSec!</p>
+        <p style="margin: 0 0 16px;">You have been invited to register as a resident at <strong>${escapeEmailHtml(options.address)}</strong>.</p>
+
+        <div style="margin: 24px 0; text-align: center;">
+          <a
+            href="${registrationUrl}"
+            style="display: inline-block; padding: 14px 32px; background: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600;"
+          >
+            Complete Registration
+          </a>
+        </div>
+
+        <p style="margin: 0 0 12px; font-size: 14px; color: #64748b;">Or copy and paste this link into your browser:</p>
+        <p style="margin: 0 0 16px; font-size: 14px; word-break: break-all; color: #2563eb;">${registrationUrl}</p>
+
+        <div style="margin: 16px 0; padding: 12px; background: #fef3c7; border-radius: 8px; border: 1px solid #fcd34d;">
+          <p style="margin: 0; font-size: 14px; color: #92400e;">
+            <strong>⚠️ Important:</strong> This link will expire after you successfully register and is valid for 7 days.
+          </p>
+        </div>
+
+        <p style="margin: 0 0 12px;">If you did not request this registration, please ignore this email.</p>
+        <p style="margin: 0;">Kind regards,<br />The EquaSec Team</p>
+
+        ${footerLogoAttachment ? `
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
+            <a
+              href="${EMAIL_FOOTER_WEBSITE}"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Visit Equameridian Holdings"
+              style="display: inline-block; text-decoration: none; cursor: pointer;"
+            >
+              <img
+                src="cid:${EMAIL_FOOTER_IMAGE_CID}"
+                alt="Equameridian Holdings"
+                style="max-width: 220px; width: 100%; height: auto; display: inline-block; cursor: pointer;"
+              />
+            </a>
+            <div style="margin-top: 8px; font-size: 13px; color: #2563eb;">
+              Click the logo to visit our website
+            </div>
+          </div>
+        ` : ""}
+      </div>
+    </div>
+  `;
+
+  const result = await transporter.sendMail({
+    attachments: footerLogoAttachment ? [footerLogoAttachment] : [],
+    from: `EquaSec <${smtp.from}>`,
+    html,
+    subject,
+    text,
+    to: options.to,
+  });
+
+  if (Array.isArray(result.rejected) && result.rejected.length > 0) {
+    throw new Error(`SMTP rejected recipients: ${result.rejected.map(String).join(", ")}`);
+  }
+
+  return true;
+}
+
 export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise<boolean> {
   const smtp = getSmtpConfig();
   const smtpPublic: SmtpPublicConfig = {
@@ -313,108 +415,6 @@ export async function sendSecurityCompanyCode(options: SendCodeOptions): Promise
     messageId: result.messageId,
     rejected: result.rejected,
     response: result.response,
-  });
-
-  if (Array.isArray(result.rejected) && result.rejected.length > 0) {
-    throw new Error(`SMTP rejected recipients: ${result.rejected.map(String).join(", ")}`);
-  }
-
-  return true;
-}
-
-export async function sendRegistrationLink(options: SendRegistrationLinkOptions): Promise<boolean> {
-  const smtp = getSmtpConfig();
-  const transporter = nodemailer.createTransport({
-    auth: {
-      pass: smtp.pass,
-      user: smtp.user,
-    },
-    host: smtp.host,
-    port: smtp.port,
-    secure: smtp.secure,
-  });
-
-  try {
-    await transporter.verify();
-  } catch (error) {
-    const smtpError = error as {
-      code?: string;
-      command?: string;
-      response?: string;
-      responseCode?: number;
-    };
-    console.error("[email] smtp verify failed", {
-      code: smtpError.code,
-      command: smtpError.command,
-      response: smtpError.response,
-      responseCode: smtpError.responseCode,
-    });
-    throw error;
-  }
-
-  const footerLogoAttachment = getFooterLogoAttachment();
-  const registrationUrl = `https://equasec.co.za/register-tenant?token=${encodeURIComponent(options.token)}`;
-  const subject = "Complete Your EquaSec Resident Registration";
-  const text = `Welcome to EquaSec!\n\nYou have been invited to register as a resident at ${options.address}.\n\nPlease click the following link to complete your registration:\n\n${registrationUrl}\n\nThis link will expire after use and is valid for 7 days.\n\nIf you did not request this registration, please ignore this email.\n\nKind regards,\nThe EquaSec Team`;
-  const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; background: #f8fafc; padding: 24px;">
-      <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px;">
-        <h2 style="margin: 0 0 12px; color: #1e3a5f;">Complete Your Registration</h2>
-        <p style="margin: 0 0 12px;">Welcome to EquaSec!</p>
-        <p style="margin: 0 0 16px;">You have been invited to register as a resident at <strong>${escapeEmailHtml(options.address)}</strong>.</p>
-
-        <div style="margin: 24px 0; text-align: center;">
-          <a
-            href="${registrationUrl}"
-            style="display: inline-block; padding: 14px 32px; background: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600;"
-          >
-            Complete Registration
-          </a>
-        </div>
-
-        <p style="margin: 0 0 12px; font-size: 14px; color: #64748b;">Or copy and paste this link into your browser:</p>
-        <p style="margin: 0 0 16px; font-size: 14px; word-break: break-all; color: #2563eb;">${registrationUrl}</p>
-
-        <div style="margin: 16px 0; padding: 12px; background: #fef3c7; border-radius: 8px; border: 1px solid #fcd34d;">
-          <p style="margin: 0; font-size: 14px; color: #92400e;">
-            <strong>⚠️ Important:</strong> This link will expire after you successfully register and is valid for 7 days.
-          </p>
-        </div>
-
-        <p style="margin: 0 0 12px;">If you did not request this registration, please ignore this email.</p>
-        <p style="margin: 0;">Kind regards,<br />The EquaSec Team</p>
-
-        ${footerLogoAttachment ? `
-          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
-            <a
-              href="${EMAIL_FOOTER_WEBSITE}"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Visit Equameridian Holdings"
-              style="display: inline-block; text-decoration: none; cursor: pointer;"
-            >
-              <img
-                src="cid:${EMAIL_FOOTER_IMAGE_CID}"
-                alt="Equameridian Holdings"
-                style="max-width: 220px; width: 100%; height: auto; display: inline-block; cursor: pointer;"
-              />
-            </a>
-            <div style="margin-top: 8px; font-size: 13px; color: #2563eb;">
-              Click the logo to visit our website
-            </div>
-          </div>
-        ` : ""}
-      </div>
-    </div>
-  `;
-
-  const result = await transporter.sendMail({
-    attachments: footerLogoAttachment ? [footerLogoAttachment] : [],
-    from: `EquaSec <${smtp.from}>`,
-    html,
-    subject,
-    text,
-    to: options.to,
   });
 
   if (Array.isArray(result.rejected) && result.rejected.length > 0) {

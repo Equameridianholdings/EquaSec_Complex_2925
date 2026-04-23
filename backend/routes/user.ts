@@ -6,7 +6,7 @@ import unitSchema from "#db/unitSchema.js";
 import userSchema from "#db/userSchema.js";
 import vehicleSchema from "#db/vehicleSchema.js";
 // import { complexDTO } from "#interfaces/complexDTO.js";
-import { userBodyValidation, UserDTO } from "#interfaces/userDTO.js";
+import { UserDTO } from "#interfaces/userDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import RoleMiddleware from "#middleware/role.middleware.js";
 import { validateSchema } from "#middleware/validateSchema.middleware.js";
@@ -529,14 +529,18 @@ const unlinkTenantFromAllUnits = async (tenantId: string): Promise<void> => {
 userRouter.post(
   "/register",
   body("confirmPassword")
-    .if((value, { req }) => !req.body.registrationToken) // Only validate password if no registration token
+    .if((value, { req }) => {
+      const body = req.body as { registrationToken?: string };
+      return !body.registrationToken;
+    }) // Only validate password if no registration token
     .custom((value, { req }) => {
       const user = req.body as UserDTO;
       return value === (user.password as unknown as string);
     })
     .withMessage("Passwords do not match."),
   async (req: Request, res: Response) => {
-    const registrationToken = (req.body as { registrationToken?: string }).registrationToken;
+    const body = req.body as { registrationToken?: string };
+    const registrationToken = body.registrationToken;
     
     // For token registrations, skip password validation
     // For normal registrations, validate normally
