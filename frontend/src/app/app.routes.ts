@@ -49,7 +49,7 @@ export const routes: Routes = [
   },
   { path: 'guard-portal', component: GuardPortal, canActivate: [clientGuard], data: { roles: ['admin', 'security', 'manager'] } },
   { path: 'guard-incidents', component: GuardIncidents, canActivate: [clientGuard], data: { roles: ['admin', 'security', 'manager'] } },
-  { path: 'register-tenant', component: RegisterTenant, canActivate: [clientGuard], data: { roles: ['admin', 'security', 'manager'] } },
+  { path: 'register-tenant', component: RegisterTenant },
   { path: 'admin-portal', component: AdminPortal, canActivate: [clientGuard], data: { roles: ['admin'] } },
   { path: 'security-manager', component: SecurityManager, canActivate: [clientGuard], data: { roles: ['admin', 'manager'] }},
   { path: 'forgot-password/:email/:token', component: ForgetPassword },

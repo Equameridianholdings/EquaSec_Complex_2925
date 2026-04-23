@@ -89,17 +89,22 @@ export class RegisterTenant implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.checkForRegistrationToken();
-    this.loadUserData();
-    this.loadTenantDataIfUpdate();
-  }
-
-  private checkForRegistrationToken(): void {
+    // Check for token first, then load user data conditionally
     this.route.queryParams.subscribe((params) => {
       if (params['token']) {
         this.registrationToken = params['token'];
         this.isTokenRegistration = true;
         this.validateRegistrationToken(params['token']);
+      } else {
+        // Only load user data if not a token registration
+        this.loadUserData();
+      }
+      
+      // Check for update mode
+      if (params['id'] && !this.isTokenRegistration) {
+        this.isUpdateMode = true;
+        this.tenantForm.id = params['id'];
+        this.loadTenantDetails(params['id']);
       }
     });
   }
@@ -148,6 +153,11 @@ export class RegisterTenant implements OnInit {
   }
 
   private loadUserData(): void {
+    // Skip loading user data if this is a token-based registration
+    if (this.isTokenRegistration) {
+      return;
+    }
+
     // Load current user from API to get full user object with complexId and gatedCommunityId
     this.dataService.get<ResponseBody>('user/current').subscribe({
       next: (response) => {
@@ -171,17 +181,6 @@ export class RegisterTenant implements OnInit {
           verticalPosition: this.verticalPosition,
         });
       },
-    });
-  }
-
-  private loadTenantDataIfUpdate(): void {
-    this.route.queryParams.subscribe((params) => {
-      // Only load tenant details if this is an update (not a token registration)
-      if (params['id'] && !this.isTokenRegistration) {
-        this.isUpdateMode = true;
-        this.tenantForm.id = params['id'];
-        this.loadTenantDetails(params['id']);
-      }
     });
   }
 
