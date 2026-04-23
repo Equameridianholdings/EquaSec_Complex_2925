@@ -140,16 +140,22 @@ export class RegisterTenant implements OnInit {
     
     if (tokenData.residenceType === 'complex') {
       this.tenantForm.complexId = tokenData.complexId || '';
+      // Load complex data to populate unit dropdown
+      this.loadComplexDataForToken(tokenData.complexId);
     } else {
       this.tenantForm.communityId = tokenData.communityId || '';
       this.tenantForm.communityResidenceType = tokenData.communityResidenceType || 'house';
       this.tenantForm.communityComplexId = tokenData.communityComplexId || '';
+      // Load community data
+      this.loadCommunityDataForToken(tokenData.communityId, tokenData.communityResidenceType, tokenData.communityComplexId);
     }
 
-    // After setting residence type, trigger the change to populate dependent fields
-    setTimeout(() => {
-      this.onResidenceTypeChange();
-    }, 100);
+    // Set available residence types for display
+    if (tokenData.residenceType === 'complex') {
+      this.availableTenantResidenceTypes = [{ value: 'complex', label: 'Complex/Building' }];
+    } else {
+      this.availableTenantResidenceTypes = [{ value: 'community', label: 'Gated Community' }];
+    }
   }
 
   private loadUserData(): void {
@@ -181,6 +187,132 @@ export class RegisterTenant implements OnInit {
           verticalPosition: this.verticalPosition,
         });
       },
+    });
+  }
+
+  private loadComplexDataForToken(complexId: string): void {
+    if (!complexId) return;
+
+    // Load complex details and units
+    forkJoin({
+      complexes: this.dataService.get<ResponseBody>('complex/').pipe(catchError(() => of({ payload: [] } as ResponseBody))),
+      units: this.dataService.get<any[]>('unit/').pipe(catchError(() => of([])))
+    }).subscribe({
+      next: ({ complexes, units }) => {
+        const allComplexes = complexes.payload || [];
+        const allUnits = Array.isArray(units) ? units : [];
+        
+        const complex = allComplexes.find((c: any) => (c._id || c.id) === complexId);
+        if (complex) {
+          // Map complex with units
+          const complexUnits = allUnits
+            .filter((unit: any) => {
+              const unitComplexId = unit.complex?._id || unit.complex?.id || unit.complex;
+              return unitComplexId === complexId;
+            })
+            .map((unit: any) => unit.number || unit.unitNumber)
+            .filter(Boolean);
+
+          this.stationScopedComplexes = [{
+            _id: complex._id || complex.id,
+            id: complex._id || complex.id,
+            name: complex.name,
+            units: complexUnits,
+            address: complex.address,
+            gatedCommunityName: complex.gatedCommunityName || '',
+          }];
+
+          this.availableUnits = complexUnits;
+        }
+      },
+      error: (error) => {
+        console.error('Error loading complex data for token:', error);
+      }
+    });
+  }
+
+  private loadCommunityDataForToken(communityId: string, communityResidenceType: string, communityComplexId?: string): void {
+    if (!communityId) return;
+
+    // Load community details
+    forkJoin({
+      communities: this.dataService.get<ResponseBody>('gatedCommunity/').pipe(catchError(() => of({ payload: [] } as ResponseBody))),
+      complexes: this.dataService.get<ResponseBody>('complex/').pipe(catchError(() => of({ payload: [] } as ResponseBody))),
+      units: this.dataService.get<any[]>('unit/').pipe(catchError(() => of([])))
+    }).subscribe({
+      next: ({ communities, complexes, units }) => {
+        const allCommunities = communities.payload || [];
+        const allComplexes = complexes.payload || [];
+        const allUnits = Array.isArray(units) ? units : [];
+
+        const community = allCommunities.find((c: any) => (c._id || c.id) === communityId);
+        if (community) {
+          // Find complexes in this community
+          const communityComplexes = allComplexes
+            .filter((c: any) => {
+              const complexCommunityName = String(c.gatedCommunityName || '').trim().toLowerCase();
+              const communityName = String(community.name || '').trim().toLowerCase();
+              return complexCommunityName === communityName;
+            })
+            .map((c: any) => ({
+              id: c._id || c.id,
+              _id: c._id || c.id,
+              name: c.name,
+            }));
+
+          this.stationScopedCommunities = [{
+            _id: community._id || community.id,
+            id: community._id || community.id,
+            name: community.name,
+            houseCount: community.numberOfHouses || 0,
+            complexes: communityComplexes,
+          }];
+
+          // Set available residence types
+          const hasHouses = (community.numberOfHouses || 0) > 0;
+          const hasComplexes = communityComplexes.length > 0;
+          this.availableCommunityResidenceTypes = [];
+          if (hasHouses) this.availableCommunityResidenceTypes.push('house');
+          if (hasComplexes) this.availableCommunityResidenceTypes.push('complex');
+
+          // Load houses or complex units based on type
+          if (communityResidenceType === 'house') {
+            const houseNumbers: string[] = [];
+            for (let i = 1; i <= (community.numberOfHouses || 0); i++) {
+              houseNumbers.push(`House ${i}`);
+            }
+            this.availableHouses = houseNumbers;
+          } else if (communityResidenceType === 'complex' && communityComplexId) {
+            // Load units for the specific complex
+            const complexUnits = allUnits
+              .filter((unit: any) => {
+                const unitComplexId = unit.complex?._id || unit.complex?.id || unit.complex;
+                return unitComplexId === communityComplexId;
+              })
+              .map((unit: any) => unit.number || unit.unitNumber)
+              .filter(Boolean);
+
+            this.availableCommunityComplexes = communityComplexes;
+            this.availableCommunityUnits = complexUnits;
+
+            // Also populate stationScopedComplexes for the complex within community
+            const selectedComplex = allComplexes.find((c: any) => (c._id || c.id) === communityComplexId);
+            if (selectedComplex) {
+              this.stationScopedComplexes = [{
+                _id: selectedComplex._id || selectedComplex.id,
+                id: selectedComplex._id || selectedComplex.id,
+                name: selectedComplex.name,
+                units: complexUnits,
+                address: selectedComplex.address,
+                gatedCommunityName: selectedComplex.gatedCommunityName || '',
+              }];
+            }
+          }
+        }
+      },
+      error: (error) => {
+        console.error('Error loading community data for token:', error);
+      }
     });
   }
 
@@ -747,12 +879,6 @@ export class RegisterTenant implements OnInit {
       this.tenantSuccess = '';
       this.tenantSubmitting = false;
       return;
-    }
-
-    // For token registration, user must set a password
-    if (this.isTokenRegistration) {
-      // This will be handled in the HTML form - user needs to enter password and confirmPassword
-      // The validation will be done by the backend /register endpoint
     }
 
     const selectedComplexForTenant =
