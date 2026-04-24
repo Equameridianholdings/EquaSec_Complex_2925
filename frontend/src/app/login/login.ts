@@ -25,6 +25,7 @@ import { ForgotPasswordModal } from '../components/forgot-password-modal/forgot-
 export class Login {
   showInstallPrompt = false;
   private deferredPrompt: any = null;
+  isAppInstalled = false;
   submitting = signal(false);
   protected isTermsModalOpen = false;
   private _snackBar = inject(MatSnackBar);
@@ -60,10 +61,23 @@ export class Login {
   ) {
     // Listen for the beforeinstallprompt event
     if (typeof window !== 'undefined') {
+      // Detect if app is already installed
+      this.isAppInstalled = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+
       window.addEventListener('beforeinstallprompt', (event: Event) => {
         event.preventDefault();
         this.deferredPrompt = event;
         this.showInstallPrompt = true;
+      });
+
+      window.addEventListener('appinstalled', () => {
+        this.isAppInstalled = true;
+        this.showInstallPrompt = false;
+      });
+
+      // Listen for display-mode changes (for Android/iOS)
+      window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
+        this.isAppInstalled = e.matches;
       });
     }
   }
