@@ -14,11 +14,12 @@ import {
 import { Loader } from '../components/loader/loader';
 import { MatDialog } from '@angular/material/dialog';
 import { ForgotPasswordModal } from '../components/forgot-password-modal/forgot-password-modal';
+import { IosInstallModal } from '../components/ios-install-modal/ios-install-modal';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, Loader],
+  imports: [CommonModule, FormsModule, Loader, IosInstallModal],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
@@ -83,6 +84,19 @@ export class Login {
   }
 
   installPwa() {
+    // iOS detection (Safari, iPhone/iPad, not in standalone)
+    const isIos = typeof window !== 'undefined' &&
+      (/iphone|ipad|ipod/i.test(window.navigator.userAgent)) &&
+      !('standalone' in window.navigator && (window.navigator as any).standalone);
+
+    if (isIos) {
+      this.dialog.open(IosInstallModal, {
+        width: '340px',
+        disableClose: false
+      });
+      return;
+    }
+
     if (this.deferredPrompt) {
       this.deferredPrompt.prompt();
       this.deferredPrompt.userChoice.then((choiceResult: any) => {
