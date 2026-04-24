@@ -28,7 +28,10 @@
               },
               "src/favicon.ico",
               "src/assets",
-              "src/_redirects"
+              "src/_redirects",
+              "src/manifest.webmanifest",
+              "src/service-worker.js",
+              "src/offline.html"
             ],
             "styles": ["src/material-theme.scss", "src/styles.css"],
             "server": "src/main.server.ts",

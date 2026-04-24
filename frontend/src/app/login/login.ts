@@ -23,6 +23,8 @@ import { ForgotPasswordModal } from '../components/forgot-password-modal/forgot-
   styleUrl: './login.css',
 })
 export class Login {
+  showInstallPrompt = false;
+  private deferredPrompt: any = null;
   submitting = signal(false);
   protected isTermsModalOpen = false;
   private _snackBar = inject(MatSnackBar);
@@ -55,7 +57,28 @@ export class Login {
     private readonly router: Router,
     private service: DataService,
     private storage: StorageService,
-  ) {}
+  ) {
+    // Listen for the beforeinstallprompt event
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeinstallprompt', (event: Event) => {
+        event.preventDefault();
+        this.deferredPrompt = event;
+        this.showInstallPrompt = true;
+      });
+    }
+  }
+
+  installPwa() {
+    if (this.deferredPrompt) {
+      this.deferredPrompt.prompt();
+      this.deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          this.showInstallPrompt = false;
+        }
+        this.deferredPrompt = null;
+      });
+    }
+  }
 
   protected onPinInput(event: Event, index: number): void {
     const input = event.target as HTMLInputElement | null;
