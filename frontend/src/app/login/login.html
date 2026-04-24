@@ -4,7 +4,10 @@
 
 <div class="login-container h-dvh">
   <!-- Always show Download App button -->
-  <button class="pwa-fab" (click)="installPwa()" title="Download App">⬇️ Download App</button>
+  <button class="pwa-fab" (click)="installPwa()" title="Download App">
+    <img src="/assets/download-app.svg" alt="Download App" class="pwa-fab-icon" />
+    <span class="pwa-fab-label">Download App</span>
+  </button>
   <div class="card">
     <div class="header items-center">
       <img class="logo" src="/favicon.png.png" alt="EquaSec logo" />
