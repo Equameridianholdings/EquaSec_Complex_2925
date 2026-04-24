@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@angular/pwa": "^21.2.8"
+  }
+}
