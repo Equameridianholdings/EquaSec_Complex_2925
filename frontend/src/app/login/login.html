@@ -4,7 +4,7 @@
 
 <div class="login-container h-dvh">
   <!-- Always show Download App button -->
-  <button *ngIf="!isAppInstalled && showInstallPrompt" class="pwa-fab" (click)="installPwa()" title="Download App">
+  <button class="pwa-fab" (click)="installPwa()" title="Download App">
     <img src="/assets/download-app.svg" alt="Download App" class="pwa-fab-icon" />
     <span class="pwa-fab-label">Download App</span>
   </button>
