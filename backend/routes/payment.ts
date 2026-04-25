@@ -51,6 +51,9 @@ const pfValidIP = async (req: Request) => {
 
   const uniqueIps = [...new Set(validIps)];
 
+  console.log(pfIp);
+  console.log(Array.isArray(pfIp))
+  
   if (Array.isArray(pfIp)) {
     pfIp.forEach((ip) => {
       if (uniqueIps.includes(ip)) {
