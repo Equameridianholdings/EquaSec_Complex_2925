@@ -50,6 +50,9 @@ const pfValidIP = async (req: Request) => {
   }
 
   const uniqueIps = [...new Set(validIps)];
+  
+  console.log("Request IP: ", pfIp);
+  console.log("All IPs: ", uniqueIps);
 
   if (uniqueIps.includes(pfIp)) {
     return true;
@@ -69,7 +72,7 @@ paymentRouter.post("/:passphrase", AuthMiddleware, async (req: Request, res: Res
     const unit = await unitSchema.findOne<unitDTO>({ users: user?._id.toString() }).exec();
     const complexes = await complexSchema.find({}).select({}).exec();
     const gatedCommunities = await gatedCommunitySchema.find({}).select({}).exec();
-    
+
     if (unit !== null) {
       if (unit.complex) {
         body.amount = complexes.find((x) => x._id.toString() === unit.complex?._id)?.price.toString() as unknown as string;
