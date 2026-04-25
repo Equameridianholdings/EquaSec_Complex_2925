@@ -12,62 +12,62 @@ import { unitDTO } from "#interfaces/unitDTO.js";
 import AuthMiddleware from "#middleware/auth.middleware.js";
 import payFastMiddleware from "#middleware/payfast.middleware.js";
 import { createHash } from "crypto";
-import { lookup, LookupAddress } from "dns";
+// import { lookup, LookupAddress } from "dns";
 import { Request, Response, Router } from "express";
 
 const paymentRouter = Router();
 const PAYFAST_API = process.env.PAYFAST_API;
 const MERCHANT_ID = process.env.MERCHANT_ID as unknown;
 
-async function ipLookup(domain: string) {
-  return new Promise((resolve, reject) => {
-    lookup(domain, { all: true }, (err: NodeJS.ErrnoException | null, address: LookupAddress[]) => {
-      if (err) {
-        reject(err);
-      } else {
-        const addressIps = address.map(function (item) {
-          return item.address;
-        });
-        resolve(addressIps);
-      }
-    });
-  });
-}
+// async function ipLookup(domain: string) {
+//   return new Promise((resolve, reject) => {
+//     lookup(domain, { all: true }, (err: NodeJS.ErrnoException | null, address: LookupAddress[]) => {
+//       if (err) {
+//         reject(err);
+//       } else {
+//         const addressIps = address.map(function (item) {
+//           return item.address;
+//         });
+//         resolve(addressIps);
+//       }
+//     });
+//   });
+// }
 
-const pfValidIP = async (req: Request) => {
-  const validHosts = ["www.payfast.co.za", "sandbox.payfast.co.za", "w1w.payfast.co.za", "w2w.payfast.co.za"];
+// const pfValidIP = async (req: Request) => {
+//   const validHosts = ["www.payfast.co.za", "sandbox.payfast.co.za", "w1w.payfast.co.za", "w2w.payfast.co.za"];
 
-  let validIps: unknown[] = [];
-  const pfIp = req.headers["x-forwarded-for"] ?? req.ip;
+//   let validIps: unknown[] = [];
+//   const pfIp = req.headers["x-forwarded-for"] ?? req.ip;
 
-  try {
-    for (const key of validHosts) {
-      const ips = await ipLookup(key);
-      validIps = [...validIps, ...(ips as unknown[])];
-    }
-  } catch (err) {
-    console.error(err);
-  }
+//   try {
+//     for (const key of validHosts) {
+//       const ips = await ipLookup(key);
+//       validIps = [...validIps, ...(ips as unknown[])];
+//     }
+//   } catch (err) {
+//     console.error(err);
+//   }
 
-  const uniqueIps = [...new Set(validIps)];
+//   const uniqueIps = [...new Set(validIps)];
 
-  console.log(pfIp);
-  console.log(Array.isArray(pfIp))
+//   console.log(pfIp);
+//   console.log(Array.isArray(pfIp))
   
-  if (Array.isArray(pfIp)) {
-    pfIp.forEach((ip) => {
-      if (uniqueIps.includes(ip)) {
-        return true;
-      }
-    });
-  } else {
-    if (uniqueIps.includes(pfIp)) {
-      return true;
-    }
-  }
+//   if (Array.isArray(pfIp)) {
+//     pfIp.forEach((ip) => {
+//       if (uniqueIps.includes(ip)) {
+//         return true;
+//       }
+//     });
+//   } else {
+//     if (uniqueIps.includes(pfIp)) {
+//       return true;
+//     }
+//   }
 
-  return false;
-};
+//   return false;
+// };
 
 paymentRouter.post("/:passphrase", AuthMiddleware, async (req: Request, res: Response) => {
   const email = res.get("email");
@@ -163,9 +163,9 @@ paymentRouter.post("/subscribe/:passphrase", AuthMiddleware, async (req: Request
 paymentRouter.post("/", payFastMiddleware, async (req: Request, res: Response) => {
   const pfData = req.body as Partial<ITNPayload>;
 
-  const check = pfValidIP(req);
+  // const check = pfValidIP(req);
 
-  if (await check) {
+  // if (await check) {
     // All checks have passed, the payment is successful
     const newPayment: Partial<paymentsSchemaDto> = {
       amount_fee: Number.parseFloat(pfData.amount_fee as unknown as string),
@@ -256,10 +256,10 @@ paymentRouter.post("/", payFastMiddleware, async (req: Request, res: Response) =
     await newInvoice.save();
 
     return res.status(200);
-  } else {
-    // Some checks have failed, check payment manually and log for investigation
-    console.log("Failed Checks");
-  }
+  // } else {
+  //   // Some checks have failed, check payment manually and log for investigation
+  //   console.log("Failed Checks");
+  // }
 });
 
 paymentRouter.get("/cancel", AuthMiddleware, async (req: Request, res: Response) => {
