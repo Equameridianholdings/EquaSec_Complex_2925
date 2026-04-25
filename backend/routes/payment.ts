@@ -38,7 +38,8 @@ const pfValidIP = async (req: Request) => {
   const validHosts = ["www.payfast.co.za", "sandbox.payfast.co.za", "w1w.payfast.co.za", "w2w.payfast.co.za"];
 
   let validIps: unknown[] = [];
-  const pfIp = req.headers["x-forwarded-for"] ?? req.ip;
+  let pfIp = req.headers["x-forwarded-for"] ?? req.ip;
+  pfIp = (pfIp as string).split(",")[0];
 
   try {
     for (const key of validHosts) {
@@ -52,7 +53,7 @@ const pfValidIP = async (req: Request) => {
   const uniqueIps = [...new Set(validIps)];
 
   console.log(pfIp);
-  console.log(Array.isArray(pfIp))
+  console.log(uniqueIps);
   
   if (Array.isArray(pfIp)) {
     pfIp.forEach((ip) => {
