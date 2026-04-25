@@ -50,12 +50,17 @@ const pfValidIP = async (req: Request) => {
   }
 
   const uniqueIps = [...new Set(validIps)];
-  
-  console.log("Request IP: ", pfIp);
-  console.log("All IPs: ", uniqueIps);
 
-  if (uniqueIps.includes(pfIp)) {
-    return true;
+  if (Array.isArray(pfIp)) {
+    pfIp.forEach((ip) => {
+      if (uniqueIps.includes(ip)) {
+        return true;
+      }
+    });
+  } else {
+    if (uniqueIps.includes(pfIp)) {
+      return true;
+    }
   }
 
   return false;
