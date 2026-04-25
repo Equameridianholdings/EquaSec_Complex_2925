@@ -20,9 +20,6 @@ invoiceRouter.get("/subscribed", async (req: Request, res: Response) => {
     if (user && user.visitorsTokens as number <= 5 && user.visitorsTokens as number !== 0) return res.status(400).json({ message: "Trial is still active!"});
 
     const invoiceQuery = {
-      dueDate: {
-        $gte: new Date(),
-      },
       invoiceStatus: "Due",
       "unit.users": user?.id.toString(),
     };

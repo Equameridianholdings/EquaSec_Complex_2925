@@ -172,6 +172,7 @@ paymentRouter.post("/", payFastMiddleware, async (req: Request, res: Response) =
     };
 
     let isSubscribed = false;
+
     if (pfData.token) {
       newPayment.token = pfData.token;
       isSubscribed = true;
@@ -188,9 +189,6 @@ paymentRouter.post("/", payFastMiddleware, async (req: Request, res: Response) =
 
     const invoices = await invoiceSchema
       .find<invoiceDTO>({
-        dueDate: {
-          $gte: new Date(),
-        },
         invoiceStatus: "Due",
         "unit.users": user?._id.toString(),
       })
