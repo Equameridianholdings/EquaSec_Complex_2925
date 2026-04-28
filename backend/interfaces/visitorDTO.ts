@@ -16,6 +16,8 @@ export interface visitorDTO {
   expiry?: Date;
   idPhoto?: string;
   name: string;
+  selfCheckInToken?: string;
+  selfCheckInUsed?: boolean;
   surname: string;
   validity: boolean;
   vehicle?: vehicleDTO;

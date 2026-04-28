@@ -14,8 +14,9 @@ import Code_Generator from "#utils/code_generator.js";
 import { decryptPhoto, encryptPhoto } from "#utils/encryption.js";
 import { Request, Response, Router } from "express";
 import { ObjectId } from "mongodb";
+import crypto from "node:crypto";
 
-const visitorRouter = Router();
+// ─── Helper Types ──────────────────────────────────────────────────────────────
 
 interface UnitLookupRecord {
   complex?: Record<string, unknown>;
@@ -24,7 +25,7 @@ interface UnitLookupRecord {
   users?: unknown[];
 }
 
-visitorRouter.use(AuthMiddleware);
+// ─── Helper Functions (defined first so public routes can use them) ────────────
 
 const toIdString = (value: unknown): string => {
   if (typeof value === "string") {
@@ -206,6 +207,170 @@ const cleanupExpiredVisitors = async () => {
     })
     .exec();
 };
+
+// ─── Router ────────────────────────────────────────────────────────────────────
+
+const visitorRouter = Router();
+
+// ─── PUBLIC SELF CHECK-IN ROUTES (no auth required) ───────────────────────────
+
+// GET /visitor/self-checkin/:token — returns destination context for the form
+visitorRouter.get("/self-checkin/:token", async (req: Request, res: Response) => {
+  const { token } = req.params;
+  if (!token) return res.status(400).json({ message: "Bad Request! Missing token." });
+
+  try {
+    const record = await visitorShema.findOne({ selfCheckInToken: token }).lean<Record<string, unknown>>().exec();
+    if (!record) return res.status(404).json({ message: "Link not found. Please request a new one from your host." });
+
+    const expiry = record.expiry ? new Date(record.expiry as string) : null;
+    if (expiry && expiry < new Date()) {
+      return res.status(410).json({ message: "This link has expired. Please request a new one from your host." });
+    }
+    if (record.selfCheckInUsed === true) {
+      return res.status(410).json({ message: "This link has already been used." });
+    }
+
+    const destination = record.destination as Record<string, unknown>;
+    res.status(200).json({
+      message: "Ready",
+      payload: {
+        complexName:
+          (destination.complex as Record<string, unknown>).name ??
+          (destination.gatedCommunity as Record<string, unknown>).name ??
+          "",
+        expiry: record.expiry,
+        token,
+        unitNumber: destination.number ?? "",
+      },
+    });
+  } catch (err: unknown) {
+    res.status(500).json({ message: `Internal Server Error! ${err as string}` });
+  }
+});
+
+// POST /visitor/self-checkin/:token — visitor submits their own details
+visitorRouter.post("/self-checkin/:token", async (req: Request, res: Response) => {
+  const { token } = req.params;
+  if (!token) return res.status(400).json({ message: "Bad Request! Missing token." });
+
+  try {
+    const record = await visitorShema.findOne({ selfCheckInToken: token }).exec();
+    if (!record) return res.status(404).json({ message: "Link not found. Please request a new one from your host." });
+
+    const plain = record.toObject() as Record<string, unknown>;
+    const expiry = plain.expiry ? new Date(plain.expiry as string) : null;
+    if (expiry && expiry < new Date()) {
+      return res.status(410).json({ message: "This link has expired. Please request a new one from your host." });
+    }
+    if (plain.selfCheckInUsed === true) {
+      return res.status(410).json({ message: "This link has already been used." });
+    }
+
+    const body = req.body as {
+      contact: string;
+      driving: boolean;
+      name: string;
+      surname: string;
+      vehicle?: { color: string; make: string; model: string; registrationNumber: string };
+    };
+
+    const incomingVehicle = toRecord(body.vehicle);
+    const hasIncomingVehicle = Object.keys(incomingVehicle).length > 0;
+    const makeModelParts = toTrimmedText(incomingVehicle.makeModel).trim().split(" ").filter(Boolean);
+    const normalizedVehicle = hasIncomingVehicle
+      ? {
+          color: toTrimmedText(incomingVehicle.color) || toTrimmedText(incomingVehicle.colour),
+          make: toTrimmedText(incomingVehicle.make) || makeModelParts[0] || "",
+          model: toTrimmedText(incomingVehicle.model) || (makeModelParts.length > 1 ? makeModelParts.slice(1).join(" ") : ""),
+          registrationNumber:
+            toTrimmedText(incomingVehicle.registrationNumber) ||
+            toTrimmedText(incomingVehicle.registerationNumber) ||
+            toTrimmedText(incomingVehicle.registration),
+        }
+      : undefined;
+
+    const updated = await visitorShema
+      .findOneAndUpdate(
+        { selfCheckInToken: token },
+        {
+          $set: {
+            access: false,
+            bookedAt: new Date(),
+            code: Code_Generator(),
+            contact: toTrimmedText(body.contact),
+            driving: toBoolean(body.driving),
+            name: toTrimmedText(body.name),
+            selfCheckInUsed: true,
+            surname: toTrimmedText(body.surname),
+            validity: true,
+            ...(normalizedVehicle ? { vehicle: normalizedVehicle } : {}),
+          },
+        },
+        { new: true },
+      )
+      .exec();
+
+    if (!updated) return res.status(404).json({ message: "Visitor record not found." });
+
+    res.status(200).json({ message: "Booking confirmed!", payload: updated });
+  } catch (err: unknown) {
+    res.status(500).json({ message: `Internal Server Error! ${err as string}` });
+  }
+});
+
+// ─── AUTH MIDDLEWARE (all routes below require a valid JWT token) ──────────────
+
+visitorRouter.use(AuthMiddleware);
+
+// ─── AUTHENTICATED: Generate a one-time self check-in link ────────────────────
+
+visitorRouter.post("/generate-checkin-link", async (req: Request, res: Response) => {
+  const email = res.get("email");
+  if (!email) return res.status(400).json({ message: "Bad Request! Invalid request." });
+
+  try {
+    const getUser = (await userSchema.findOne({ emailAddress: email }).exec()) as unknown as null | UserDTO;
+    if (!getUser) return res.status(404).json({ message: "User not found!" });
+
+    const _id = getUser._id as unknown as ObjectId;
+    const userUnits = await unitSchema.findOne<unitDTO>({ users: _id.toString() }).exec();
+
+    if (userUnits === null) {
+      return res.status(404).json({ message: "Error! You are not registered under a unit yet!" });
+    }
+
+    userUnits.users = [getUser] as unknown[] as UserDTO[];
+
+    const token = crypto.randomUUID();
+    const expiry = new Date(new Date().setHours(new Date().getHours() + 24));
+
+    const pendingVisitor = new visitorShema({
+      access: false,
+      bookedAt: undefined,
+      code: undefined,
+      contact: "pending",
+      destination: userUnits,
+      driving: false,
+      expiry,
+      name: "pending",
+      selfCheckInToken: token,
+      selfCheckInUsed: false,
+      surname: "pending",
+      validity: false,
+    });
+
+    await pendingVisitor.save();
+
+    const url = `https://equasec.co.za/self-checkin/${token}`;
+
+    res.status(201).json({ message: "Self check-in link generated!", payload: { token, url } });
+  } catch (err: unknown) {
+    res.status(500).json({ message: `Internal Server Error! ${err as string}` });
+  }
+});
+
+// ─── AUTHENTICATED: Standard visitor routes ────────────────────────────────────
 
 visitorRouter.get("/security/", async (req, res) => {
   const guardEmail = res.get("email");

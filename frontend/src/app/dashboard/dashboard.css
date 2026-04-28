@@ -1933,3 +1933,149 @@
   border-radius: 20px;
   white-space: nowrap;
 }
+
+/* ─── Visitor Tab Navigation ─────────────────────────────────────────────────── */
+
+.tab-nav {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: #1e3a5f;
+}
+
+.tab-btn--active {
+  color: #1e3a5f;
+  border-bottom-color: #1e3a5f;
+}
+
+/* ─── Self Check-In Link Card ────────────────────────────────────────────────── */
+
+.checkin-link-card {
+  background: #ffffff;
+  border: 1px solid #d0d8e0;
+  border-radius: 1.25rem;
+  padding: 2rem 1.75rem;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.08);
+  text-align: center;
+}
+
+.checkin-link-card__icon {
+  font-size: 2.5rem;
+}
+
+.checkin-link-card__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e3a5f;
+}
+
+.checkin-link-card__desc {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1.35rem;
+  border-radius: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.18s, transform 0.15s;
+}
+
+.btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary {
+  background: #1e3a5f;
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #1e293b;
+  border: 1px solid #d0d8e0;
+}
+
+.btn-sm {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8rem;
+}
+
+.btn-whatsapp {
+  background: #25d366;
+  color: #fff;
+}
+
+.checkin-link-result {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  align-items: stretch;
+  text-align: left;
+  margin-top: 0.25rem;
+}
+
+.checkin-link-result__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.checkin-link-result__row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.checkin-link-result__input {
+  flex: 1;
+  background: #f8fafc;
+  border: 1px solid #d0d8e0;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8rem;
+  color: #334155;
+  outline: none;
+}
+
+.checkin-link-result__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.checkin-link-result__note {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin: 0;
+}

@@ -1,0 +1,165 @@
+<!-- Loading State -->
+@if (state() === 'loading') {
+  <div class="checkin-page">
+    <div class="checkin-card">
+      <app-loader />
+      <p class="checkin-card__sub">Verifying your invitation link…</p>
+    </div>
+  </div>
+}
+
+<!-- Invalid / Expired / Already Used -->
+@if (state() === 'invalid') {
+  <div class="checkin-page">
+    <div class="checkin-card checkin-card--invalid">
+      <div class="checkin-card__icon" style="color: #ef4444;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+      </div>
+      <h2 class="checkin-card__title">Link Unavailable</h2>
+      <p class="checkin-card__sub">{{ errorMessage() }}</p>
+    </div>
+  </div>
+}
+
+<!-- Booking Form -->
+@if (state() === 'form' || state() === 'submitting') {
+  <div class="checkin-page">
+    <div class="checkin-card">
+      <div class="checkin-card__icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+      </div>
+      <h2 class="checkin-card__title">Visitor Self Check-In</h2>
+
+      @if (context()) {
+        <div class="checkin-card__context">
+          <span class="checkin-badge">{{ context()!.complexName }}</span>
+        </div>
+      }
+
+      <p class="checkin-card__sub">Please fill in your details to receive your access PIN.</p>
+
+      <form class="checkin-form" (ngSubmit)="submitForm()" #f="ngForm">
+        <div class="checkin-form__row">
+          <div class="checkin-form__field">
+            <label>First Name *</label>
+            <input type="text" [(ngModel)]="name" name="name" placeholder="e.g. John" required [disabled]="state() === 'submitting'" />
+          </div>
+          <div class="checkin-form__field">
+            <label>Last Name *</label>
+            <input type="text" [(ngModel)]="surname" name="surname" placeholder="e.g. Smith" required [disabled]="state() === 'submitting'" />
+          </div>
+        </div>
+
+        <div class="checkin-form__field">
+          <label>Phone Number *</label>
+          <input
+            type="tel"
+            [(ngModel)]="contact"
+            name="contact"
+            placeholder="e.g. 0821234567"
+            required
+            minlength="10"
+            maxlength="12"
+            [disabled]="state() === 'submitting'"
+          />
+        </div>
+
+        <div class="checkin-form__toggle">
+          <label class="toggle-label">
+            <input type="checkbox" [(ngModel)]="driving" name="driving" [disabled]="state() === 'submitting'" />
+            <span>I'm arriving by vehicle</span>
+          </label>
+        </div>
+
+        @if (driving) {
+          <div class="checkin-form__vehicle">
+            <h4>Vehicle Details</h4>
+            <div class="checkin-form__row">
+              <div class="checkin-form__field">
+                <label>Make</label>
+                <input type="text" [(ngModel)]="vehicleMake" name="vehicleMake" placeholder="e.g. Toyota" [disabled]="state() === 'submitting'" />
+              </div>
+              <div class="checkin-form__field">
+                <label>Model</label>
+                <input type="text" [(ngModel)]="vehicleModel" name="vehicleModel" placeholder="e.g. Corolla" [disabled]="state() === 'submitting'" />
+              </div>
+            </div>
+            <div class="checkin-form__row">
+              <div class="checkin-form__field">
+                <label>Color</label>
+                <input type="text" [(ngModel)]="vehicleColor" name="vehicleColor" placeholder="e.g. White" [disabled]="state() === 'submitting'" />
+              </div>
+              <div class="checkin-form__field">
+                <label>Registration</label>
+                <input type="text" [(ngModel)]="vehicleReg" name="vehicleReg" placeholder="e.g. CA 123-456" [disabled]="state() === 'submitting'" />
+              </div>
+            </div>
+          </div>
+        }
+
+        <button
+          type="submit"
+          class="checkin-form__submit"
+          [disabled]="!name.trim() || !surname.trim() || !contact.trim() || state() === 'submitting'"
+        >
+          @if (state() === 'submitting') {
+            <span>Submitting…</span>
+          } @else {
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Confirm My Check-In</span>
+          }
+        </button>
+      </form>
+    </div>
+  </div>
+}
+
+<!-- Success State -->
+@if (state() === 'success') {
+  <div class="checkin-page">
+    <div class="checkin-card checkin-card--success">
+      <div class="checkin-card__icon" style="color: #10b981;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+      </div>
+      <h2 class="checkin-card__title">You're All Set!</h2>
+      <p class="checkin-card__sub">Show this PIN to the security guard at the gate.</p>
+
+      <div class="checkin-pin">
+        <span class="checkin-pin__label">Your Access PIN</span>
+        <span class="checkin-pin__code">{{ result()?.code }}</span>
+      </div>
+      
+      <button class="checkin-form__submit" style="width: auto; background: #e2e8f0; color: #1e293b; padding: 0.5rem 1rem; font-size: 0.85rem; margin-top: 0;" (click)="copyPin()">
+        @if (codeCopied()) {
+          <span>✅ Copied to clipboard!</span>
+        } @else {
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span>Copy PIN</span>
+        }
+      </button>
+
+      <div class="checkin-details">
+        <span>{{ result()?.name }} {{ result()?.surname }}</span>
+      </div>
+
+      <p class="checkin-card__note">Keep this page open until you reach the gate. This PIN is valid for 24 hours.</p>
+    </div>
+  </div>
+}
+
+<!-- Error After Submit -->
+@if (state() === 'error') {
+  <div class="checkin-page">
+    <div class="checkin-card checkin-card--invalid">
+      <div class="checkin-card__icon" style="color: #f59e0b;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+      </div>
+      <h2 class="checkin-card__title">Something Went Wrong</h2>
+      <p class="checkin-card__sub">{{ errorMessage() }}</p>
+      <button class="checkin-form__submit" (click)="state.set('form')">Try Again</button>
+    </div>
+  </div>
+}

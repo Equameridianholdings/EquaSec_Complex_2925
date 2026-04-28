@@ -14,6 +14,7 @@ import { Vehicles } from './dashboard/vehicles/vehicles';
 import { Notfound } from './notfound/notfound';
 import { ForgetPassword } from './forget-password/forget-password';
 import { clientGuard } from './services/client-guard.guard';
+import { SelfCheckin } from './self-checkin/self-checkin';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
@@ -53,5 +54,6 @@ export const routes: Routes = [
   { path: 'admin-portal', component: AdminPortal, canActivate: [clientGuard], data: { roles: ['admin'] } },
   { path: 'security-manager', component: SecurityManager, canActivate: [clientGuard], data: { roles: ['admin', 'manager'] }},
   { path: 'forgot-password/:email/:token', component: ForgetPassword },
+  { path: 'self-checkin/:token', component: SelfCheckin },
   { path: '**', component: Notfound },
 ];

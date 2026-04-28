@@ -5,6 +5,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { BookVisitor } from './visitors/book-visitor/book-visitor';
 import { UpdateProfile } from '../update-profile/update-profile';
 import { ChangePin } from '../update-profile/change-pin/change-pin';
+import { GenerateLinkModal } from './visitors/generate-link-modal/generate-link-modal';
 import { StorageService } from '../services/storage.service';
 import {
   MatSnackBar,
@@ -86,6 +87,18 @@ export class Dashboard implements OnInit, OnDestroy {
         endpoint: 'visitor/',
       },
     });
+  }
+
+  openGenerateLinkModal() {
+    if (this.currentUser().visitorsTokens === 0) {
+      this._snackBar.open('Free trail expired!', 'close', {
+        horizontalPosition: this.horizontalPosition,
+        verticalPosition: this.verticalPosition,
+      });
+      return;
+    }
+
+    this.dialog.open(GenerateLinkModal);
   }
 
   openChangePinModal() {

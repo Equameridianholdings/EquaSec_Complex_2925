@@ -17,6 +17,8 @@ export interface visitorDTO {
   vehicle?: vehicleDTO;
   idPhoto?: string;
   diskPhoto?: string;
+  selfCheckInToken?: string;
+  selfCheckInUsed?: boolean;
 }
 
 export const getHours = (visitor: visitorDTO): number => {
