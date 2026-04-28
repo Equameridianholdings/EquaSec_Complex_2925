@@ -23,14 +23,14 @@ const user = new mongoose.Schema({
     residenceType: { required: false, type: String },
     salt: { required: true, type: String, unique: true},
     securityCompany: { type: Object },
+    selfCheckinToken: { required: false, type: String },
+    selfCheckinTokenCreatedAt: { required: false, type: Date },
     surname: {required: true, type: String},
     type: { default: ["user"], required: true, type: Array}, // User or Admin or Security or Security-admin
     unitNumber: { required: false, type: String },
     verificationCode: { required: false, type: String },
     verificationCodeCreatedAt: { required: false, type: Date },
-    visitorsTokens: { default: 5, required: false, type: Int32 },
-    selfCheckinToken: { required: false, type: String },
-    selfCheckinTokenCreatedAt: { required: false, type: Date }
+    visitorsTokens: { default: 5, required: false, type: Int32 }
 })
 
 user.index(

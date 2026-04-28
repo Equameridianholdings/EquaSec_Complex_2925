@@ -534,7 +534,7 @@ import crypto from "crypto";
 // Generate a unique self check-in link for the current user
 visitorRouter.post("/self-checkin-link", async (req: Request, res: Response) => {
   try {
-    const email = res.get("email") as string;
+    const email = res.get("email");
     if (!email) {
       return res.status(401).json({ message: "Unauthorized: No user email found." });
     }
@@ -555,7 +555,7 @@ visitorRouter.post("/self-checkin-link", async (req: Request, res: Response) => 
     await user.save();
 
     // Construct the link (frontend should have a route to handle this)
-    const baseUrl = process.env["SELF_CHECKIN_BASE_URL"] || "http://localhost:4200";
+    const baseUrl = process.env.SELF_CHECKIN_BASE_URL ?? "http://localhost:4200";
     const link = `${baseUrl}/visitor/self-checkin/${token}`;
 
     return res.status(200).json({ message: "Self check-in link generated!", payload: { link } });
