@@ -48,7 +48,6 @@ export class Visitors implements OnInit {
       },
     });
   }
-
   ngOnInit(): void {
     this.getVisitors();
 

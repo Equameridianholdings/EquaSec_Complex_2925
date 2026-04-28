@@ -76,8 +76,9 @@
           </div>
         </div>
 
-        <div class="alert alert-info" *ngIf="isTokenRegistration" style="margin-top: 16px; padding: 12px; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 8px;">
-          <strong>🔐 Temporary Login Code:</strong> A 6-digit login code will be sent to your email after registration.
+        <div class="alert alert-info" *ngIf="isTokenRegistration" style="margin-top: 16px; padding: 12px; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 8px; display:flex; align-items:flex-start; gap:8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <span style="flex:1"><strong>Temporary Login Code:</strong> A 6-digit login code will be sent to your email after registration.</span>
         </div>
       </section>
 
@@ -85,8 +86,9 @@
         <h2>Residence Information</h2>
         
         @if (isTokenRegistration) {
-          <div class="alert alert-info" style="margin-bottom: 16px; padding: 12px; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 8px;">
-            <strong>ℹ️ Note:</strong> Your residence details are pre-assigned and cannot be changed during registration.
+          <div class="alert alert-info" style="margin-bottom: 16px; padding: 12px; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 8px; display:flex; align-items:flex-start; gap:8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span style="flex:1"><strong>Note:</strong> Your residence details are pre-assigned and cannot be changed during registration.</span>
           </div>
         }
         
@@ -307,7 +309,7 @@
                   (click)="editVehicle(i)"
                   title="Edit vehicle"
                 >
-                  ✏️
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                 </button>
                 <button
                   type="button"
@@ -315,7 +317,7 @@
                   (click)="removeVehicle(i)"
                   title="Remove vehicle"
                 >
-                  🗑️
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                 </button>
               </div>
             </div>
@@ -390,14 +392,17 @@
               </div>
             </div>
 
-            <button type="button" class="btn-add" (click)="addVehicle()">
-              {{
-                editingVehicleIndex !== null
-                  ? '💾 Save Changes'
-                  : tenantForm.vehicles.length > 0
-                    ? '+ Add Another Vehicle'
-                    : '+ Add Vehicle'
-              }}
+            <button type="button" class="btn-add" (click)="addVehicle()" style="display:flex; align-items:center; justify-content:center; gap:8px;">
+              @if (editingVehicleIndex !== null) {
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                <span>Save Changes</span>
+              } @else if (tenantForm.vehicles.length > 0) {
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <span>Add Another Vehicle</span>
+              } @else {
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <span>Add Vehicle</span>
+              }
             </button>
           </div>
           <div
@@ -458,7 +463,9 @@
   <div class="modal confirm-tenant-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h2>Confirm Tenant Registration</h2>
-      <button class="btn-icon" type="button" (click)="closeConfirmTenantModal()">✕</button>
+      <button class="btn-icon" type="button" (click)="closeConfirmTenantModal()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
     </div>
 
     <div class="modal-body">

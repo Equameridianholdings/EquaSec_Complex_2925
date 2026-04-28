@@ -1,0 +1,56 @@
+<div class="modal-container p-5" style="max-width: 520px; width: 100%; box-sizing: border-box; background: white; border-radius: 12px; position: relative;">
+  <button class="close-btn" (click)="closeModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #64748b;">×</button>
+  
+  <div class="checkin-link-card" style="box-shadow: none; border: none; padding: 0;">
+    <div class="checkin-link-card__icon">🔗</div>
+    <h4 class="checkin-link-card__title">Share a Self Check-In Link</h4>
+    <p class="checkin-link-card__desc">
+      Generate a unique, single-use link and share it with your visitor.
+      They'll fill in their own details and receive their access PIN — no action needed from you at the gate.
+    </p>
+
+    @if (!generatedUrl()) {
+      <button
+        class="btn btn-primary"
+        [disabled]="generating()"
+        (click)="generateLink()"
+        style="width: 100%; justify-content: center; margin-top: 1rem;"
+      >
+        @if (generating()) {
+          <span>Generating…</span>
+        } @else {
+          <span>✨ Generate Unique Link</span>
+        }
+      </button>
+    }
+
+    @if (generatedUrl()) {
+      <div class="checkin-link-result" style="width: 100%; margin-top: 1rem;">
+        <label class="checkin-link-result__label">Your visitor's unique check-in link:</label>
+        <div class="checkin-link-result__row" style="display: flex; gap: 0.5rem;">
+          <input
+            type="text"
+            class="checkin-link-result__input"
+            [value]="generatedUrl()"
+            readonly
+            style="flex: 1;"
+          />
+          <button class="btn btn-sm" (click)="copyLink()">
+            {{ linkCopied() ? '✅ Copied!' : '📋 Copy' }}
+          </button>
+        </div>
+        <div class="checkin-link-result__actions" style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <button class="btn btn-whatsapp" (click)="shareViaWhatsApp()" style="width: 100%; justify-content: center;">
+            💬 Share via WhatsApp
+          </button>
+          <button class="btn btn-secondary btn-sm" (click)="generateLink()" style="width: 100%; justify-content: center;">
+            🔄 Generate New Link
+          </button>
+        </div>
+        <p class="checkin-link-result__note" style="margin-top: 1rem;">
+          ⚠️ This link expires in 24 hours and can only be used once.
+        </p>
+      </div>
+    }
+  </div>
+</div>

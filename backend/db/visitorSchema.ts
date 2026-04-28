@@ -14,6 +14,8 @@ const visitor = new mongoose.Schema(
     expiry: { required: true, type: Date },
     idPhoto: { required: false, type: String },
     name: { required: true, type: String },
+    selfCheckInToken: { required: false, sparse: true, type: String, unique: true },
+    selfCheckInUsed: { default: false, required: false, type: Boolean },
     surname: { required: true, type: String },
     validity: { required: true, type: Boolean },
     vehicle: { required: false, type: Object },
