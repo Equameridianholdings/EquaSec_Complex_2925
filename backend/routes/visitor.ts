@@ -529,4 +529,40 @@ visitorRouter.patch("/grant", async (req, res) => {
   }
 });
 
+import crypto from "crypto";
+
+// Generate a unique self check-in link for the current user
+visitorRouter.post("/self-checkin-link", async (req: Request, res: Response) => {
+  try {
+    const email = res.get("email") as string;
+    if (!email) {
+      return res.status(401).json({ message: "Unauthorized: No user email found." });
+    }
+
+    // Find the user
+    const user = await userSchema.findOne({ emailAddress: email }).exec();
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Generate a unique token (UUID or random string)
+    const token = crypto.randomBytes(32).toString("hex");
+
+    // Option 1: Store the token in the user document (single-use, can be extended)
+    // Option 2: Store in a new collection (for now, store in user for simplicity)
+    user.selfCheckinToken = token;
+    user.selfCheckinTokenCreatedAt = new Date();
+    await user.save();
+
+    // Construct the link (frontend should have a route to handle this)
+    const baseUrl = process.env["SELF_CHECKIN_BASE_URL"] || "http://localhost:4200";
+    const link = `${baseUrl}/visitor/self-checkin/${token}`;
+
+    return res.status(200).json({ message: "Self check-in link generated!", payload: { link } });
+  } catch (err) {
+    console.error("[POST /self-checkin-link] Error generating self check-in link:", err);
+    return res.status(500).json({ message: "Internal Server Error!" });
+  }
+});
+
 export default visitorRouter;

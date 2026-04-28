@@ -27,6 +27,10 @@ export const routes: Routes = [
         component: Visitors,
       },
       {
+        path: 'self-checkin',
+        loadComponent: () => import('./dashboard/visitors/self-checkin/self-checkin').then(m => m.SelfCheckin),
+      },
+      {
         path: 'units',
         component: AllUnits,
       },

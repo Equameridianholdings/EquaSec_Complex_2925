@@ -1,0 +1,12 @@
+<div class="self-checkin-container">
+  <h3>Self Check-In</h3>
+  <button (click)="generateSelfCheckinLink()" [disabled]="submitting">
+    Generate Self Check-In Link
+  </button>
+  <div *ngIf="generatedLink" class="generated-link">
+    <p>Share this link with your visitor:</p>
+    <input type="text" [value]="generatedLink" readonly />
+    <button (click)="copyLinkToClipboard()">Copy Link</button>
+    <button (click)="shareLink()" *ngIf="canShare">Share Link</button>
+  </div>
+</div>

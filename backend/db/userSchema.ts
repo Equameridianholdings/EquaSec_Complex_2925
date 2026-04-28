@@ -28,7 +28,9 @@ const user = new mongoose.Schema({
     unitNumber: { required: false, type: String },
     verificationCode: { required: false, type: String },
     verificationCodeCreatedAt: { required: false, type: Date },
-    visitorsTokens: { default: 5, required: false, type: Int32 }
+    visitorsTokens: { default: 5, required: false, type: Int32 },
+    selfCheckinToken: { required: false, type: String },
+    selfCheckinTokenCreatedAt: { required: false, type: Date }
 })
 
 user.index(

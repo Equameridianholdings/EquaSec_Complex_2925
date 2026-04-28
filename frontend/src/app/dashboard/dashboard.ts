@@ -26,6 +26,9 @@ import { error } from 'console';
   styleUrl: './dashboard.css',
 })
 export class Dashboard implements OnInit, OnDestroy {
+    goToSelfCheckin() {
+      this.router.navigate(['/dashboard/self-checkin']);
+    }
   submitting = signal(false);
   private _snackBar = inject(MatSnackBar);
   horizontalPosition: MatSnackBarHorizontalPosition = 'center';
@@ -46,6 +49,7 @@ export class Dashboard implements OnInit, OnDestroy {
 
   tabs = [
     { label: 'Visitors', path: '/dashboard/visitors', exact: true },
+    { label: 'Self Check-In', path: '/dashboard/self-checkin', exact: true },
     { label: 'Unit', path: '/dashboard/units', exact: false },
     { label: 'Vehicles', path: '/dashboard/vehicles', exact: false },
   ];
